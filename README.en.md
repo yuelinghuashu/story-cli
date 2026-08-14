@@ -33,10 +33,10 @@ Manage stories with simple directory conventions, automatically generate GitHub-
 
 ```bash
 # Global install
-npm install -g story-cli
+npm install -g @yuelinghuashu/story-cli
 
 # Or use directly with npx
-npx story-cli
+npx @yuelinghuashu/story-cli
 ```
 
 > The published package ships compiled `dist/` output (Node 24 disallows type-stripping `.ts` files under `node_modules`). For development, you can still run the source directly: `node bin/index.ts version`.

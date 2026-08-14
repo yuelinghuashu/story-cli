@@ -1,5 +1,5 @@
 {
-  "name": "story-cli",
+  "name": "@yuelinghuashu/story-cli",
   "version": "1.0.0",
   "description": "A zero-deploy, Git-native content management CLI for Markdown stories. Manage stories with directory conventions, generate READMEs, export epub.",
   "type": "module",

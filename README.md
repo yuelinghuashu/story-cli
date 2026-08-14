@@ -33,10 +33,10 @@
 
 ```bash
 # 全局安装
-npm install -g story-cli
+npm install -g @yuelinghuashu/story-cli
 
 # 或使用 npx 直接运行
-npx story-cli
+npx @yuelinghuashu/story-cli
 ```
 
 > 发布包为编译后的 `dist/` 产物（兼容 Node 24 原生执行限制）。开发时仍可直接运行源码：`node bin/index.ts version`。
