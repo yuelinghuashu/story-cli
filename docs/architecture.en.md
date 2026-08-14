@@ -53,7 +53,7 @@ templates/
 ├── story-template.md       # Story README Handlebars template
 ├── story.config.json       # Repo config template
 └── scaffold/               # story init scaffolding templates
-    ├── .gitignore          # Ignore rules
+    ├── .gitignore.template # Ignore rules (npm excludes .gitignore)
     ├── README.md           # Initial README
     ├── LICENSE             # --full mode: CC BY-NC-SA 4.0
     ├── add-story.md        # --full mode: How to add a story

@@ -15,7 +15,7 @@ const SCAFFOLD_FILES: Array<{
   /** 需要替换日期占位符 */
   replaceDate?: boolean
 }> = [
-  { template: "scaffold/.gitignore", target: ".gitignore" },
+  { template: "scaffold/.gitignore.template", target: ".gitignore" },
   { template: "scaffold/README.md", target: "README.md" },
   { template: "scaffold/LICENSE", target: "LICENSE", onlyFull: true },
   { template: "scaffold/add-story.md", target: "docs/add-story.md", onlyFull: true },

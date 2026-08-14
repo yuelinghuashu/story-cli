@@ -55,7 +55,7 @@ templates/
 ├── story-template.md       # 故事 README 的 Handlebars 模板
 ├── story.config.json       # 仓库级配置模板
 └── scaffold/               # story init 脚手架模板
-    ├── .gitignore          # 忽略规则
+    ├── .gitignore.template # 忽略规则（npm 排除 .gitignore，故用此名称）
     ├── README.md           # 初始说明
     ├── LICENSE             # --full 模式：CC BY-NC-SA 4.0
     ├── add-story.md        # --full 模式：如何新增故事
