@@ -32,55 +32,50 @@ jobs:
         run: pnpm typecheck
       - name: Lint
         run: pnpm lint
-      - name: Validate configs
-        run: node dist/bin/index.js build --validate-only
-      - name: Build READMEs
-        run: node dist/bin/index.js build
+      - name: Build package
+        run: pnpm build
       - name: Run tests
         run: pnpm test
-      - name: Check git diff
-        run: git diff --exit-code
 ```
 
 ---
 
 ## 📌 各步骤说明
 
-| 步骤                                           | 作用                                             |
-| ---------------------------------------------- | ------------------------------------------------ |
-| `actions/checkout@v4`                          | 检出仓库代码                                     |
-| `pnpm/action-setup@v4`                         | 安装 pnpm（需先在仓库根目录放置 `package.json`） |
-| `actions/setup-node@v4`                        | 配置 Node.js，指定版本并启用 pnpm 缓存           |
-| `pnpm install`                                 | 安装依赖                                         |
-| `pnpm typecheck`                               | **类型检查**：验证 TypeScript 类型正确           |
-| `pnpm lint`                                    | **代码规范**：Biome 检查代码风格                 |
-| `node dist/bin/index.js build --validate-only` | **校验阶段**：仅检查配置合法性，不生成 README    |
-| `node dist/bin/index.js build`                 | **构建阶段**：生成所有故事 README + 根索引       |
-| `pnpm test`                                    | **测试阶段**：运行完整测试套件                   |
-| `git diff --exit-code`                         | **变更检测**：确保 README 与源码同步             |
+| 步骤                    | 作用                                             |
+| ----------------------- | ------------------------------------------------ |
+| `actions/checkout@v4`   | 检出仓库代码                                     |
+| `pnpm/action-setup@v4`  | 安装 pnpm（需先在仓库根目录放置 `package.json`） |
+| `actions/setup-node@v4` | 配置 Node.js，指定版本并启用 pnpm 缓存           |
+| `pnpm install`          | 安装依赖                                         |
+| `pnpm typecheck`        | **类型检查**：验证 TypeScript 类型正确           |
+| `pnpm lint`             | **代码规范**：Biome 检查代码风格                 |
+| `pnpm build`            | **编译阶段**：TypeScript 编译为 `dist/`          |
+| `pnpm test`             | **测试阶段**：运行完整测试套件                   |
 
 ---
 
 ## 🛡️ CI 的价值
 
-1. **配置错误早发现** — `--validate-only` 在构建前先校验 config，配置错误直接失败，不会生成半成品
-2. **README 自动更新** — 每次 push 自动重新生成 README，确保目录索引和章节字数始终最新
-3. **质量保障** — 测试覆盖校验、渲染、EPUB、扫描等核心逻辑，防止回归
+1. **类型安全** — `tsc --noEmit` 确保 TypeScript 类型正确
+2. **代码规范** — Biome 统一 lint + format，保证代码风格一致
+3. **质量保障** — 175 项测试覆盖扫描、校验、渲染、EPUB、CLI 等核心逻辑，防止回归
 
 ---
 
 ## 💡 进阶用法
 
-### 使用 `--save-counts` 持久化字数
+### 在故事仓库中使用 story-cli
 
-如果你的故事 `config.json` 中没有 `wordCount` 字段，可以显式保存：
+story-cli 的源码仓库**不是故事仓库**，因此 CI 中不会运行 `story build`。如果要在你的**故事仓库**中集成 CI，可参考：
 
 ```yaml
-- run: node dist/bin/index.js build --save-counts
-- run: git diff --exit-code # 确保无未提交变更
-```
+- name: Validate configs
+  run: node dist/bin/index.js build --validate-only
 
-这样字数会写回 `config.json`，并且 `git diff` 可以检测是否有需要提交的变更。
+- name: Build READMEs
+  run: node dist/bin/index.js build
+```
 
 ### 多分支构建
 

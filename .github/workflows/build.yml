@@ -30,14 +30,5 @@ jobs:
       - name: Build package
         run: pnpm build
 
-      - name: Validate configs
-        run: node dist/bin/index.js build --validate-only
-
-      - name: Build READMEs
-        run: node dist/bin/index.js build
-
       - name: Run tests
         run: pnpm test
-
-      - name: Check git diff
-        run: git diff --exit-code

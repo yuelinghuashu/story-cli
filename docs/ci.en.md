@@ -2,6 +2,8 @@
 
 story-cli is designed to be **CI-friendly** and integrates seamlessly with GitHub Actions.
 
+This repository ships a complete CI workflow: [`.github/workflows/build.yml`](../.github/workflows/build.yml).
+
 ---
 
 ## 📦 Automated Build
@@ -12,6 +14,8 @@ The following workflow runs automatically on every push to the `main` branch:
 name: Build & Test
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 jobs:
   build:
@@ -24,47 +28,54 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install
-      - run: node dist/bin/index.js build --validate-only
-      - run: node dist/bin/index.js build
-      - run: pnpm test
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Build package
+        run: pnpm build
+      - name: Run tests
+        run: pnpm test
 ```
 
 ---
 
 ## 📌 Step Breakdown
 
-| Step                                           | Purpose                                                         |
-| ---------------------------------------------- | --------------------------------------------------------------- |
-| `actions/checkout@v4`                          | Check out the repository code                                   |
-| `pnpm/action-setup@v4`                         | Install pnpm (requires a `package.json` at the repository root) |
-| `actions/setup-node@v4`                        | Configure Node.js, set version, and enable pnpm cache           |
-| `pnpm install`                                 | Install dependencies                                            |
-| `node dist/bin/index.js build --validate-only` | **Validation phase**: check configs only, no README generation  |
-| `node dist/bin/index.js build`                 | **Build phase**: generate all story READMEs + root index        |
-| `pnpm test`                                    | **Test phase**: run the full test suite                         |
+| Step | Purpose |
+|------|---------|
+| `actions/checkout@v4` | Check out the repository code |
+| `pnpm/action-setup@v4` | Install pnpm (requires a `package.json` at the repository root) |
+| `actions/setup-node@v4` | Configure Node.js, set version, and enable pnpm cache |
+| `pnpm install` | Install dependencies |
+| `pnpm typecheck` | **Type checking**: verify TypeScript types are correct |
+| `pnpm lint` | **Code style**: Biome checks code style |
+| `pnpm build` | **Build phase**: compile TypeScript to `dist/` |
+| `pnpm test` | **Test phase**: run the full test suite |
 
 ---
 
 ## 🛡️ Why CI Matters
 
-1. **Early config error detection** — `--validate-only` validates configs before building, failing fast instead of producing partial output
-2. **Auto-refreshed READMEs** — READMEs are regenerated on every push, keeping the story index and chapter word counts up to date
-3. **Quality assurance** — 116 tests cover validation, rendering, EPUB, scanning, and more, preventing regressions
+1. **Type safety** — `tsc --noEmit` ensures TypeScript types are correct
+2. **Code style** — Biome enforces consistent lint + format
+3. **Quality assurance** — 175 tests cover scanning, validation, rendering, EPUB, CLI, and more, preventing regressions
 
 ---
 
 ## 💡 Advanced Usage
 
-### Persisting word counts with `--save-counts`
+### Using story-cli in a story repository
 
-If your story `config.json` doesn't include a `wordCount` field, save it explicitly:
+The story-cli source repository is **not a story repository**, so `story build` is not run in its CI. To integrate CI in your **story repository**, use:
 
 ```yaml
-- run: node dist/bin/index.js build --save-counts
-- run: git diff --exit-code # Ensure no uncommitted changes
-```
+- name: Validate configs
+  run: node dist/bin/index.js build --validate-only
 
-This writes word counts back into `config.json`, and `git diff` can detect whether there are changes to commit.
+- name: Build READMEs
+  run: node dist/bin/index.js build
+```
 
 ### Multi-branch builds
 
