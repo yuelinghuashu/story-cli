@@ -1,6 +1,7 @@
 {
   "name": "@yuelinghuashu/story-cli",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.21.0",
   "description": "A zero-deploy, Git-native content management CLI for Markdown stories. Manage stories with directory conventions, generate READMEs, export epub.",
   "type": "module",
   "bin": {
@@ -12,12 +13,12 @@
     "templates/"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && chmod +x dist/bin/index.js",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/ tests/ bin/",
     "format": "biome format --write src/ tests/ bin/",
-    "prepack": "pnpm build && chmod +x dist/bin/index.js",
+    "prepack": "pnpm build",
     "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint && pnpm build"
   },
   "keywords": [
