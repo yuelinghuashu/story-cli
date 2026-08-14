@@ -5,6 +5,8 @@
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square)](package.json)
 [![Tests](https://img.shields.io/badge/tests-175%20passed-brightgreen?style=flat-square)](README.md#-测试)
+[![npm version](https://img.shields.io/npm/v/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
+[![npm downloads](https://img.shields.io/npm/dm/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
 
 **零部署、Git 原生的 Markdown 故事内容管理 CLI。**
 
