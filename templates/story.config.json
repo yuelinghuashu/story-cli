@@ -1,0 +1,12 @@
+{
+  "types": ["original", "fanfic"],
+  "statuses": ["completed", "ongoing"],
+  "typeLabels": {
+    "original": { "zh": "原创", "en": "Original" },
+    "fanfic": { "zh": "二创", "en": "Fan Fiction" }
+  },
+  "statusLabels": {
+    "completed": { "zh": "已完结", "en": "Completed" },
+    "ongoing": { "zh": "连载中", "en": "Ongoing" }
+  }
+}
