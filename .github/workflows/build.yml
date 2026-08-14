@@ -31,10 +31,10 @@ jobs:
         run: pnpm build
 
       - name: Validate configs
-        run: pnpm exec story build --validate-only
+        run: node dist/bin/index.js build --validate-only
 
       - name: Build READMEs
-        run: pnpm exec story build
+        run: node dist/bin/index.js build
 
       - name: Run tests
         run: pnpm test

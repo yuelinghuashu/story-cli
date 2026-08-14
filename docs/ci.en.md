@@ -24,8 +24,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install
-      - run: story build --validate-only
-      - run: story build
+      - run: node dist/bin/index.js build --validate-only
+      - run: node dist/bin/index.js build
       - run: pnpm test
 ```
 
@@ -33,15 +33,15 @@ jobs:
 
 ## 📌 Step Breakdown
 
-| Step | Purpose |
-|------|---------|
-| `actions/checkout@v4` | Check out the repository code |
-| `pnpm/action-setup@v4` | Install pnpm (requires a `package.json` at the repository root) |
-| `actions/setup-node@v4` | Configure Node.js, set version, and enable pnpm cache |
-| `pnpm install` | Install dependencies |
-| `story build --validate-only` | **Validation phase**: check configs only, no README generation |
-| `story build` | **Build phase**: generate all story READMEs + root index |
-| `pnpm test` | **Test phase**: run the full test suite |
+| Step                                           | Purpose                                                         |
+| ---------------------------------------------- | --------------------------------------------------------------- |
+| `actions/checkout@v4`                          | Check out the repository code                                   |
+| `pnpm/action-setup@v4`                         | Install pnpm (requires a `package.json` at the repository root) |
+| `actions/setup-node@v4`                        | Configure Node.js, set version, and enable pnpm cache           |
+| `pnpm install`                                 | Install dependencies                                            |
+| `node dist/bin/index.js build --validate-only` | **Validation phase**: check configs only, no README generation  |
+| `node dist/bin/index.js build`                 | **Build phase**: generate all story READMEs + root index        |
+| `pnpm test`                                    | **Test phase**: run the full test suite                         |
 
 ---
 
@@ -60,8 +60,8 @@ jobs:
 If your story `config.json` doesn't include a `wordCount` field, save it explicitly:
 
 ```yaml
-- run: story build --save-counts
-- run: git diff --exit-code  # Ensure no uncommitted changes
+- run: node dist/bin/index.js build --save-counts
+- run: git diff --exit-code # Ensure no uncommitted changes
 ```
 
 This writes word counts back into `config.json`, and `git diff` can detect whether there are changes to commit.

@@ -33,9 +33,9 @@ jobs:
       - name: Lint
         run: pnpm lint
       - name: Validate configs
-        run: pnpm exec story build --validate-only
+        run: node dist/bin/index.js build --validate-only
       - name: Build READMEs
-        run: pnpm exec story build
+        run: node dist/bin/index.js build
       - name: Run tests
         run: pnpm test
       - name: Check git diff
@@ -46,18 +46,18 @@ jobs:
 
 ## 📌 各步骤说明
 
-| 步骤                          | 作用                                             |
-| ----------------------------- | ------------------------------------------------ |
-| `actions/checkout@v4`         | 检出仓库代码                                     |
-| `pnpm/action-setup@v4`        | 安装 pnpm（需先在仓库根目录放置 `package.json`） |
-| `actions/setup-node@v4`       | 配置 Node.js，指定版本并启用 pnpm 缓存           |
-| `pnpm install`                | 安装依赖                                         |
-| `pnpm typecheck`              | **类型检查**：验证 TypeScript 类型正确           |
-| `pnpm lint`                   | **代码规范**：Biome 检查代码风格                 |
-| `story build --validate-only` | **校验阶段**：仅检查配置合法性，不生成 README    |
-| `story build`                 | **构建阶段**：生成所有故事 README + 根索引       |
-| `pnpm test`                   | **测试阶段**：运行完整测试套件                   |
-| `git diff --exit-code`        | **变更检测**：确保 README 与源码同步             |
+| 步骤                                           | 作用                                             |
+| ---------------------------------------------- | ------------------------------------------------ |
+| `actions/checkout@v4`                          | 检出仓库代码                                     |
+| `pnpm/action-setup@v4`                         | 安装 pnpm（需先在仓库根目录放置 `package.json`） |
+| `actions/setup-node@v4`                        | 配置 Node.js，指定版本并启用 pnpm 缓存           |
+| `pnpm install`                                 | 安装依赖                                         |
+| `pnpm typecheck`                               | **类型检查**：验证 TypeScript 类型正确           |
+| `pnpm lint`                                    | **代码规范**：Biome 检查代码风格                 |
+| `node dist/bin/index.js build --validate-only` | **校验阶段**：仅检查配置合法性，不生成 README    |
+| `node dist/bin/index.js build`                 | **构建阶段**：生成所有故事 README + 根索引       |
+| `pnpm test`                                    | **测试阶段**：运行完整测试套件                   |
+| `git diff --exit-code`                         | **变更检测**：确保 README 与源码同步             |
 
 ---
 
@@ -76,7 +76,7 @@ jobs:
 如果你的故事 `config.json` 中没有 `wordCount` 字段，可以显式保存：
 
 ```yaml
-- run: story build --save-counts
+- run: node dist/bin/index.js build --save-counts
 - run: git diff --exit-code # 确保无未提交变更
 ```
 
