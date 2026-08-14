@@ -4,7 +4,7 @@
 [![English](https://img.shields.io/badge/English-README-blue?style=flat-square)](README.en.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square)](package.json)
-[![Tests](https://img.shields.io/badge/tests-174%20passed-brightgreen?style=flat-square)](README.md#-测试)
+[![Tests](https://img.shields.io/badge/tests-175%20passed-brightgreen?style=flat-square)](README.md#-测试)
 
 **零部署、Git 原生的 Markdown 故事内容管理 CLI。**
 
@@ -143,7 +143,7 @@ story epub --all
 pnpm test
 ```
 
-当前 174 项测试全部通过，覆盖：扫描器、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出（含封面图）、参数解析、仓库配置、CLI 入口、Markdown 转换边界。
+当前 175 项测试全部通过，覆盖：扫描器、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出（含封面图）、参数解析、仓库配置、CLI 入口、Markdown 转换边界。
 
 ---
 

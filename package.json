@@ -18,7 +18,8 @@
     "lint": "biome check src/ tests/ bin/",
     "format": "biome format --write src/ tests/ bin/",
     "prepack": "pnpm build",
-    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint && pnpm build"
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint && pnpm build",
+    "publish": "pnpm prepublishOnly && pnpm pack && pnpm publish --access public"
   },
   "keywords": [
     "story",
