@@ -27,21 +27,21 @@ dist/epub/
 
 ## 📝 Supported Markdown Syntax
 
-| Syntax    | Example                       | Notes                       |
-| --------- | ----------------------------- | --------------------------- |
-| Bold      | `**text**`                    |                             |
-| Italic    | `*text*`                      |                             |
-| Strikethrough | `~~text~~`                |                             |
-| Inline code | `` `code` ``               |                             |
-| Headings  | `#` ~ `###`                   | Chapter titles render as h1 |
-| Blockquote| `> quoted text`               |                             |
-| Link      | `[text](https://...)`         |                             |
-| Image     | `![alt](assets/cover.png)`    | See notes below             |
-| Bullet list | `- item`                    | Supports nested indentation |
-| Numbered list | `1. item`                 | Supports nested indentation |
-| Table     | `\| col1 \| col2 \|`          | Standard Markdown table     |
-| Code block| ` ```js `                      | Preserves original format   |
-| Horizontal rule | `---` or `***`          |                             |
+| Syntax          | Example                    | Notes                       |
+| --------------- | -------------------------- | --------------------------- |
+| Bold            | `**text**`                 |                             |
+| Italic          | `*text*`                   |                             |
+| Strikethrough   | `~~text~~`                 |                             |
+| Inline code     | `` `code` ``               |                             |
+| Headings        | `#` ~ `###`                | Chapter titles render as h1 |
+| Blockquote      | `> quoted text`            |                             |
+| Link            | `[text](https://...)`      |                             |
+| Image           | `![alt](assets/cover.png)` | See notes below             |
+| Bullet list     | `- item`                   | Supports nested indentation |
+| Numbered list   | `1. item`                  | Supports nested indentation |
+| Table           | `\| col1 \| col2 \|`       | Standard Markdown table     |
+| Code block      | ` ```js `                  | Preserves original format   |
+| Horizontal rule | `---` or `***`             |                             |
 
 ---
 
@@ -97,7 +97,7 @@ Use Markdown image syntax in `text.md` to embed images into the EPUB:
 
 ## 🔄 Relationship with Chapter Splitting
 
-- If you write in a single `text.md` file, headings below `###` become EPUB chapters
+- If you write in a single `text.md` file, `#` and `##` start new chapters; `###` and below are treated as subsections within a chapter (see [add-story.en.md](add-story.en.md#chapter-extraction-rules))
 - If you use `chapter-*.md` files, `story epub` auto-merges them and exports per chapter
 
 ---
@@ -113,3 +113,6 @@ EPUB is standard EPUB 3:
 - Cover image (optional) correctly marked via `properties="cover-image"`
 
 Compatible with most major readers (Kindle, Apple Books, Kobo, WeRead, etc.).
+
+> 💡 **Need PDF output?**
+> See [docs/export.en.md](export.en.md#📄-pdf-export-browser-print) — story-cli doesn't bundle a PDF generator; use `story export html` + browser print instead.

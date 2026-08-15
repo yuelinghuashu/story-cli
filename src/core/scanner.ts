@@ -1,14 +1,17 @@
 import fs from "node:fs"
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { resolveLang } from "../utils/i18n.ts"
+import { resolveLang } from "../i18n/index.ts"
 import { countWords, formatWordCount } from "../utils/word-count.ts"
 import type { ChapterInfo, ChapterSection, Language, StoryConfig } from "./types.ts"
 
 /** 需要排除的非故事目录（仅保留通用基础设施目录） */
 export const EXCLUDE_DIRS = new Set([".git", "node_modules", "dist", "assets"])
 
-/** 故事文件夹命名模式：NN-名称（至少两位数字，保证字典序排序稳定） */
+/** .storyignore 文件名（控制 story-cli 扫描范围） */
+const STORY_IGNORE_FILE = ".storyignore"
+
+/** 故事文件夹命名模式：NN-名称（至少两位数字，保证数值序排序稳定） */
 const STORY_FOLDER_PATTERN = /^\d{2,}-.+/
 
 /** 赞助图片约定目录（相对于项目根目录） */
@@ -16,6 +19,73 @@ const SPONSOR_DIR = "assets/sponsor"
 
 /** 支持的赞助图片扩展名 */
 const IMAGE_EXT_PATTERN = /\.(png|jpe?g|gif|webp|bmp)$/i
+
+/**
+ * .storyignore 规则：单个排除模式
+ */
+export interface StoryIgnoreRule {
+  /** 原始模式字符串（如 "_draft" / "*.tmp"） */
+  pattern: string
+  /** 是否仅匹配目录（模式以 / 结尾） */
+  isDirOnly: boolean
+  /** 编译后的匹配正则 */
+  regex: RegExp
+}
+
+/**
+ * 加载 .storyignore 规则（.gitignore 简化子集）
+ * 支持的语法：
+ *   - 注释行（# 开头）
+ *   - 精确匹配：_draft
+ *   - 目录匹配（/ 结尾）：_draft/
+ *   - 通配符（*）：*.tmp、chapter-*~
+ * 明确不支持：! 取反、** 递归、/ 锚定、[abc] 字符类
+ * @param rootDir 项目根目录
+ * @returns 解析后的规则列表（文件不存在时返回空数组）
+ */
+export function loadStoryIgnore(rootDir: string): StoryIgnoreRule[] {
+  const ignorePath = path.join(rootDir, STORY_IGNORE_FILE)
+  if (!fs.existsSync(ignorePath)) return []
+
+  try {
+    const content = fs.readFileSync(ignorePath, "utf-8")
+    const rules: StoryIgnoreRule[] = []
+
+    for (const rawLine of content.split("\n")) {
+      const line = rawLine.trim()
+      // 跳过空行和注释
+      if (!line || line.startsWith("#")) continue
+
+      const isDirOnly = line.endsWith("/")
+      const pattern = isDirOnly ? line.slice(0, -1) : line
+
+      // 将简化 glob 转为正则：* → [^/]*（不跨越目录分隔符）
+      const regexSource = `^${pattern.split("*").map(escapeRegExp).join("[^/]*")}$`
+      rules.push({ pattern, isDirOnly, regex: new RegExp(regexSource) })
+    }
+
+    return rules
+  } catch {
+    // .storyignore 读取失败时静默忽略（不阻断构建）
+    return []
+  }
+}
+
+/** 转义正则特殊字符 */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/**
+ * 判断名称是否被 .storyignore 规则匹配
+ * @param name 文件或目录名
+ * @param isDir 是否为目录
+ * @param rules 解析后的规则列表
+ * @returns 是否被忽略
+ */
+export function isIgnored(name: string, isDir: boolean, rules: StoryIgnoreRule[]): boolean {
+  return rules.some((rule) => (!rule.isDirOnly || isDir) && rule.regex.test(name))
+}
 
 /**
  * 获取赞助图片列表（约定目录 assets/sponsor/ 中的图片）
@@ -39,20 +109,34 @@ export function getSponsorImages(rootDir: string): string[] {
 }
 
 /**
+ * 从文件夹名提取数字前缀（用于排序）
+ * @param folder 文件夹名（如 "01-故事A"）
+ * @returns 数字前缀（如 1）
+ */
+export function getFolderNumber(folder: string): number {
+  return parseInt(folder.split("-")[0], 10)
+}
+
+/**
  * 扫描根目录下的故事文件夹
  * @param rootDir 项目根目录
- * @returns 排序后的故事文件夹名称列表
+ * @returns 按数字前缀排序后的故事文件夹名称列表
  */
 export function scanStoryFolders(rootDir: string): string[] {
+  // 读取 .storyignore 规则（不存在时返回空数组，行为与现状一致）
+  const ignoreRules = loadStoryIgnore(rootDir)
+
   return fs
     .readdirSync(rootDir)
     .filter((item) => {
       const fullPath = path.join(rootDir, item)
       if (!fs.statSync(fullPath).isDirectory()) return false
       if (EXCLUDE_DIRS.has(item)) return false
+      // .storyignore 过滤（需要知道是否为目录）
+      if (isIgnored(item, true, ignoreRules)) return false
       return STORY_FOLDER_PATTERN.test(item)
     })
-    .sort()
+    .sort((a, b) => getFolderNumber(a) - getFolderNumber(b))
 }
 
 /**
@@ -92,11 +176,16 @@ export async function scanStoryFoldersAsync(rootDir: string): Promise<string[]> 
     return []
   }
 
+  // 读取 .storyignore 规则（不存在时返回空数组）
+  const ignoreRules = await loadStoryIgnoreAsync(rootDir)
+
   const folders: string[] = []
   for (const item of items) {
     // 先排除约定目录（无需 stat）
     if (EXCLUDE_DIRS.has(item)) continue
     if (!STORY_FOLDER_PATTERN.test(item)) continue
+    // .storyignore 过滤（目录匹配）
+    if (isIgnored(item, true, ignoreRules)) continue
 
     try {
       const stat = await fsp.stat(path.join(rootDir, item))
@@ -106,7 +195,40 @@ export async function scanStoryFoldersAsync(rootDir: string): Promise<string[]> 
     }
   }
 
-  return folders.sort()
+  return folders.sort((a, b) => getFolderNumber(a) - getFolderNumber(b))
+}
+
+/**
+ * 异步加载 .storyignore 规则
+ * 与 loadStoryIgnore 行为一致，但使用 fs/promises 避免阻塞事件循环
+ * @param rootDir 项目根目录
+ * @returns 解析后的规则列表
+ */
+export async function loadStoryIgnoreAsync(rootDir: string): Promise<StoryIgnoreRule[]> {
+  const ignorePath = path.join(rootDir, STORY_IGNORE_FILE)
+
+  try {
+    const content = await fsp.readFile(ignorePath, "utf-8")
+    const rules: StoryIgnoreRule[] = []
+
+    for (const rawLine of content.split("\n")) {
+      const line = rawLine.trim()
+      // 跳过空行和注释
+      if (!line || line.startsWith("#")) continue
+
+      const isDirOnly = line.endsWith("/")
+      const pattern = isDirOnly ? line.slice(0, -1) : line
+
+      // 将简化 glob 转为正则：* → [^/]*（不跨越目录分隔符）
+      const regexSource = `^${pattern.split("*").map(escapeRegExp).join("[^/]*")}$`
+      rules.push({ pattern, isDirOnly, regex: new RegExp(regexSource) })
+    }
+
+    return rules
+  } catch {
+    // .storyignore 读取失败时静默忽略（不阻断构建）
+    return []
+  }
 }
 
 /**
@@ -216,11 +338,15 @@ export function extractChaptersLocalized(content: string, lang: Language = "zh")
 
   const flush = () => {
     if (currentTitle) {
-      const words = countWords(currentBuffer.join("\n"), lang)
-      chapters.push({
-        title: currentTitle,
-        wordCount: formatWordCount(words, lang),
-      })
+      const chapterContent = currentBuffer.join("\n")
+      const words = countWords(chapterContent, lang)
+      // 跳过空章节（如正文开头的 `# 书名` 标题，后无实际内容）
+      if (chapterContent.trim()) {
+        chapters.push({
+          title: currentTitle,
+          wordCount: formatWordCount(words, lang),
+        })
+      }
     }
     currentBuffer = []
   }
@@ -254,7 +380,11 @@ export function splitContentByChapters(content: string): ChapterSection[] {
 
   const flush = () => {
     if (currentTitle) {
-      sections.push({ title: currentTitle, content: currentBuffer.join("\n").trim() })
+      const sectionContent = currentBuffer.join("\n").trim()
+      // 跳过空章节（如正文开头的 `# 书名` 标题，后无实际内容）
+      if (sectionContent) {
+        sections.push({ title: currentTitle, content: sectionContent })
+      }
     }
     currentBuffer = []
   }

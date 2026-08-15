@@ -24,6 +24,7 @@ src/
 │
 ├── core/                # 故事管理的领域核心
 │   ├── scanner.ts       # 扫描故事文件夹、读取正文、提取章节（含异步版本）
+│   ├── sort.ts          # 系列分组与排序（series / seriesOrder 逻辑坐标排序）
 │   ├── schema.ts        # 声明式校验规则（必填字段 / 枚举 / 格式）
 │   ├── validate.ts      # 基于 schema 的通用校验引擎（支持仓库级覆盖）
 │   ├── config.ts        # 仓库级配置（story.config.json 自定义枚举 + 本地化标签）
@@ -62,6 +63,14 @@ templates/
     └── CHANGELOG.md        # --full 模式：变更日志（含 {{DATE}}）
 ```
 
+### 💡 自定义模板注意事项
+
+`root-template.md` / `story-template.md` 使用 [Handlebars](https://handlebarsjs.com/) 模板引擎渲染。**Handlebars 会原样保留模板中的空行**，模板中的空行会直接反映到最终输出的 README：
+
+- **每个 Markdown 段落之间应恰好保留一个空行** —— 多余的空行会让渲染出现间距不一致，过少则段落连在一起
+- Handlebars 控制块（`{{#if}}` / `{{#each}}` / `{{else}}` / `{{/if}}`）本身不产生内容，但块标签前/后的空行会被保留——条件不满足或列表为空时，这些「泄漏空行」会导致输出出现多个连续空行
+- **建议不要随意增删模板中的段落空行**。如果确实需要调整布局，修改后请运行 `story build` 检查输出效果，并通过 `git diff` 确认变更范围符合预期
+
 ---
 
 ## 🎯 核心设计思路
@@ -82,7 +91,18 @@ export const FIELD_RULES: Record<string, FieldRule> = {
 
 **好处**：新增字段无需修改校验引擎逻辑，降低了维护成本。
 
-### 2. 语言感知（i18n.ts + word-count.ts）
+### 2. 系列分组与排序（sort.ts）
+
+`sort.ts` 实现了「物理坐标永不更改，逻辑坐标自由调整」的排序设计：
+
+- **物理坐标**：文件夹名 `NN-` 前缀，一旦创建永不修改（保证 Git 链接稳定）
+- **逻辑坐标**：`config.json` 中的 `series` / `seriesOrder` 控制 README 展示顺序
+- `seriesOrder` 支持小数（分数索引），任意位置插入无需重排其他故事
+- 组内排序：`seriesOrder` 数值升序，缺失时回退文件夹序号
+- 组间排序：按组内最小文件夹序号，组名作为二级键保证确定性
+- 未配置 `series` 的故事归入「独立故事」，按文件夹序号排序
+
+### 3. 语言感知（i18n.ts + word-count.ts）
 
 - 每个故事在 `config.json` 中声明 `language`（`zh` / `en`）
 - `resolveLang` 统一解析，`formatType` / `formatStatus` 根据语言映射显示文本
@@ -90,7 +110,7 @@ export const FIELD_RULES: Record<string, FieldRule> = {
 - 根 README 语言根据所有故事的语言自动决定（全部英文则用英文，否则中文）
 - 字数统计：中文按汉字计数，英文按单词计数
 
-### 3. 公共 HTML 工具（html-utils.ts）
+### 4. 公共 HTML 工具（html-utils.ts）
 
 `html-utils.ts` 集中管理跨模块共享的 HTML 相关工具，避免重复实现：
 
@@ -99,7 +119,7 @@ export const FIELD_RULES: Record<string, FieldRule> = {
 - `PAGE_STYLE` — 通用页面样式常量（export-html 使用）
 - `readStoryTitle` — 读取故事标题（export-html 使用）
 
-### 4. 零构建运行时（bin/index.ts）
+### 5. 零构建运行时（bin/index.ts）
 
 ```ts
 #!/usr/bin/env node
@@ -109,7 +129,7 @@ run(process.argv)
 
 发布包为编译后的 `dist/` 产物（兼容 Node 20 运行）。开发时直接运行 `.ts` 源码需要 Node.js 24+ 的原生 TypeScript type stripping。这也是 `engines.node >= 20`（发布运行时）的原因。
 
-### 5. EPUB 最小合规生成（epub-generator.ts）
+### 6. EPUB 最小合规生成（epub-generator.ts）
 
 EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文件结构：
 
@@ -128,6 +148,39 @@ EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文�
 - 运行时依赖仅 `fflate`（ZIP 打包）和 `handlebars`（模板渲染）
 - Markdown → HTML 转换器支持表格、嵌套列表、代码块等
 - 图片路径支持绝对路径 / 相对故事文件夹 / 相对项目根目录
+
+### 7. 结构化错误处理（errors.ts）
+
+CLI 工具的错误信息需要**机器可读**和**人类可读**兼顾。`StoryError` 提供了这种结构化设计：
+
+```ts
+class StoryError extends Error {
+  code: ErrorCodeValue // 机器可读错误码（如 "CONFIG_PARSE"）
+  context: Record<string, unknown> // 结构化上下文（故事文件夹名等）
+}
+```
+
+**错误码一览**：
+
+| 错误码            | 触发场景                             | 示例修复                    |
+| ----------------- | ------------------------------------ | --------------------------- |
+| `CONFIG_MISSING`  | 故事文件夹缺少 `config.json`         | 运行 `story new` 或手动创建 |
+| `CONFIG_PARSE`    | `config.json` 不是合法 JSON          | 检查文件是否有语法错误      |
+| `CONFIG_INVALID`  | 配置校验失败（如缺少必填字段）       | 查看错误消息中的具体字段    |
+| `STORY_NOT_FOUND` | `story epub "标题"` 找不到匹配故事   | 检查标题是否与文件夹名匹配  |
+| `EMPTY_CONTENT`   | EPUB 导出时正文为空                  | 在 `text.md` 中写入内容     |
+| `EPUB_EXPORT`     | EPUB 生成过程中出错                  | 查看错误消息详情            |
+| `IMAGE_MISSING`   | 图片路径指向不存在的文件             | 检查图片路径是否正确        |
+| `IMAGE_READ`      | 图片文件读取失败                     | 检查文件权限                |
+| `INVALID_ARGS`    | 命令行参数无效（如 `epub` 缺少标题） | 查看帮助：`story help`      |
+| `WATCH_ERROR`     | Watch 模式运行出错                   | 检查文件系统权限            |
+
+**设计原则**：
+
+- CLI 入口（`cli.ts`）统一捕获异常并通过 `formatError` 格式化输出
+- `context` 提供机器可读的附件信息（如 `{ folder: "01-故事名" }`），便于自动化工具解析
+- 配置校验错误使用 `ValidationIssue[]`（结构化问题列表），而非拼接字符串
+- `DEBUG` 环境变量开启时输出完整堆栈，默认只显示用户友好的错误消息
 
 ---
 
@@ -150,5 +203,5 @@ EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文�
 - 使用 `node:test` + `node:assert`（零额外依赖）
 - 每个核心模块都有独立测试文件
 - CLI 入口通过 `execFileSync` 运行真实命令进行集成测试
-- 关键行为测试：扫描、校验、渲染、字数统计、i18n、README 生成、EPUB 导出、仓库配置、CLI 命令
+- 关键行为测试：扫描、排序、校验、渲染、字数统计、i18n、README 生成、EPUB 导出、仓库配置、CLI 命令
 - 代码规范：`@biomejs/biome` 统一 lint + format

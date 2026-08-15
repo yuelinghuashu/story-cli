@@ -1,6 +1,6 @@
 import assert from "node:assert"
 import { test } from "node:test"
-import { mdToHtml } from "../src/render/epub-generator.ts"
+import { mdToHtml } from "../src/render/md-to-html.ts"
 
 test("mdToHtml null 和 undefined 输入", () => {
   assert.strictEqual(mdToHtml(undefined), "")

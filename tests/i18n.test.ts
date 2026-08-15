@@ -1,6 +1,6 @@
 import assert from "node:assert"
 import { test } from "node:test"
-import { formatStatus, formatType, getLocale, resolveLang } from "../src/utils/i18n.ts"
+import { formatStatus, formatType, getLocale, resolveLang } from "../src/i18n/index.ts"
 
 test("getLocale 返回中文文案", () => {
   const zh = getLocale("zh")

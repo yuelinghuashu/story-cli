@@ -2,8 +2,9 @@ import { execSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
 import { getSponsorImages } from "../core/scanner.ts"
+import { groupAndSortStories } from "../core/sort.ts"
 import type { Language, StorySummary } from "../core/types.ts"
-import { getLocale } from "../utils/i18n.ts"
+import { getLocale } from "../i18n/index.ts"
 import { templatesDir } from "../utils/paths.ts"
 import { formatTotalWordCount } from "../utils/word-count.ts"
 import { renderTemplate } from "./template.ts"
@@ -78,15 +79,27 @@ export function generateRootReadme(
   const sponsorImages = getSponsorImages(rootDir)
   const hasSponsor = sponsorImages.length > 0
 
-  const storyRows = stories.map((story, index) => ({
-    num: String(index + 1).padStart(2, "0"),
+  // 按系列分组 + 排序（物理坐标永不更改，逻辑坐标自由调整）
+  const { groups: seriesGroups, ungrouped } = groupAndSortStories(stories)
+
+  const toRow = (story: Omit<StorySummary, "lang"> & { lang: string }, num: string) => ({
+    num,
     folder: story.folder,
     title: story.title,
     typeDisplay: story.typeDisplay,
     wordCount: story.wordCount,
     statusDisplay: story.statusDisplay,
     summary: truncateSummary(story.summary),
+  })
+
+  // 全局编号：系列组先遍历，独立故事延续编号
+  let counter = 1
+  const seriesGroupRows = seriesGroups.map((group) => ({
+    name: group.name,
+    stories: group.stories.map((s) => toRow(s, String(counter++).padStart(2, "0"))),
   }))
+  const ungroupedRows = ungrouped.map((s) => toRow(s, String(counter++).padStart(2, "0")))
+  const storyRows = [...seriesGroupRows.flatMap((g) => g.stories), ...ungroupedRows]
 
   const renderData: Record<string, unknown> = {
     rootTitle: locale.rootTitle,
@@ -102,6 +115,11 @@ export function generateRootReadme(
     storyListHeader: locale.storyListHeader,
     storyListHint: locale.storyListHint,
     storyRows,
+    seriesGroups: seriesGroupRows,
+    ungroupedStories: ungroupedRows,
+    hasSeries: seriesGroupRows.length > 0,
+    hasUngrouped: ungroupedRows.length > 0,
+    independentStoriesTitle: locale.independentStoriesTitle,
     howToAddTitle: locale.howToAddTitle,
     howToAddDesc: locale.howToAddDesc,
     howToAddStep1: locale.howToAddStep1,

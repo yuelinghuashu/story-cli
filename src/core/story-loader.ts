@@ -5,8 +5,8 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import { resolveLang } from "../i18n/index.ts"
 import { ErrorCode, StoryError } from "../utils/errors.ts"
-import { resolveLang } from "../utils/i18n.ts"
 import type { Language, StoryConfig } from "./types.ts"
 import { type ValidationOverrides, validateConfig } from "./validate.ts"
 

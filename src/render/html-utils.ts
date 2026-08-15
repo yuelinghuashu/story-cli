@@ -58,6 +58,15 @@ export const PAGE_STYLE = `
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
     img { max-width: 100%; }
+
+    /* 打印样式：浏览器「另存为 PDF」时使用 */
+    @media print {
+      .back { display: none; }                                    /* 隐藏返回链接 */
+      h1, h2, h3 { page-break-after: avoid; }                     /* 标题不孤立在页底 */
+      pre, blockquote, table, img { page-break-inside: avoid; }   /* 代码块/引用/表格/图片不跨页 */
+      a { color: inherit; text-decoration: none; }                /* 链接颜色在纸面上更友好 */
+      body { max-width: none; margin: 0; padding: 1rem; }         /* 打印时使用完整页宽 */
+    }
 `
 
 /**

@@ -5,9 +5,9 @@ import { loadRepoConfig } from "../core/config.ts"
 import { readStoryText, scanStoryFolders } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
 import type { ValidationOverrides } from "../core/validate.ts"
+import { getLocale } from "../i18n/index.ts"
 import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
-import { getLocale } from "../utils/i18n.ts"
 
 /**
  * 导出全部故事为纯文本文件（.txt）

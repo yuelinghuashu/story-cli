@@ -4,7 +4,8 @@ import os from "node:os"
 import path from "node:path"
 import { test } from "node:test"
 import { unzipSync } from "fflate"
-import { generateEpub, getImageMimeType, mdToHtml, safeImageName } from "../src/render/epub-generator.ts"
+import { generateEpub, getImageMimeType, isSvgSafe, safeImageName } from "../src/render/epub-generator.ts"
+import { mdToHtml } from "../src/render/md-to-html.ts"
 
 test("mdToHtml 基本段落", () => {
   const result = mdToHtml("这是一段普通文本。")
@@ -180,6 +181,31 @@ test("safeImageName 安全文件名", () => {
   assert.strictEqual(safeImageName("cover.png", 1), "img1.png")
   assert.strictEqual(safeImageName("封面-图片.jpg", 2), "img2.jpg")
   assert.strictEqual(safeImageName("noext", 3), "img3")
+})
+
+test("isSvgSafe 纯矢量 SVG 安全", () => {
+  const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L10 10"/><circle cx="5" cy="5" r="3"/></svg>'
+  assert.strictEqual(isSvgSafe(safeSvg), true)
+})
+
+test("isSvgSafe 包含 <script> 时不安全", () => {
+  const dangerousSvg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+  assert.strictEqual(isSvgSafe(dangerousSvg), false)
+})
+
+test("isSvgSafe 包含事件属性时不安全", () => {
+  const dangerousSvg = '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect/></svg>'
+  assert.strictEqual(isSvgSafe(dangerousSvg), false)
+})
+
+test("isSvgSafe 包含 javascript: URI 时不安全", () => {
+  const dangerousSvg = '<svg xmlns="http://www.w3.org/2000/svg"><a href="javascript:alert(1)">click</a></svg>'
+  assert.strictEqual(isSvgSafe(dangerousSvg), false)
+})
+
+test("isSvgSafe 包含 <foreignObject> 时不安全", () => {
+  const dangerousSvg = '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div>html</div></foreignObject></svg>'
+  assert.strictEqual(isSvgSafe(dangerousSvg), false)
 })
 
 test("mdToHtml 混合内容", () => {

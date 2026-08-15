@@ -10,7 +10,8 @@ import type { Language } from "../core/types.ts"
  * @returns 两位数字序号
  */
 function getNextNumber(rootDir: string): string {
-  const folders = fs.readdirSync(rootDir).filter((item) => /^\d+-/.test(item))
+  // 使用与 scanner.ts STORY_FOLDER_PATTERN 一致的模式（至少两位数字）
+  const folders = fs.readdirSync(rootDir).filter((item) => /^\d{2,}-/.test(item))
   let max = 0
   for (const folder of folders) {
     const num = parseInt(folder.split("-")[0], 10)

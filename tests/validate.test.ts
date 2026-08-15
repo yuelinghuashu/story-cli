@@ -148,3 +148,35 @@ test("validateConfig 未传 overrides 时默认枚举生效", () => {
   const result = validateConfig(customConfig, "00-测试")
   assert.strictEqual(result.valid, false)
 })
+
+test("validateConfig series 字段类型校验", () => {
+  const config = { ...validConfig, series: "三体" }
+  const result = validateConfig(config, "00-测试")
+  assert.strictEqual(result.valid, true)
+})
+
+test("validateConfig seriesOrder 类型校验（number）", () => {
+  const config = { ...validConfig, series: "三体", seriesOrder: 2 }
+  const result = validateConfig(config, "00-测试")
+  assert.strictEqual(result.valid, true)
+})
+
+test("validateConfig seriesOrder 非法类型（字符串）", () => {
+  const config = { ...validConfig, series: "三体", seriesOrder: "2" }
+  const result = validateConfig(config, "00-测试")
+  assert.strictEqual(result.valid, false)
+  assert.ok(result.issues.some((i) => i.field === "seriesOrder"))
+})
+
+test("validateConfig volume 字段类型校验", () => {
+  const config = { ...validConfig, series: "三体", volume: "第二部·黑暗森林" }
+  const result = validateConfig(config, "00-测试")
+  assert.strictEqual(result.valid, true)
+})
+
+test("validateConfig volume 类型校验失败", () => {
+  const config = { ...validConfig, series: "三体", volume: 123 }
+  const result = validateConfig(config, "00-测试")
+  assert.strictEqual(result.valid, false)
+  assert.ok(result.issues.some((i) => i.field === "volume"))
+})

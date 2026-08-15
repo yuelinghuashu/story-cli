@@ -1,0 +1,172 @@
+# 📤 内容导出指南
+
+story-cli 提供 **6 种导出方式**，覆盖读者侧（HTML / TXT / EPUB / PDF）和创作者侧（JSON / 合并 Markdown）。
+
+---
+
+## 📊 导出总览
+
+| 格式         | 命令                                     | 默认输出目录          | 适用场景                                  |
+| ------------ | ---------------------------------------- | --------------------- | ----------------------------------------- |
+| **HTML**     | `story export html`                      | `dist/html/`          | 静态站点阅读、浏览器打印为 PDF            |
+| **TXT**      | `story export txt`                       | `dist/txt/`           | 纯文字稿、通用文本分发                    |
+| **EPUB**     | `story epub "标题"` / `story epub --all` | `dist/epub/`          | 电子阅读器（Kindle / Apple Books / Kobo） |
+| **PDF**      | `story export html` + 浏览器打印         | `dist/html/` → 浏览器 | 打印 / 分发 / 存档                        |
+| **JSON**     | `story export json`                      | `dist/json/`          | AI 工作流、数据分析、Obsidian Dataview    |
+| **Markdown** | `story export md`                        | `dist/md/`            | 跨平台搬运、便携备份                      |
+
+---
+
+## 🌐 HTML 导出
+
+```bash
+story export html
+```
+
+生成静态站点：`dist/html/index.html` + 每个故事的独立 `.html` 页面。
+
+- **自带打印样式**（`@media print`）：隐藏导航元素、标题孤行控制、代码块/表格不跨页
+- **可浏览器打印为 PDF**：打开 `index.html` → `Ctrl+P` → 另存为 PDF
+- 自定义输出目录：`story export html --output=dist/custom`
+
+---
+
+## 📄 TXT 导出
+
+```bash
+story export txt
+```
+
+将每个故事导出为 `.txt` 纯净文本文件（保留 Markdown 原始格式）。
+
+- 适合：纯文字稿、通用文本分发
+- 自定义输出目录：`story export txt --output=dist/custom`
+
+---
+
+## 📚 EPUB 导出
+
+```bash
+# 导出单个故事
+story epub "故事标题"
+
+# 导出全部故事
+story epub --all
+```
+
+生成标准 EPUB 3 格式（封面、版权页、目录、图片支持）。详见 [docs/epub.md](epub.md)。
+
+---
+
+## 📄 PDF 导出（浏览器打印）
+
+story-cli **不内置 PDF 生成器**——浏览器就是最好的 PDF 引擎。
+
+```bash
+# 1. 导出静态 HTML 站点
+story export html
+
+# 2. 浏览器打开 dist/html/index.html，Ctrl+P → 另存为 PDF
+```
+
+**为什么推荐这种方式**：
+
+| 维度            | CLI 内置 PDF 生成器                | 浏览器打印为 PDF       |
+| --------------- | ---------------------------------- | ---------------------- |
+| 依赖            | 需要 `pdf-lib` 等库（约 600KB+）   | **零依赖**             |
+| 中文排版        | 需要手动嵌入字体（TTF → CID 映射） | 浏览器内置最佳排版引擎 |
+| 页边距 / 页眉脚 | CLI 参数穷举                       | GUI 可视化自由调整     |
+
+---
+
+## 🔗 JSON 导出
+
+```bash
+story export json
+```
+
+将全部故事导出为单个结构化 JSON 文件：`dist/json/stories.json`。
+
+```json
+{
+  "version": "1.0.0",
+  "exportedAt": "2026-08-15T...",
+  "storyCount": 1,
+  "stories": [
+    {
+      "title": "我的故事",
+      "type": "original",
+      "status": "completed",
+      "language": "zh",
+      "summary": "...",
+      "created": "2026-08-14",
+      "wordCount": "约 X 字",
+      "rawWordCount": 3240,
+      "chapters": [{ "title": "第一章", "content": "正文内容..." }]
+    }
+  ]
+}
+```
+
+**用途**：
+
+- 🤖 **AI 工作流**：把故事喂给 Claude / ChatGPT 进行续写、翻译、分析
+- 📊 **数据分析**：统计章节数、字数趋势、角色出场
+- 📝 **Obsidian Dataview**：用 Dataview 插件查询和管理你的故事库
+
+---
+
+## 📝 合并 Markdown 导出
+
+```bash
+story export md
+```
+
+将每个故事导出为**单文件 Markdown**（`dist/md/故事标题.md`），包含 YAML Frontmatter 元数据。
+
+```markdown
+---
+title: "我的故事"
+type: "original"
+status: "completed"
+language: "zh"
+summary: "..."
+created: "2026-08-14"
+author: "作者名"
+---
+
+# 第一章
+
+正文内容...
+```
+
+**用途**：
+
+- 📦 **跨平台搬运**：论坛发帖、邮件分享、发给朋友
+- 💾 **便携备份**：一个文件包含完整故事 + 元数据
+
+---
+
+## 🎯 选择指南
+
+| 你的需求            | 推荐格式                |
+| ------------------- | ----------------------- |
+| 在 GitHub 上阅读    | HTML（或直接用 README） |
+| 电子阅读器看书      | EPUB                    |
+| 打印 / 分发纸质版   | PDF（浏览器打印）       |
+| 给 AI 续写 / 翻译   | JSON                    |
+| 搬到论坛 / 发给朋友 | 合并 Markdown           |
+| 纯文字稿            | TXT                     |
+
+</｜｜DSML｜｜>
+<task_progress>
+
+- [x] 在 epub-generator.ts 中添加 isSvgSafe 函数
+- [x] 在 epub.ts 中集成 SVG 过滤
+- [ ] 创建 docs/export.md（待完成）
+- [ ] 创建 docs/export.en.md
+- [ ] README/CHANGELOG 更新
+- [ ] docs/design.md / design.en.md 深化说明
+- [ ] 全链路验证
+      </task_progress>
+      </write_to_file>

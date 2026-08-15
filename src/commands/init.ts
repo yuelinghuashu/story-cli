@@ -16,6 +16,7 @@ const SCAFFOLD_FILES: Array<{
   replaceDate?: boolean
 }> = [
   { template: "scaffold/.gitignore.template", target: ".gitignore" },
+  { template: "scaffold/.storyignore.template", target: ".storyignore" },
   { template: "scaffold/README.md", target: "README.md" },
   { template: "scaffold/LICENSE", target: "LICENSE", onlyFull: true },
   { template: "scaffold/add-story.md", target: "docs/add-story.md", onlyFull: true },
@@ -133,6 +134,7 @@ Repository structure:
   story-template.md       # 故事 README 的 Handlebars 模板
   story.config.json       # 仓库级配置（自定义类型/状态）
   .gitignore              # Git 忽略规则（防构建产物入库）
+  .storyignore            # story-cli 扫描排除规则（草稿/临时文件）
   README.md               # 仓库说明（build 后自动更新为完整索引）
   assets/sponsor/         # 赞助收款码目录（可选，放收款码图片）
 ${

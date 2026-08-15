@@ -6,10 +6,11 @@ import { readStoryText, scanStoryFolders, splitContentByChapters } from "../core
 import { loadStoryConfig } from "../core/story-loader.ts"
 import type { EpubChapter, EpubImage, Language, StoryConfig } from "../core/types.ts"
 import type { ValidationOverrides } from "../core/validate.ts"
-import { generateEpub, mdToHtml, safeImageName } from "../render/epub-generator.ts"
+import { getLocale } from "../i18n/index.ts"
+import { generateEpub, isSvgSafe, safeImageName } from "../render/epub-generator.ts"
+import { mdToHtml } from "../render/md-to-html.ts"
 import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
 import { ErrorCode, formatError, StoryError } from "../utils/errors.ts"
-import { getLocale } from "../utils/i18n.ts"
 
 /**
  * 加载封面图片（可选）
@@ -42,6 +43,16 @@ function loadCoverImage(folderPath: string, rootDir: string, coverPath: string):
   try {
     const data = new Uint8Array(fs.readFileSync(resolved))
     const ext = path.extname(resolved).toLowerCase()
+
+    // SVG 安全检查：阻止含脚本/事件属性的 SVG 被嵌入 EPUB（XSS 防护）
+    if (ext === ".svg") {
+      const content = fs.readFileSync(resolved, "utf-8")
+      if (!isSvgSafe(content)) {
+        console.warn(`⚠️ 封面 SVG 包含危险内容（脚本/事件属性），已跳过: ${coverPath}`)
+        return null
+      }
+    }
+
     // 使用 cover 固定文件名（保留扩展名）
     return { name: `cover${ext}`, data }
   } catch (e) {
@@ -124,6 +135,16 @@ function loadImages(
     }
 
     try {
+      // SVG 安全检查：阻止含脚本/事件属性的 SVG 被嵌入 EPUB（XSS 防护）
+      if (path.extname(resolved).toLowerCase() === ".svg") {
+        const svgContent = fs.readFileSync(resolved, "utf-8")
+        if (!isSvgSafe(svgContent)) {
+          warnings.push(locale.epubImageMissing(src))
+          srcMap.set(src, src)
+          continue
+        }
+      }
+
       const data = new Uint8Array(fs.readFileSync(resolved))
       const safeName = safeImageName(path.basename(resolved), images.length + 1)
       images.push({ name: safeName, data })

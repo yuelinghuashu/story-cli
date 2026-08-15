@@ -2,7 +2,10 @@ import { parseCommand } from "./args.ts"
 import { runBuild } from "./commands/build.ts"
 import { exportEpub } from "./commands/epub.ts"
 import { exportHtml } from "./commands/export-html.ts"
+import { exportJson } from "./commands/export-json.ts"
+import { exportMd } from "./commands/export-md.ts"
 import { exportTxt } from "./commands/export-txt.ts"
+import { importJson } from "./commands/import-json.ts"
 import { initProject } from "./commands/init.ts"
 import { createNewStory } from "./commands/new-story.ts"
 import { formatError } from "./utils/errors.ts"
@@ -28,6 +31,8 @@ Usage:
   story epub --all          Export all stories to epub
   story export html         Export as static HTML site
   story export txt          Export all stories as plain text
+  story export json         Export all stories as structured JSON
+  story export md           Export all stories as merged Markdown
   story help                Show this help
   story version             Show version
 
@@ -70,11 +75,25 @@ export async function run(argv: string[]): Promise<number> {
         return exportEpub(rootDir, args)
 
       case "export":
-        // export 命令支持子命令：html / txt
+        // export 命令支持子命令：html / txt / json / md
         if (args[0] === "txt") {
           return exportTxt(rootDir, args.slice(1))
         }
+        if (args[0] === "json") {
+          return exportJson(rootDir, args.slice(1))
+        }
+        if (args[0] === "md") {
+          return exportMd(rootDir, args.slice(1))
+        }
         return exportHtml(rootDir, args)
+
+      case "import":
+        // import 命令支持子命令：json
+        if (args[0] === "json") {
+          return importJson(rootDir, args.slice(1))
+        }
+        console.log("❌ Unknown import subcommand. Use: story import json")
+        return 1
 
       case "init":
       case "i":

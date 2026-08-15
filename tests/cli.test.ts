@@ -109,6 +109,7 @@ test("story init 创建模板文件和目录结构", () => {
 
   // 默认生成的仓库文件
   assert.ok(fs.existsSync(path.join(dir, ".gitignore")), "默认应生成 .gitignore")
+  assert.ok(fs.existsSync(path.join(dir, ".storyignore")), "默认应生成 .storyignore")
   assert.ok(fs.existsSync(path.join(dir, "README.md")), "默认应生成 README.md")
 
   // 约定目录结构
@@ -125,6 +126,7 @@ test("story init --full 额外生成 LICENSE/docs/CHANGELOG", () => {
   // 默认文件也应生成
   assert.ok(fs.existsSync(path.join(dir, "config.original.json")))
   assert.ok(fs.existsSync(path.join(dir, ".gitignore")))
+  assert.ok(fs.existsSync(path.join(dir, ".storyignore")))
   assert.ok(fs.existsSync(path.join(dir, "README.md")))
 
   // --full 额外生成
@@ -226,6 +228,162 @@ test("story export txt 导出纯文本", () => {
   // 内容与原 text.md 一致
   const content = fs.readFileSync(path.join(dir, "dist", "txt", "测试故事.txt"), "utf-8")
   assert.ok(content.includes("正文内容"))
+})
+
+test("story export txt 多故事导出（中英混合）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-txt-multi-"))
+
+  // 中文故事
+  const cnDir = path.join(dir, "01-中文故事")
+  fs.mkdirSync(cnDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(cnDir, "config.json"),
+    JSON.stringify(
+      {
+        title: "中文故事",
+        type: "original",
+        status: "completed",
+        summary: "一个中文故事。",
+        created: "2026-01-01",
+        language: "zh",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(cnDir, "text.md"), "# 第一回\n\n这里是中文正文内容。", "utf-8")
+
+  // 英文故事
+  const enDir = path.join(dir, "02-english-story")
+  fs.mkdirSync(enDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(enDir, "config.json"),
+    JSON.stringify(
+      {
+        title: "English Story",
+        type: "original",
+        status: "ongoing",
+        summary: "An English story.",
+        created: "2026-01-01",
+        language: "en",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(enDir, "text.md"), "# Chapter 1\n\nThis is English content.", "utf-8")
+
+  runCli(["export", "txt"], dir)
+
+  // 两个故事都生成 .txt 文件
+  const cnPath = path.join(dir, "dist", "txt", "中文故事.txt")
+  const enPath = path.join(dir, "dist", "txt", "English Story.txt")
+  assert.ok(fs.existsSync(cnPath), "中文故事文件应存在")
+  assert.ok(fs.existsSync(enPath), "英文故事文件应存在")
+
+  // 内容各自独立且正确
+  const cnContent = fs.readFileSync(cnPath, "utf-8")
+  assert.ok(cnContent.includes("这里是中文正文内容"))
+  assert.ok(!cnContent.includes("English"))
+
+  const enContent = fs.readFileSync(enPath, "utf-8")
+  assert.ok(enContent.includes("This is English content"))
+  assert.ok(!enContent.includes("中文正文"))
+})
+
+test("story export json 导出结构化数据", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-json-"))
+  const storyDir = path.join(dir, "01-测试故事")
+  fs.mkdirSync(storyDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDir, "config.json"),
+    JSON.stringify(
+      {
+        title: "测试故事",
+        type: "original",
+        status: "completed",
+        summary: "一个测试故事。",
+        created: "2026-01-01",
+        series: "测试系列",
+        seriesOrder: 1,
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(
+    path.join(storyDir, "text.md"),
+    "# 第一章\n\n你好世界，这是测试内容。\n\n# 第二章\n\n第二段测试内容。",
+    "utf-8",
+  )
+
+  runCli(["export", "json"], dir)
+
+  // JSON 文件存在
+  const jsonPath = path.join(dir, "dist", "json", "stories.json")
+  assert.ok(fs.existsSync(jsonPath), "stories.json 应被生成")
+
+  // 解析 JSON 并验证结构
+  const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"))
+  assert.strictEqual(data.storyCount, 1)
+  assert.strictEqual(data.stories.length, 1)
+  const story = data.stories[0]
+  assert.strictEqual(story.title, "测试故事")
+  assert.strictEqual(story.type, "original")
+  assert.strictEqual(story.status, "completed")
+  assert.strictEqual(story.series, "测试系列")
+  assert.strictEqual(story.seriesOrder, 1)
+  assert.strictEqual(story.chapters.length, 2, "应提取出两个章节")
+  assert.strictEqual(story.chapters[0].title, "第一章")
+  assert.ok(story.chapters[0].content.includes("你好世界"))
+  assert.strictEqual(story.chapters[1].title, "第二章")
+  assert.ok(story.chapters[1].content.includes("第二段"))
+  assert.ok(story.wordCount.length > 0, "wordCount 应为格式化字符串（如 约 X 字）")
+  assert.ok(!story.wordCount.includes("待补充"), "wordCount 不应为待补充状态")
+})
+
+test("story export md 导出合并 Markdown（含 YAML Frontmatter）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-md-"))
+  const storyDir = path.join(dir, "01-测试故事")
+  fs.mkdirSync(storyDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDir, "config.json"),
+    JSON.stringify(
+      {
+        title: "测试故事",
+        type: "original",
+        status: "ongoing",
+        language: "zh",
+        summary: "一个测试故事。",
+        created: "2026-01-01",
+        author: "作者名",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDir, "text.md"), "# 第一章\n\n这是正文内容。", "utf-8")
+
+  runCli(["export", "md"], dir)
+
+  // 合并 Markdown 文件存在
+  const mdPath = path.join(dir, "dist", "md", "测试故事.md")
+  assert.ok(fs.existsSync(mdPath), "合并 Markdown 文件应被生成")
+
+  const content = fs.readFileSync(mdPath, "utf-8")
+  // YAML Frontmatter
+  assert.ok(content.startsWith("---"), "应以 YAML Frontmatter 开头")
+  assert.ok(content.includes('title: "测试故事"'), "应包含标题元数据")
+  assert.ok(content.includes('type: "original"'), "应包含类型元数据")
+  assert.ok(content.includes('author: "作者名"'), "应包含作者元数据")
+  assert.ok(content.includes('language: "zh"'), "应包含语言元数据")
+  // 正文内容
+  assert.ok(content.includes("# 第一章"), "应包含正文章节标题")
+  assert.ok(content.includes("这是正文内容。"), "应包含正文内容")
 })
 
 test("story epub --all 导出全部故事", () => {
@@ -405,4 +563,164 @@ test("story build --validate-only 接受自定义类型", () => {
   // 应通过校验（自定义类型已被仓库配置接受）
   const stdout = runCli(["build", "--validate-only"], dir)
   assert.ok(stdout.includes("校验通过"))
+})
+
+/** 构造故事 config.json 的辅助函数 */
+function createStoryConfig(title: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    title,
+    type: "original",
+    status: "completed",
+    summary: `${title} 的简介。`,
+    created: "2026-08-01",
+    ...extra,
+  }
+}
+
+/** 在临时目录中创建故事文件夹 + config.json + text.md */
+function createStory(
+  dir: string,
+  folder: string,
+  config: Record<string, unknown>,
+  text = "# 第一章\n\n这是测试内容。",
+): string {
+  const storyDir = path.join(dir, folder)
+  fs.mkdirSync(storyDir, { recursive: true })
+  fs.writeFileSync(path.join(storyDir, "config.json"), JSON.stringify(config, null, 2), "utf-8")
+  fs.writeFileSync(path.join(storyDir, "text.md"), text, "utf-8")
+  return storyDir
+}
+
+test("story build 系列分组排序集成测试", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-sort-test-"))
+
+  // 三体系列 3 个故事
+  const series = [
+    ["01-三体-地球往事", createStoryConfig("地球往事", { series: "三体", seriesOrder: 1 })],
+    ["02-三体-黑暗森林", createStoryConfig("黑暗森林", { series: "三体", seriesOrder: 2 })],
+    ["03-三体-死神永生", createStoryConfig("死神永生", { series: "三体", seriesOrder: 3 })],
+  ] as const
+  // 独立故事（含 12- / 100- 验证数值序）
+  const standalone = [
+    ["05-球状闪电", createStoryConfig("球状闪电")],
+    ["12-朝闻道", createStoryConfig("朝闻道")],
+    ["100-烧火工", createStoryConfig("烧火工")],
+  ] as const
+
+  for (const [folder, config] of series) createStory(dir, folder, config)
+  for (const [folder, config] of standalone) createStory(dir, folder, config)
+
+  // 运行 build
+  runCli(["build"], dir)
+
+  const rootReadme = fs.readFileSync(path.join(dir, "README.md"), "utf-8")
+
+  // 1. 包含三体系列区块
+  assert.ok(rootReadme.includes("### 三体"), "应包含三体系列区块")
+
+  // 2. 三体系列按 seriesOrder 排序：地球往事 → 黑暗森林 → 死神永生
+  const threeBodyIndex = rootReadme.indexOf("### 三体")
+  const standaloneIndex = rootReadme.indexOf("### 📌 独立故事")
+  assert.ok(threeBodyIndex !== -1 && standaloneIndex !== -1, "应同时包含系列和独立故事区块")
+  const threeBodySection = rootReadme.slice(threeBodyIndex, standaloneIndex)
+  const earthIndex = threeBodySection.indexOf("地球往事")
+  const darkIndex = threeBodySection.indexOf("黑暗森林")
+  const deathIndex = threeBodySection.indexOf("死神永生")
+  assert.ok(earthIndex !== -1 && darkIndex !== -1 && deathIndex !== -1, "三体系列应包含全部故事")
+  assert.ok(earthIndex < darkIndex && darkIndex < deathIndex, "三体系列按 seriesOrder 排序")
+
+  // 3. 包含独立故事区块
+  assert.ok(rootReadme.includes("📌 独立故事"), "应包含独立故事区块")
+
+  // 4. 独立故事按文件夹数值序：球状闪电(05) → 朝闻道(12) → 烧火工(100)
+  const standaloneSection = rootReadme.slice(standaloneIndex)
+  const ballIndex = standaloneSection.indexOf("球状闪电")
+  const morningIndex = standaloneSection.indexOf("朝闻道")
+  const fireIndex = standaloneSection.indexOf("烧火工")
+  assert.ok(ballIndex !== -1 && morningIndex !== -1 && fireIndex !== -1, "独立故事区块应包含全部故事")
+  assert.ok(ballIndex < morningIndex && morningIndex < fireIndex, "独立故事按文件夹序号排序")
+})
+
+test("story build 分数索引 seriesOrder 2.5 插入排序", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-fractional-test-"))
+
+  // 先创建 1、2、3 三个系列故事
+  createStory(dir, "01-三体-地球往事", createStoryConfig("地球往事", { series: "三体", seriesOrder: 1 }))
+  createStory(dir, "02-三体-黑暗森林", createStoryConfig("黑暗森林", { series: "三体", seriesOrder: 2 }))
+  createStory(dir, "03-三体-死神永生", createStoryConfig("死神永生", { series: "三体", seriesOrder: 3 }))
+  runCli(["build"], dir)
+
+  // 再创建 seriesOrder: 2.5 的故事（模拟在 2 和 3 之间插入）
+  createStory(dir, "04-三体-球状闪电", createStoryConfig("三体·球状闪电前传", { series: "三体", seriesOrder: 2.5 }))
+  runCli(["build"], dir)
+
+  const rootReadme = fs.readFileSync(path.join(dir, "README.md"), "utf-8")
+  const threeBodyIndex = rootReadme.indexOf("### 三体")
+  const standaloneIndex = rootReadme.indexOf("### 📌 独立故事")
+  const threeBodySection = rootReadme.slice(threeBodyIndex, standaloneIndex)
+
+  // 断言顺序：地球往事(1) → 黑暗森林(2) → 球状闪电前传(2.5) → 死神永生(3)
+  const earthIndex = threeBodySection.indexOf("地球往事")
+  const darkIndex = threeBodySection.indexOf("黑暗森林")
+  const lightningIndex = threeBodySection.indexOf("球状闪电前传")
+  const deathIndex = threeBodySection.indexOf("死神永生")
+  assert.ok(
+    earthIndex < darkIndex && darkIndex < lightningIndex && lightningIndex < deathIndex,
+    `分数索引 2.5 应插入在 2 和 3 之间，实际顺序：${threeBodySection}`,
+  )
+})
+
+test("story build 故事 README 显示系列信息", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-series-info-test-"))
+
+  createStory(
+    dir,
+    "01-三体-地球往事",
+    createStoryConfig("地球往事", {
+      series: "三体",
+      seriesOrder: 1,
+      volume: "第一部·地球往事",
+    }),
+  )
+  runCli(["build"], dir)
+
+  const storyReadme = fs.readFileSync(path.join(dir, "01-三体-地球往事", "README.md"), "utf-8")
+
+  // 应包含系列标签、系列名、顺序、卷名
+  assert.ok(storyReadme.includes("系列"), "应包含系列标签")
+  assert.ok(storyReadme.includes("三体"), "应包含系列名称")
+  assert.ok(storyReadme.includes("第 1 部"), "应包含系列顺序")
+  assert.ok(storyReadme.includes("第一部·地球往事"), "应包含卷名")
+})
+
+test("story build 检测到文件夹重命名时输出警示", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-rename-test-"))
+
+  // 创建初始 Git 仓库
+  const git = (args: string[]) =>
+    spawnSync("git", args, { cwd: dir, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] })
+
+  // 初始化 git 仓库并提交初始内容
+  git(["init", "-q"])
+  git(["config", "user.email", "test@example.com"])
+  git(["config", "user.name", "Test User"])
+
+  // 创建初始故事
+  createStory(dir, "01-故事A", createStoryConfig("故事A"))
+  createStory(dir, "02-故事B", createStoryConfig("故事B"))
+  git(["add", "."])
+  git(["commit", "-q", "-m", "initial"])
+
+  // 重命名 02-故事B → 03-故事B（模拟用户临时起意）
+  fs.renameSync(path.join(dir, "02-故事B"), path.join(dir, "03-故事B"))
+  git(["add", "-A"])
+
+  // 运行 build，应检测到重命名并输出警示
+  const stdout = runCli(["build"], dir)
+
+  // 验证警示输出
+  assert.ok(stdout.includes("检测到文件夹重命名"), "应输出重命名警示")
+  assert.ok(stdout.includes("02-故事B"), "警示应包含旧文件夹名")
+  assert.ok(stdout.includes("03-故事B"), "警示应包含新文件夹名")
+  assert.ok(stdout.includes("series / seriesOrder"), "警示应提示使用系列字段")
 })

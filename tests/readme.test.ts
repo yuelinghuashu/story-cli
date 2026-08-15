@@ -3,6 +3,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { test } from "node:test"
+import { PAGE_STYLE } from "../src/render/html-utils.ts"
 import { generateRootReadme, generateStoryReadme } from "../src/render/readme.ts"
 
 function setupTempDir() {
@@ -230,4 +231,25 @@ test("generateRootReadme 锚点前后有空行", () => {
   assert.ok(autoGenLine.startsWith("*"), "自动生成行应以 * 开头")
   assert.ok(autoGenLine.endsWith("*"), "自动生成行应以 * 结尾")
   assert.ok(!autoGenLine.includes("_"), "自动生成行不应包含下划线")
+})
+
+test("PAGE_STYLE 包含 @media print 打印样式（PDF 导出依赖）", () => {
+  // 浏览器「另存为 PDF」依赖此样式——确保未来修改不会无感知破坏
+  assert.ok(PAGE_STYLE.includes("@media print"), "应包含 @media print 媒体查询")
+  assert.ok(PAGE_STYLE.includes(".back { display: none; }"), "应隐藏导航元素")
+  assert.ok(PAGE_STYLE.includes("page-break-after: avoid"), "标题不应孤立在页底")
+  assert.ok(PAGE_STYLE.includes("page-break-inside: avoid"), "块级元素不应跨页断裂")
+  assert.ok(PAGE_STYLE.includes("max-width: none"), "打印时应使用完整页宽")
+})
+
+test("PAGE_STYLE 打印样式不影响屏幕样式", () => {
+  // 屏幕样式的关键规则不在 @media print 内（避免打印时覆盖）
+  const printBlockStart = PAGE_STYLE.indexOf("@media print")
+  const printBlock = PAGE_STYLE.slice(printBlockStart)
+  const screenBlock = PAGE_STYLE.slice(0, printBlockStart)
+
+  // 屏幕样式应保留正常布局（最大宽度限制）
+  assert.ok(screenBlock.includes("max-width: 800px"), "屏幕样式应保留 800px 最大宽度")
+  // 打印样式不应包含屏幕特有的间距/边框
+  assert.ok(!printBlock.includes("border-bottom: 2px solid #eee"), "打印样式不应包含屏幕专属的标题装饰")
 })

@@ -2,7 +2,35 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [1.0.0] - 2026-08-14
+## [1.1.0] - 2026-08-15
+
+### 新增
+
+- **系列分组排序**：`config.json` 新增 `series` / `seriesOrder` / `volume` 可选字段（分数索引，任意插入无需重排）
+- **独立故事区块**：未配置系列的故事归入「独立故事」，按文件夹序号排序
+- **文件夹重命名检测**：`story build` 检测暂存区重命名（`git status` R 状态），温和警示不阻断构建
+- **JSON 导出**：`story export json` 导出含章节/字数/元数据的结构化 JSON（AI 友好、Obsidian Dataview 可用）
+- **JSON 导入**：`story import json` 导入 JSON → 自动生成符合规范的故事目录，与 `export json` 双向对称
+- **合并 Markdown 导出**：`story export md` 导出单文件 Markdown（含 YAML Frontmatter）
+- **`.storyignore` 排除规则**：排除草稿/临时文件不参与扫描统计（`.gitignore` 简化子集，`story init` 自动生成模板）
+- **文档新增**：`docs/specification.md`（仓库数据规范 v1.0）+ `docs/design.md`「工具箱」章节（中英双语）
+
+### 变更
+
+- 故事文件夹排序从字典序改为**数值序**（`12-` < `100-`）
+- 根 README 模板支持系列分组与独立故事区块
+- **PDF 导出（浏览器打印）**：`export html` 新增 `@media print` 样式，可直接另存为 PDF
+- 清理：删除 `validate.ts` 未使用函数、`build.ts` 复用公共 `detectCliLang`、`new-story.ts` 序号正则修正
+- README badge：测试数硬编码 → CI 动态 badge
+- **i18n 模块重组**：`src/utils/i18n.ts`（512 行）拆分为顶层 `src/i18n/`（index.ts + zh.ts + en.ts）
+- **章节命名规范**：`specification.md` 3.2 节新增推荐命名模式（简单顺序 / 分卷分章 / 剧本分场）+ 补零规则
+
+### 测试
+
+- 228 项测试全部通过（+30），新增覆盖 `.storyignore`（8 项）、`import json`（10 项）及系列分组 / 分数索引 / 重命名检测集成测试
+
+<details>
+<summary>## [1.0.0] - 2026-08-14</summary>
 
 ### 基础功能
 
@@ -36,3 +64,5 @@
 ### 测试
 
 - 175 项测试全部通过，覆盖：扫描器、校验、模板渲染、字数统计、i18n、README 生成、EPUB 导出（含封面图）、参数解析、仓库配置、CLI 入口、Markdown 转换边界
+
+</details>

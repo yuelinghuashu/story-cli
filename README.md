@@ -4,7 +4,7 @@
 [![English](https://img.shields.io/badge/English-README-blue?style=flat-square)](README.en.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square)](package.json)
-[![Tests](https://img.shields.io/badge/tests-175%20passed-brightgreen?style=flat-square)](README.md#-测试)
+[![CI](https://img.shields.io/github/actions/workflow/status/yuelinghuashu/story-cli/build.yml?style=flat-square)](https://github.com/yuelinghuashu/story-cli/actions)
 [![npm version](https://img.shields.io/npm/v/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
 [![npm downloads](https://img.shields.io/npm/dm/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
 
@@ -18,6 +18,7 @@
 
 - **简单目录约定** — 故事就是文件夹：`NN-名称/` 包含 `config.json` + `text.md`
 - **自动生成 README** — 每个故事和根目录索引 README 都能自动生成（模板驱动，可自定义）
+- **系列分组排序** — `config.json` 中的 `series` / `seriesOrder` 控制展示顺序（分数索引，任意插入无需重排）
 - **运行时校验** — 构建前检查配置（必填字段、枚举、格式）
 - **双语支持** — `language: "zh" | "en"` 配置，生成本地化 README
 - **字数统计** — 语言感知的中文字符 / 英文单词计数
@@ -88,8 +89,11 @@ story epub --all
 | `story build --watch`         | 监听文件变更，自动重建 README                   |
 | `story epub "标题"`           | 导出单个故事为 EPUB                             |
 | `story epub --all`            | 导出所有故事为 EPUB                             |
-| `story export html`           | 导出静态 HTML 站点                              |
+| `story export html`           | 导出静态 HTML 站点（可浏览器打印为 PDF）        |
 | `story export txt`            | 导出全部故事为纯文本（.txt）                    |
+| `story export json`           | 导出全部故事为结构化 JSON（AI 友好）            |
+| `story export md`             | 导出全部故事为合并 Markdown（含 Frontmatter）   |
+| `story import json`           | 从 JSON 导入故事（AI 输出 → 自动生成目录结构）  |
 | `story help`                  | 显示帮助                                        |
 | `story version`               | 显示版本号                                      |
 
@@ -129,13 +133,16 @@ story epub --all
 
 ## 📚 文档
 
-| 文档              | 中文                                    | English                                       | 内容                            |
-| ----------------- | --------------------------------------- | --------------------------------------------- | ------------------------------- |
-| 设计理念          | [design.md](docs/design.md)             | [design.en.md](docs/design.en.md)             | 为什么这样做、项目哲学          |
-| 如何新增故事      | [add-story.md](docs/add-story.md)       | [add-story.en.md](docs/add-story.en.md)       | 目录约定、config.json、写作方式 |
-| EPUB 导出指南     | [epub.md](docs/epub.md)                 | [epub.en.md](docs/epub.en.md)                 | 支持的 Markdown 语法、图片嵌入  |
-| GitHub Actions CI | [ci.md](docs/ci.md)                     | [ci.en.md](docs/ci.en.md)                     | 自动构建工作流配置              |
-| 技术架构          | [architecture.md](docs/architecture.md) | [architecture.en.md](docs/architecture.en.md) | 模块设计、核心思路、依赖清单    |
+| 文档              | 中文                                      | English                                         | 内容                                |
+| ----------------- | ----------------------------------------- | ----------------------------------------------- | ----------------------------------- |
+| 设计理念          | [design.md](docs/design.md)               | [design.en.md](docs/design.en.md)               | 为什么这样做、项目哲学              |
+| 仓库规范          | [specification.md](docs/specification.md) | [specification.en.md](docs/specification.en.md) | 目录约定数据规范（第三方兼容）      |
+| 如何新增故事      | [add-story.md](docs/add-story.md)         | [add-story.en.md](docs/add-story.en.md)         | 目录约定、config.json、写作方式     |
+| 内容导出          | [export.md](docs/export.md)               | [export.en.md](docs/export.en.md)               | HTML / TXT / EPUB / PDF / JSON / MD |
+| EPUB / PDF 导出   | [epub.md](docs/epub.md)                   | [epub.en.md](docs/epub.en.md)                   | EPUB 格式、PDF 导出（浏览器打印）   |
+| GitHub Actions CI | [ci.md](docs/ci.md)                       | [ci.en.md](docs/ci.en.md)                       | 自动构建工作流配置                  |
+| 技术架构          | [architecture.md](docs/architecture.md)   | [architecture.en.md](docs/architecture.en.md)   | 模块设计、核心思路、依赖清单        |
+| 更新日志          | [CHANGELOG.md](CHANGELOG.md)              | [CHANGELOG.en.md](CHANGELOG.en.md)              | 版本变更记录                        |
 
 ---
 
@@ -145,7 +152,7 @@ story epub --all
 pnpm test
 ```
 
-当前 175 项测试全部通过，覆盖：扫描器、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出（含封面图）、参数解析、仓库配置、CLI 入口、Markdown 转换边界。
+当前 228 项测试全部通过，覆盖：扫描器、系列分组排序、文件夹重命名检测、校验、模板渲染、字数统计、国际化、README 生成（含系列分组）、EPUB 导出（含封面图）、参数解析、仓库配置、CLI 入口、Markdown 转换边界、`.storyignore` 排除规则、JSON 导入（import json）。
 
 ---
 

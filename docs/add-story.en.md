@@ -34,7 +34,17 @@ my-stories-repo/
 
 > 💡 Root `assets/` is the global material directory (covers, etc.). `assets/sponsor/` is the dedicated directory for donation QR codes (see below).
 >
-> 💡 The `NN-` prefix is a sequence number with **at least two digits** (e.g. `01-`, `02-`, `100-`) that controls display order. **Duplicate numbers are not allowed** — they will trigger a warning during `story build`.
+> 💡 The `NN-` prefix is a sequence number with **at least two digits** (e.g. `01-`, `02-`, `100-`) and is **sorted numerically** (`12-` comes before `100-`). **Duplicate numbers are not allowed** — they will trigger a warning during `story build`.
+>
+> 💡 **Physical vs. logical coordinates**: the `NN-` prefix in folder names is the story's **physical coordinate** — set once and never modified (keeping Git links stable). To adjust display order, use `series` / `seriesOrder` in `config.json` instead (see [Series & Sorting](#series--sorting) below). The two systems don't conflict.
+>
+> ⚠️ **Never rename existing story folders**. Renaming will:
+>
+> - Break all links pointing to the old path (README, external references) → 404
+> - Make Git's regular `git log` show "delete + add" instead of a continuous history
+> - Although `git log --follow` can still trace the history, external links cannot be auto-restored
+>
+> If `story build` detects a rename in the staging area (only after `git add`), it will print a friendly warning.
 
 ### 💰 Donation Support (Optional)
 
@@ -83,7 +93,10 @@ When `story build` detects images in `assets/sponsor/`, it automatically generat
   "created": "2026-08-14", // YYYY-MM-DD
   "author": "Author name", // Optional, for original stories (shown in EPUB export)
   "originalWork": "Original Work", // Required for fanfic
-  "originalAuthor": "Author" // Required for fanfic
+  "originalAuthor": "Author", // Required for fanfic
+  "series": "Three-Body", // Optional, series name
+  "seriesOrder": 1, // Optional, order within series (supports decimals)
+  "volume": "Part One: The Past" // Optional, volume name (display only)
 }
 ```
 
@@ -101,6 +114,9 @@ When `story build` detects images in `assets/sponsor/`, it automatically generat
 | `author`         | Optional    | `string`  | Author name (used for original stories, shown in EPUB)  |
 | `originalWork`   | Fanfic only | `string`  | Original work name (required if fanfic)                 |
 | `originalAuthor` | Fanfic only | `string`  | Original author (required if fanfic)                    |
+| `series`         | Optional    | `string`  | Series name. Stories with this field are grouped        |
+| `seriesOrder`    | Optional    | `number`  | Order key within series (supports decimals like `2.5`)  |
+| `volume`         | Optional    | `string`  | Volume/part name, display only                          |
 
 ### Validation Rules
 
@@ -142,6 +158,29 @@ Split content into multiple chapter files:
 
 When `text.md` does not exist, `story build` automatically merges all `chapter-*.md` files into a generated `text.md`.
 
+### Chapter Extraction Rules
+
+`story build` and `story epub` automatically extract chapters from your text (for README chapter lists and EPUB navigation):
+
+- **`#` and `##`**: act as **chapter separators** — each one starts a new chapter
+- **`###` and below**: act as **subsections within a chapter** — they do not start a new chapter
+
+```markdown
+# Chapter 1 ← New chapter
+
+This is chapter content...
+
+## Subsection ← Does NOT start a new chapter
+
+...
+
+### Deeper subsection ← Does NOT start a new chapter
+
+...
+```
+
+If your text has no `#` / `##` headings, the story is treated as "no chapters" — EPUB export uses the story title as the only chapter.
+
 ---
 
 ## 🚀 Auto Generation
@@ -153,3 +192,54 @@ story build
 ```
 
 This generates a `README.md` for each story and a root index `README.md`. If `text.md` is missing but `chapter-*.md` files exist, they will be merged and a `text.md` will be generated automatically.
+
+---
+
+## 🔄 Series & Sorting
+
+### Design Principles
+
+- **Physical coordinates never change**: the `NN-` prefix in folder names is the story's "ID number" — set once and never modified (keeping Git links and EPUB references stable forever).
+- **Logical coordinates are freely adjustable**: display order is controlled by `series` / `seriesOrder` in `config.json` — no folder renaming needed.
+
+### Example
+
+```text
+my-stories-repo/
+├── 01-three-body-past/   # series: "Three-Body", seriesOrder: 1
+├── 02-three-body-dark/   # series: "Three-Body", seriesOrder: 2
+├── 03-three-body-death/  # series: "Three-Body", seriesOrder: 3
+├── 04-ball-lightning/    # No series → standalone story
+└── 05-truth-chaser/      # No series → standalone story
+```
+
+The root README shows all series stories grouped under their series name, followed by a **📌 Standalone Stories** section.
+
+### `seriesOrder` Supports Decimals (Fractional Indexing)
+
+Insert a new story into the middle of a series **without renumbering any existing stories**. Suppose the series currently has `1, 2, 3`, and you want to insert between `2` and `3`:
+
+```json
+{
+  "title": "Inserted Story",
+  "series": "Three-Body",
+  "seriesOrder": 2.5
+}
+```
+
+> 💡 Using decimals (e.g. `.1`, `.5`, `.75`) lets you insert anywhere any number of times — no existing story needs to change.
+
+### Sorting Rules Summary
+
+| Scenario                         | Sort behavior                                               |
+| -------------------------------- | ----------------------------------------------------------- |
+| Has `seriesOrder`                | Sort by numeric ascending                                   |
+| `seriesOrder` missing or invalid | Fall back to folder number                                  |
+| `seriesOrder` equal              | Sort by folder number                                       |
+| No `series` field                | Grouped under "Standalone Stories", sorted by folder number |
+| Between different series         | By group's min folder number, series name as tiebreaker     |
+| `series` is empty/whitespace     | Treated as undefined                                        |
+
+### Interaction with `story new`
+
+`story new` does **not** support `--series` flags. After creating a story, edit `config.json` to add `series` / `seriesOrder` / `volume`. CLI flags may be added later based on user feedback.

@@ -136,12 +136,3 @@ export function validateConfig(
 function isMissing(value: unknown): boolean {
   return value === undefined || value === null || (typeof value === "string" && value.trim() === "")
 }
-
-/**
- * 将校验问题转为可读错误消息
- * @param issues 校验问题列表
- * @returns 可读错误消息列表
- */
-export function formatIssues(issues: ValidationIssue[]): string[] {
-  return issues.map((i) => `❌ ${i.message}`)
-}

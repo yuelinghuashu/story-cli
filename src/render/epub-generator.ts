@@ -2,7 +2,6 @@ import path from "node:path"
 import type { Zippable } from "fflate"
 import { strToU8, zipSync } from "fflate"
 import type { EpubChapter, EpubImage } from "../core/types.ts"
-import { escapeHtml, sanitizeUrl } from "./html-utils.ts"
 
 // 使用 String.fromCharCode 拼接 HTML 实体，避免字符串被 XML 解析器转义
 const AMP = `${String.fromCharCode(38)}amp;`
@@ -52,6 +51,26 @@ export function getImageMimeType(filePath: string): string {
     ico: "image/x-icon",
   }
   return mimeMap[ext] || "image/png" // 默认按 PNG 处理
+}
+
+/**
+ * 检查 SVG 内容是否安全（XSS 防护）
+ * SVG 允许包含 <script> 和事件属性（onload 等），这些在 EPUB 中会被执行
+ * 允许：纯矢量图形（<svg>, <path>, <rect>, <circle> 等）
+ * 禁止：<script>、事件属性（on*）、javascript: URI、<foreignObject>（嵌入式 HTML）
+ * @param content SVG 文件内容（UTF-8 字符串）
+ * @returns 是否安全
+ */
+export function isSvgSafe(content: string): boolean {
+  // 禁止 <script> 标签（含大小写变种）
+  if (/<script[\s>]/i.test(content)) return false
+  // 禁止事件属性（onload / onclick / onerror 等）
+  if (/\son[a-z]+\s*=/i.test(content)) return false
+  // 禁止 javascript: URI（可出现在 href / xlink:href 中）
+  if (/javascript\s*:/i.test(content)) return false
+  // 禁止 <foreignObject>（可嵌入任意 HTML，绕过其他检查）
+  if (/<foreignobject[\s>]/i.test(content)) return false
+  return true
 }
 
 /**
@@ -289,209 +308,4 @@ function generateUuid(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8
     return v.toString(16)
   })
-}
-
-/**
- * 渲染行内 Markdown 格式（粗体、斜体、删除线、行内代码、链接、图片）
- * 注意：输入的文本应已进行 HTML 转义
- * 链接和图片 URL 会经过 sanitizeUrl 危险协议过滤（XSS 防护）
- * @param text 行内文本
- * @returns 渲染后的 HTML
- */
-function renderInline(text: string): string {
-  // 保护反斜杠转义序列（\*、\_ 等），防止被行内格式正则误解析
-  // 在 Markdown 中，\* 应渲染为字面量 *（而非 <em>）
-  const escaped: Array<{ token: string; char: string }> = []
-  const protectedText = text.replace(/\\([\\*_`{}[\]()#+\-.!|><~])/g, (_match, char: string) => {
-    const token = `\u0000ESC${escaped.length}\u0000`
-    escaped.push({ token, char })
-    return token
-  })
-
-  const html = protectedText
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt: string, url: string) => {
-      const safe = sanitizeUrl(url)
-      return safe ? `<img src="${safe}" alt="${alt}"/>` : ""
-    })
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/~~(.+?)~~/g, "<del>$1</del>")
-    .replace(/`(.+?)`/g, "<code>$1</code>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_match, label: string, url: string) => {
-      const safe = sanitizeUrl(url)
-      return safe ? `<a href="${safe}">${label}</a>` : label
-    })
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, url: string) => {
-      const safe = sanitizeUrl(url)
-      return safe ? `<a href="${safe}">${label}</a>` : label
-    })
-
-  // 恢复转义字符为字面量（\* → *）
-  return escaped.reduce((acc, { token, char }) => acc.split(token).join(char), html)
-}
-
-/**
- * 渲染嵌套列表（支持无序/有序 + 缩进嵌套）
- * 算法：
- *   1. 递归地在同一缩进级别收集列表项
- *   2. 当遇到更深缩进的下一行时，递归构建其子列表
- *   3. 子列表 HTML 嵌入到前一个 <li> 内部
- *   4. 相同列表类型（ul/ol）的连续项归入同一个 <ul>/<ol>
- * @param lines 列表行
- * @param startIndex 起始行索引
- * @returns 渲染结果和下一个处理位置
- */
-function renderNestedList(lines: string[], startIndex: number): { html: string; nextIndex: number } {
-  const baseIndent = getIndent(lines[startIndex])
-  const items: Array<{ tag: string; content: string; subList: string | null }> = []
-  let i = startIndex
-
-  while (i < lines.length) {
-    const line = lines[i]
-    const listMatch = line.match(/^\s*([-*+]|\d+\.)\s+(.+)$/)
-    if (!listMatch) break
-
-    const indent = getIndent(line)
-    if (indent < baseIndent) break // 缩进级别上升（由上层处理）
-    if (indent > baseIndent) break // 更深缩进（由上层递归处理）
-
-    const item: { tag: string; content: string; subList: string | null } = {
-      tag: isOrdered(line) ? "ol" : "ul",
-      content: listMatch[2] ?? "",
-      subList: null,
-    }
-    i++
-
-    // 检查下一行是否有更深缩进 → 递归构建子列表
-    if (i < lines.length) {
-      const nextLine = lines[i]
-      if (/^\s*([-*+]|\d+\.)\s+/.test(nextLine) && getIndent(nextLine) > baseIndent) {
-        const nested = renderNestedList(lines, i)
-        item.subList = nested.html
-        i = nested.nextIndex
-      }
-    }
-
-    items.push(item)
-  }
-
-  // 按列表类型分组生成 HTML
-  let html = ""
-  let currentTag: string | null = null
-  let buffer: typeof items = []
-
-  const flushList = () => {
-    if (!currentTag || buffer.length === 0) return
-    html += `<${currentTag}>\n`
-    for (const item of buffer) {
-      html += `<li>${renderInline(escapeHtml(item.content))}`
-      if (item.subList) {
-        html += `\n${item.subList}`
-      }
-      html += `</li>\n`
-    }
-    html += `</${currentTag}>\n`
-    buffer = []
-    currentTag = null
-  }
-
-  for (const item of items) {
-    if (item.tag !== currentTag) {
-      flushList()
-      currentTag = item.tag
-    }
-    buffer.push(item)
-  }
-  flushList()
-
-  return { html, nextIndex: i }
-}
-
-/**
- * 获取行首缩进（空格数）
- * @param line 文本行
- * @returns 缩进深度
- */
-function getIndent(line: string): number {
-  const match = line.match(/^\s*/)
-  return match ? match[0].replace(/\t/g, "  ").length : 0
-}
-
-/**
- * 判断是否为有序列表行
- * @param line 文本行
- * @returns 是否为有序列表
- */
-function isOrdered(line: string): boolean {
-  return /^\s*\d+\.\s+/.test(line)
-}
-
-/**
- * 将 Markdown 文本转换为 HTML（story-cli 内部使用）
- * 支持：粗体、斜体、删除线、行内代码、标题、引用、链接、图片、有序/无序列表（含嵌套）、表格、代码块、水平线
- * @param markdown Markdown 文本
- * @returns HTML 内容
- */
-export function mdToHtml(markdown: string | null | undefined): string {
-  if (!markdown) return ""
-
-  return String(markdown)
-    .split(/\n\n+/)
-    .map((block) => {
-      const trimmed = block.trim()
-      if (!trimmed) return ""
-
-      // 代码块
-      const codeMatch = trimmed.match(/^```[\w-]*\n([\s\S]*?)\n```$/)
-      if (codeMatch) return `<pre><code>${escapeHtml(codeMatch[1])}</code></pre>`
-
-      const lines = trimmed.split("\n")
-
-      // 表格：| 列1 | 列2 | 格式
-      if (lines.length >= 2 && lines.every((l) => l.trim().startsWith("|") && l.trim().endsWith("|"))) {
-        const tableLines = lines.map((l) => l.trim().replace(/^\|/, "").replace(/\|$/, ""))
-        const isSeparator = (row: string) => /^[\s|:-]+$/.test(row) && row.includes("-")
-
-        if (isSeparator(tableLines[1])) {
-          const headers = tableLines[0].split("|").map((c) => renderInline(escapeHtml(c.trim())))
-          const rows = tableLines
-            .slice(2)
-            .filter((r) => r.trim())
-            .map((r) => r.split("|").map((c) => renderInline(escapeHtml(c.trim()))))
-          return `<table>\n<thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>\n<tbody>${rows.map((r) => `\n<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}\n</tbody>\n</table>`
-        }
-      }
-
-      // 列表（含嵌套）
-      if (lines.some((l) => /^\s*([-*+]|\d+\.)\s+/.test(l))) {
-        // 需要检查这是否是真正的列表块（排除段落中以文本开头的行）
-        const listStart = lines.findIndex((l) => /^\s*([-*+]|\d+\.)\s+/.test(l))
-        if (listStart === 0) {
-          return renderNestedList(lines, 0).html
-        }
-      }
-
-      // 引用块
-      if (lines.every((l) => /^>\s?/.test(l))) {
-        const quoteContent = lines.map((l) => l.replace(/^>\s?/, "")).join("\n")
-        return `<blockquote>${renderInline(escapeHtml(quoteContent))}</blockquote>`
-      }
-
-      // 标题（# → h2，## → h2，###+ → h3；章节标题已在模板中单独输出 h1）
-      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/)
-      if (headingMatch) {
-        const hashes = headingMatch[1].length
-        const level = hashes <= 2 ? 2 : 3
-        return `<h${level}>${renderInline(escapeHtml(headingMatch[2]))}</h${level}>`
-      }
-
-      // 水平线
-      if (/^(-{3,}|\*{3,})$/.test(trimmed)) return "<hr/>"
-
-      // 普通段落（含 <br/> 换行）
-      // 注意：先 escapeHtml 再替换换行为 <br/>，否则 <br/> 会被转义
-      return `<p>${renderInline(escapeHtml(trimmed)).replace(/\n/g, "<br/>")}</p>`
-    })
-    .filter(Boolean)
-    .join("\n")
 }

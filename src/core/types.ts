@@ -35,6 +35,12 @@ export interface StoryConfig {
   wordCount?: string
   /** 封面图片路径（可选，EPUB 导出时使用） */
   cover?: string
+  /** 系列名称（可选，有值则归入对应系列分组） */
+  series?: string
+  /** 系列内排序键（可选，支持整数或小数，缺失时回退文件夹序号） */
+  seriesOrder?: number
+  /** 卷/册名称（可选，仅用于展示） */
+  volume?: string
 }
 
 /**
@@ -90,6 +96,12 @@ export interface StorySummary {
   summary: string
   rawWordCount: number
   lang: Language
+  /** 系列名称（有值则归入对应系列分组） */
+  series?: string
+  /** 系列内排序键（支持整数或小数） */
+  seriesOrder?: number
+  /** 卷/册名称（仅用于展示） */
+  volume?: string
 }
 
 /**

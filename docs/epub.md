@@ -97,7 +97,7 @@ dist/epub/
 
 ## 🔄 与章节拆分的关系
 
-- 如果使用 `text.md` 单文件写作，`###` 以下标题会作为 EPUB 章节
+- 如果使用 `text.md` 单文件写作，`#` 和 `##` 会触发新章节，`###` 及以上作为章节内小节（详见 [add-story.md](add-story.md#章节提取规则)）
 - 如果使用 `chapter-*.md` 分章写作，`story epub` 会自动合并后按章节导出
 
 ---
@@ -113,3 +113,6 @@ EPUB 是标准的 EPUB 3 格式：
 - 封面图片（可选）通过 `properties="cover-image"` 正确标记
 
 兼容大多数主流阅读器（Kindle、Apple Books、Kobo、微信读书等）。
+
+> 💡 **需要导出 PDF？**
+> 请参阅 [docs/export.md](export.md#📄-pdf-导出浏览器打印) ——story-cli 不内置 PDF 生成器，使用 `story export html` + 浏览器打印即可。

@@ -82,6 +82,78 @@ Concepts a user needs to understand:
 
 ---
 
+## 🧮 Fractional Indexing: Physical vs. Logical Coordinates
+
+**This is the core of story-cli's sorting design: why folder numbers never change, yet display order can be freely adjusted.**
+
+### The Problem: Additive Sorting
+
+Traditional story libraries sort by folder number (`01-` / `02-` / `03-`):
+
+```text
+01-story-A
+02-story-B
+03-story-C
+```
+
+If you want to insert a new story `story-B2` between `story-B` and `story-C`, you MUST **rename** `03-story-C → 04-story-C`. The cost of renaming:
+
+- All links to `03-story-C` (README, EPUB references, external links) break
+- Git history shows "delete + add" instead of a continuous modification
+- Renames cause merge conflicts in collaborative workflows
+
+**This is the classic dilemma of "physical coordinates": numbers are the identity of content, and reordering means breaking identity.**
+
+### Solution: Physical + Logical Coordinate Separation
+
+| Coordinate Type | Carrier                                   | Characteristic                                        |
+| --------------- | ----------------------------------------- | ----------------------------------------------------- |
+| **Physical**    | Folder name `NN-` prefix                  | Set once and never modified — the story's "ID number" |
+| **Logical**     | `series` / `seriesOrder` in `config.json` | Adjustable anytime — the story's "seat number"        |
+
+**Physical coordinates determine where files live; logical coordinates determine display order.**
+
+### Why Does `seriesOrder` Support Decimals?
+
+Suppose a series currently has order `1, 2, 3`, and you want to insert a new story between `2` and `3`:
+
+```json
+{
+  "title": "Inserted Story",
+  "series": "Three-Body",
+  "seriesOrder": 2.5
+}
+```
+
+**Root README display order becomes: `1 → 2 → 2.5 → 3`**
+
+- You do **NOT** need to modify any existing story's `seriesOrder`
+- You do **NOT** need to rename any folder
+- All existing links remain stable
+
+This is **Fractional Indexing** — borrowed from floating-point sort keys in database design. Analogies:
+
+| Scenario                   | Sorting Approach                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| Database row insertion     | `position = (prev.pos + next.pos) / 2`                                           |
+| Git commit timestamps      | Timestamps are naturally insertable (any time can be inserted)                   |
+| **story-cli series order** | `seriesOrder` numbers are never "full" (use `2.5` to insert between `2` and `3`) |
+
+### Edge Cases
+
+- **Theoretically infinite insertion**: decimals have no minimum interval — `2.5` → `2.25` → `2.125` → ... can be divided indefinitely
+- **Practical advice**: most series have 10 or fewer volumes — integers plus one decimal place are more than sufficient
+- **Failure mode**: if `seriesOrder` hits floating-point precision issues (e.g. `9.999999...`), you can renumber — this is a logical coordinate, freely adjustable with no destructive impact
+
+### Core Benefits
+
+- **Adding stories**: never reorder existing content
+- **Deleting stories**: number gaps are automatically ignored, no need to fill
+- **Reordering**: change one JSON field, don't touch folder names
+- **Git stability**: folder names never change → links never break → history stays continuous
+
+---
+
 ## 🇨🇳 Chinese-First
 
 **Designed for Chinese creators, with full English support.**
@@ -91,6 +163,47 @@ Concepts a user needs to understand:
 - Bilingual documentation (every doc has both versions)
 - Mixed-language writing (per-story `language` field)
 - Chinese-friendly filename handling (Chinese titles preserved in README display)
+
+---
+
+## 🧰 Toolbox, Not an All-in-One Suite
+
+**story-cli deliberately has no GUI, and no built-in AI.**
+
+Not because it's impossible — but because it's intentionally out of scope. Editor experiences (syntax highlighting, live preview, spell check) have been refined to perfection by VS Code / JetBrains / Neovim, and AI assistance (completion, continuation, polishing) is covered by Copilot / Cursor / Continue and similar tools. Even with ten years of effort, story-cli could never match these specialized products in their own domains.
+
+### Decoupling via the File System
+
+The only interface between your editor and the CLI is **files**:
+
+```text
+text.md        ← Write content in any editor (VS Code live preview, Copilot continuation)
+config.json    ← Edit metadata with any tool (title, type, status, series)
+story build    ← CLI handles governance & building (validation, README, EPUB)
+```
+
+- Use VS Code + Markdown Preview Enhanced for live chapter preview
+- Use GitHub Copilot / Cursor to assist with climactic paragraphs
+- Switch to JetBrains, Neovim, or any future editor — **toolchain stays seamless, data stays common**
+
+### "Integration" Is Often "Lock-in" in Disguise
+
+| Tool                      | Data model                    | Cost of switching                                                              |
+| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| Scrivener                 | Proprietary `.scriv` format   | Data can't migrate; you must keep using Scrivener                              |
+| Obsidian plugins          | Local `.md` (open)            | GUI-centric; plugin ecosystem bound to Obsidian                                |
+| Some AI writing platforms | Cloud or proprietary format   | Deeply tied to specific model APIs; toolchain collapses if the model goes away |
+| **story-cli**             | Plain files (`.md` + `.json`) | Any editor + any AI tool + any Git workflow                                    |
+
+story-cli doesn't touch AI at all: want Claude or DeepSeek? Install a plugin in your editor. Want Copilot or Cursor? Your choice. The CLI only faithfully processes the text you've written — **it never hijacks your AI workflow or editing habits**.
+
+### Unix Philosophy: Do One Thing, and Do It Well
+
+The editor handles the creation experience; the CLI handles content governance. They're decoupled through the file system. This is the classic Unix philosophy applied to creative tools — **each tool does one thing well, and together they form a complete workflow**.
+
+### Long-Term Maintainability
+
+"Glue layers" (that bind excellent infrastructure together) often outlive "full-stack solutions". As long as Markdown and JSON don't disappear, `story new` / `story epub` will keep working. VS Code will iterate, AI models will change, but your story folder structure stays stable forever — core data (files) and core logic (CLI) remain firmly in your own hands.
 
 ---
 
@@ -105,6 +218,8 @@ Story management / writing tools can be roughly grouped into several directions:
 | Universal converter   | Strong format interoperability, wide input/output                | Academic, cross-format needs  |
 | Web-fiction platform  | Editor + cloud sync + platform distribution                      | Web fiction authors           |
 | Local knowledge base  | GUI + bidirectional links + graph view + plugin ecosystem        | Note & knowledge enthusiasts  |
+| AI writing assistant  | Cloud models + continuation/polishing + platform binding         | Authors seeking inspiration   |
+| Editor + CLI combo    | Editor handles creation + CLI handles governance, file decoupled | Git users, developer-creators |
 | **story-cli**         | Git-native + zero-dependency Markdown + CLI-driven               | Git users, developer-creators |
 
 Each direction serves its own audience. story-cli doesn't replace any of them — it offers a dedicated path for people who want to manage story files directly in Git.
@@ -120,10 +235,11 @@ Each direction serves its own audience. story-cli doesn't replace any of them �
 - People telling stories bilingually (Chinese/English)
 - Those who want stories to stay traceable and portable long-term
 - Those uncomfortable with "data living on someone else's servers"
+- Those who want freedom to choose their editor, AI tools, and writing workflow
 
 ### Doesn't fit
 
-- Writing beginners who need a GUI editor
+- Those who want everything in one piece of software (editor + management + publishing)
 - Power writers needing cloud sync / real-time collaboration
 - Authors needing one-click publishing to web-fiction platforms
 - Those needing rich-media layout (illustrations, fonts, complex typesetting)

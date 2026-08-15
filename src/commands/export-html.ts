@@ -5,11 +5,11 @@ import { loadRepoConfig } from "../core/config.ts"
 import { readStoryText, resolveWordCount, scanStoryFolders } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
 import type { ValidationOverrides } from "../core/validate.ts"
-import { mdToHtml } from "../render/epub-generator.ts"
+import { formatStatus, formatType, getLocale } from "../i18n/index.ts"
 import { escapeHtml, PAGE_STYLE } from "../render/html-utils.ts"
+import { mdToHtml } from "../render/md-to-html.ts"
 import { detectCliLang } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
-import { formatStatus, formatType, getLocale } from "../utils/i18n.ts"
 
 /** 类型/状态的本地化标签映射 */
 type LabelMap = Record<string, Record<string, string>>

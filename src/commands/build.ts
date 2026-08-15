@@ -10,23 +10,15 @@ import {
   resolveWordCount,
   scanStoryFoldersAsync,
 } from "../core/scanner.ts"
-import type { BuildResult, StoryConfig, StoryData, ValidationIssue } from "../core/types.ts"
+import type { BuildResult, StoryConfig, StoryData, StorySummary, ValidationIssue } from "../core/types.ts"
 import { type ValidationOverrides, validateConfig } from "../core/validate.ts"
+import { formatStatus, formatType, getLocale, resolveLang } from "../i18n/index.ts"
 import { generateRootReadme, generateStoryReadme } from "../render/readme.ts"
-import { formatStatus, formatType, getLocale, resolveLang } from "../utils/i18n.ts"
+import { detectCliLang, detectRenames } from "../utils/cli-utils.ts"
 import { templatesDir } from "../utils/paths.ts"
 
 /** 类型/状态的本地化标签映射 */
 type LabelMap = Record<string, Record<string, string>>
-
-/**
- * 检测 CLI 输出语言：根据系统环境变量 LANG 检测，默认中文
- * @returns 语言代码（zh / en）
- */
-function detectCliLang(): string {
-  const systemLang = process.env.LANG || ""
-  return systemLang.toLowerCase().startsWith("en") ? "en" : "zh"
-}
 
 /**
  * 异步读取并校验单个故事的 config.json
@@ -258,6 +250,7 @@ function generateReadmes(rootDir: string, stories: StoryData[], cliLang = "zh"):
       typeDisplay: story.typeDisplay,
       statusDisplay: story.statusDisplay,
       backToStoryList: storyLocale.backToStoryList,
+      seriesLabel: storyLocale.seriesLabel,
       basicInfoTitle: storyLocale.basicInfoTitle,
       typeLabel: storyLocale.typeLabel,
       wordCountLabel: storyLocale.wordCountLabel,
@@ -281,19 +274,21 @@ function generateReadmes(rootDir: string, stories: StoryData[], cliLang = "zh"):
     readmeCount++
   }
 
-  generateRootReadme(
-    rootDir,
-    stories.map((s) => ({
-      folder: s.folder,
-      title: s.config.title,
-      typeDisplay: s.typeDisplay,
-      wordCount: s.wordCount,
-      statusDisplay: s.statusDisplay,
-      summary: s.config.summary || "",
-      rawWordCount: s.rawWordCount,
-      lang: s.lang,
-    })),
-  )
+  const storySummaries: Array<Omit<StorySummary, "lang"> & { lang: string }> = stories.map((s) => ({
+    folder: s.folder,
+    title: s.config.title,
+    typeDisplay: s.typeDisplay,
+    wordCount: s.wordCount,
+    statusDisplay: s.statusDisplay,
+    summary: s.config.summary || "",
+    rawWordCount: s.rawWordCount,
+    lang: s.lang,
+    series: s.config.series,
+    seriesOrder: s.config.seriesOrder,
+    volume: s.config.volume,
+  }))
+
+  generateRootReadme(rootDir, storySummaries)
   console.log(locale.generatingRoot)
 
   return readmeCount
@@ -316,6 +311,14 @@ export async function runBuild(rootDir: string, args: string[]): Promise<number>
   if (watch) {
     runWatchMode(rootDir, { validateOnly, saveCounts, cliLang })
     return 0
+  }
+
+  // 检测暂存区中是否有故事文件夹重命名（软安全网，不阻断构建）
+  const renames = detectRenames(rootDir)
+  for (const rename of renames) {
+    const [oldName, newName] = rename.split(" → ")
+    console.log(locale.renameWarning(oldName ?? "", newName ?? ""))
+    console.log(locale.renameWarningHint())
   }
 
   console.log(locale.scanning, "\n")

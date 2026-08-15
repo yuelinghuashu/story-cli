@@ -18,10 +18,25 @@
 
 ## {{{storyListTitle}}}
 
-{{{storyListHeader}}}
-{{#each storyRows}}
+{{#if hasSeries}}
+{{#each seriesGroups}}
+### {{name}}
+
+{{{../storyListHeader}}}
+{{#each stories}}
 | {{num}} | [{{title}}](./{{folder}}) | {{typeDisplay}} | {{wordCount}} | {{statusDisplay}} | {{summary}} |
 {{/each}}
+
+{{/each}}
+{{/if}}
+{{#if hasUngrouped}}
+### {{{independentStoriesTitle}}}
+
+{{{storyListHeader}}}
+{{#each ungroupedStories}}
+| {{num}} | [{{title}}](./{{folder}}) | {{typeDisplay}} | {{wordCount}} | {{statusDisplay}} | {{summary}} |
+{{/each}}
+{{/if}}
 
 {{{storyListHint}}}
 
@@ -54,8 +69,8 @@
 {{/each}}
 
 </details>
-{{/if}}
 
+{{/if}}
 <a id="license"></a>
 
 ## {{{licenseTitle}}}

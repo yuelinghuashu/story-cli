@@ -7,6 +7,8 @@ import {
   checkDuplicateNumbers,
   extractChapters,
   getSponsorImages,
+  isIgnored,
+  loadStoryIgnore,
   readStoryText,
   resolveRawWordCount,
   resolveWordCount,
@@ -45,8 +47,8 @@ test("scanStoryFolders 至少两位数字前缀目录", () => {
     "12-短文/config.json": "{}",
   })
   const folders = scanStoryFolders(dir)
-  // 字典序排序：字符串比较中 "100" < "12"（因为 "0" < "2"）
-  assert.deepStrictEqual(folders, ["01-故事", "100-小说", "12-短文"])
+  // 数值序排序：数字前缀升序（12 < 100）
+  assert.deepStrictEqual(folders, ["01-故事", "12-短文", "100-小说"])
 })
 
 test("scanStoryFolders 排除基础设施目录但不排除用户自定义目录", () => {
@@ -130,6 +132,8 @@ test("resolveRawWordCount 返回原始字符数", () => {
 test("extractChapters 提取 # 和 ## 标题及字数", () => {
   const content = `# 第一幕：种子
 
+第一幕内容。
+
 ## 一、信号
 
 第一章内容。
@@ -140,10 +144,13 @@ test("extractChapters 提取 # 和 ## 标题及字数", () => {
 
 # 第二幕：进化
 
+第二幕内容。
+
 ## 三、决战
 
 第三章内容。`
   const chapters = extractChapters(content)
+  // 所有章节都有实际内容，应全部保留
   assert.strictEqual(chapters.length, 5)
   assert.strictEqual(chapters[0].title, "第一幕：种子")
   assert.ok(chapters[0].wordCount.includes("字"))
@@ -205,6 +212,42 @@ test("splitContentByChapters 标题前的内容被忽略（保持与旧行为一
   assert.ok(sections[0].content.includes("正文。"))
 })
 
+test("extractChapters 空章节（标题后无内容）被跳过", () => {
+  // 模拟「# 书名\n\n## 第一章」的模式——标题后紧跟下一个标题
+  const content = `# 《兄与弟》
+
+## 【开场】
+
+*黑屏。*
+
+这是正文内容。
+
+## 【第一章·信】
+
+他走了七年。`
+  const chapters = extractChapters(content)
+  // 空章节《兄与弟》应被跳过，只保留有实际内容的章节
+  assert.strictEqual(chapters.length, 2)
+  assert.strictEqual(chapters[0].title, "【开场】")
+  assert.strictEqual(chapters[1].title, "【第一章·信】")
+  // 不应出现「字数待补充」
+  for (const c of chapters) {
+    assert.ok(!c.wordCount.includes("待补充"), `${c.title} 不应显示字数待补充`)
+  }
+})
+
+test("splitContentByChapters 空章节（标题后无内容）被跳过", () => {
+  const content = `# 《书名》
+
+## 第一章
+
+正文章节内容。`
+  const sections = splitContentByChapters(content)
+  assert.strictEqual(sections.length, 1)
+  assert.strictEqual(sections[0].title, "第一章")
+  assert.ok(sections[0].content.includes("正文章节内容。"))
+})
+
 test("getSponsorImages 无 assets/sponsor/ 目录时返回空数组", () => {
   const dir = setupTempDir({})
   assert.deepStrictEqual(getSponsorImages(dir), [])
@@ -238,4 +281,82 @@ test("getSponsorImages 空 sponsor 目录返回空数组", () => {
   const dir = setupTempDir({ "assets/sponsor/.gitkeep": "" })
   const images = getSponsorImages(dir)
   assert.deepStrictEqual(images, [])
+})
+
+// ---- .storyignore 测试 ----
+
+test("loadStoryIgnore 无 .storyignore 文件时返回空数组", () => {
+  const dir = setupTempDir({})
+  assert.deepStrictEqual(loadStoryIgnore(dir), [])
+})
+
+test("loadStoryIgnore 解析注释和空行", () => {
+  const dir = setupTempDir({
+    ".storyignore": `# 草稿目录
+
+_draft/
+*~
+`,
+  })
+  const rules = loadStoryIgnore(dir)
+  assert.strictEqual(rules.length, 2)
+  assert.strictEqual(rules[0].pattern, "_draft")
+  assert.strictEqual(rules[0].isDirOnly, true)
+  assert.strictEqual(rules[1].pattern, "*~")
+  assert.strictEqual(rules[1].isDirOnly, false)
+})
+
+test("loadStoryIgnore 目录规则末尾 / 被去除", () => {
+  const dir = setupTempDir({ ".storyignore": "_notes/\n" })
+  const rules = loadStoryIgnore(dir)
+  assert.strictEqual(rules.length, 1)
+  assert.strictEqual(rules[0].pattern, "_notes")
+  assert.strictEqual(rules[0].isDirOnly, true)
+})
+
+test("isIgnored 精确匹配目录名", () => {
+  const dir = setupTempDir({ ".storyignore": "_draft/\n" })
+  const rules = loadStoryIgnore(dir)
+  assert.strictEqual(isIgnored("_draft", true, rules), true)
+  // 目录规则不匹配同名文件（isDir=false）
+  assert.strictEqual(isIgnored("_draft", false, rules), false)
+  assert.strictEqual(isIgnored("01-故事", true, rules), false)
+})
+
+test("isIgnored 通配符匹配", () => {
+  const dir = setupTempDir({ ".storyignore": "*.tmp\n" })
+  const rules = loadStoryIgnore(dir)
+  assert.strictEqual(isIgnored("file.tmp", false, rules), true)
+  assert.strictEqual(isIgnored("chapter-1~", false, rules), false)
+  assert.strictEqual(isIgnored("story.md", false, rules), false)
+})
+
+test("scanStoryFolders 应用 .storyignore 排除目录", () => {
+  const dir = setupTempDir({
+    "01-故事/config.json": "{}",
+    "02-小说/config.json": "{}",
+    "_draft/config.json": "{}",
+    ".storyignore": "_draft/\n",
+  })
+  const folders = scanStoryFolders(dir)
+  assert.deepStrictEqual(folders, ["01-故事", "02-小说"])
+})
+
+test("scanStoryFolders .storyignore 不存在时行为不变", () => {
+  const dir = setupTempDir({
+    "01-故事/config.json": "{}",
+    "02-草稿/config.json": "{}",
+  })
+  const folders = scanStoryFolders(dir)
+  assert.deepStrictEqual(folders, ["01-故事", "02-草稿"])
+})
+
+test("scanStoryFolders .storyignore 支持通配符排除", () => {
+  const dir = setupTempDir({
+    "01-故事/config.json": "{}",
+    "99-番外-草稿/config.json": "{}",
+    ".storyignore": "*-草稿/\n",
+  })
+  const folders = scanStoryFolders(dir)
+  assert.deepStrictEqual(folders, ["01-故事"])
 })
