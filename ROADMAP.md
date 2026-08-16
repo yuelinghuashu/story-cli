@@ -148,7 +148,7 @@ story-cli 不穷举所有输出格式，而是通过 `--stdout` + 增强的 `--j
 - **用户侧用法**：在 `.github/workflows/build.yml` 中写入：
 
   ```yaml
-  - uses: yuelinghuashu/story-cli@action
+  - uses: yuelinghuashu/story-cli@v1
     with:
       command: "build epub" # 自动执行 build 并导出 epub
   ```
