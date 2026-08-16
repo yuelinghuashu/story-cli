@@ -1,0 +1,35 @@
+name: 'story-cli Action'
+description: 'Run story-cli commands in CI - build README, export EPUB, and more'
+author: 'yuelinghuashu'
+branding:
+  icon: 'book-open'
+  color: 'green'
+
+inputs:
+  command:
+    description: 'story-cli command to run (e.g. "build", "build epub --all")'
+    required: true
+  cli-version:
+    description: 'Version of @yuelinghuashu/story-cli to use (e.g. "latest", "1.2.3")'
+    required: false
+    default: 'latest'
+  working-directory:
+    description: 'Directory to run story-cli in (relative to workspace root)'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Run story-cli
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::🔧 Running story-cli: ${{ inputs.command }}"
+        npx --yes @yuelinghuashu/story-cli@${{ inputs.cli-version }} ${{ inputs.command }}
+        echo "::endgroup::"

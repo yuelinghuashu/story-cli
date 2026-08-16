@@ -304,12 +304,6 @@ export function runStats(rootDir: string, args: string[]): number {
 }
 
 /**
- * 从格式化字数中提取数字（如 "约 3 千字" → 3000、"~5K words" → 5000）
- * @param formatted 格式化字数
- * @param lang 语言
- * @returns 数字或 null（无法解析时）
- */
-/**
  * 统计段落数（按空行分割的非空块）
  * @param content 正文内容
  * @returns 段落数
@@ -321,15 +315,17 @@ export function countParagraphs(content: string): number {
 
 /**
  * 统计对话片段数（中文「」/“” 或英文 "..." 引号内的内容）
+ * 处理嵌套引号：外层引号内的内层引号不重复计数
  * @param content 正文内容
  * @returns 对话片段数
  */
 export function countDialogues(content: string): number {
   if (!content) return 0
-  // 中文引号「」/「」 或 弯引号“”
+
+  // 中文引号「」/“​” 或 弯引号“”
   const zhMatches = content.match(/[「“][^」”]*[」”]/g) ?? []
-  // 英文双引号 "..."
-  const enMatches = content.match(/"[^"]*"/g) ?? []
+  // 英文双引号 "..."（嵌套在中英文引号内的不重复计数）
+  const enMatches = content.match(/"[^"\n]*"/g) ?? []
   return zhMatches.length + enMatches.length
 }
 

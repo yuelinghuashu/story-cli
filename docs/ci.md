@@ -63,7 +63,7 @@ jobs:
 
 1. **类型安全** — `tsc --noEmit` 确保 TypeScript 类型正确
 2. **代码规范** — Biome 统一 lint + format，保证代码风格一致
-3. **质量保障** — 237 项测试覆盖扫描、校验、渲染、EPUB、CLI 等核心逻辑，防止回归
+3. **质量保障** — 418 项测试覆盖扫描、校验、渲染、EPUB、CLI、MCP 协议、GitHub Action 结构等，防止回归
 
 ---
 
@@ -71,15 +71,19 @@ jobs:
 
 ### 在故事仓库中使用 story-cli
 
-story-cli 的源码仓库**不是故事仓库**，因此 CI 中不会运行 `story build`。如果要在你的**故事仓库**中集成 CI，可参考：
+story-cli 的源码仓库**不是故事仓库**，因此 CI 中不会运行 `story build`。如果要在你的**故事仓库**中集成 CI，推荐使用 **story-cli Action**：
 
 ```yaml
-- name: Validate configs
-  run: node dist/bin/index.js build --validate-only
-
-- name: Build READMEs
-  run: node dist/bin/index.js build
+- uses: actions/checkout@v4
+- name: Build README
+  uses: yuelinghuashu/story-cli@v1
+  with:
+    command: "build"
 ```
+
+**输入参数：** `command`（必填）、`cli-version`（默认 latest）、`working-directory`（默认 `.`）。
+
+备选：直接运行 npm 包 `npx --yes @yuelinghuashu/story-cli build --validate-only`
 
 ### 多分支构建
 

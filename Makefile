@@ -3,7 +3,7 @@
 # 使用 make help 查看所有可用命令
 # ══════════════════════════════════════════════════════
 
-.PHONY: help build test typecheck lint lint-fix format demo
+.PHONY: help build test typecheck lint lint-fix format demo verify
 
 ## 📖 显示所有可用命令
 help:
@@ -37,6 +37,10 @@ format:
 ## 🎬 生成示例故事仓库（开发验证用）
 demo:
 	node bin/index.ts demo
+
+## ✅ 一键验证（typecheck + lint + test + build）
+verify:
+	pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 ## 📊 写作质量分析（依赖 jq，展示章节字数/段落/对话趋势）
 analyze:

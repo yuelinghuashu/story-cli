@@ -69,7 +69,7 @@ export function createStoryFromJson(
     title: story.title.trim(),
     type: story.type || "original",
     status: story.status || "ongoing",
-    isMultiChapter: story.chapters.length > 1,
+    isMultiChapter: story.chapters?.length > 1,
     language: story.language === "en" ? "en" : "zh",
     summary: story.summary?.trim() || "",
     created: story.created || new Date().toISOString().slice(0, 10),

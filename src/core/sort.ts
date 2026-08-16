@@ -83,9 +83,13 @@ export function groupAndSortStories<T extends SortableStory>(stories: T[]): Seri
   }
 
   // 3. 组间排序：按组内最小文件夹序号升序，组名作为二级键保证确定性
+  // 用 reduce 替代 Math.min(...array) 展开，避免超大数据组时栈溢出
+  const minFolderNumber = (stories: SortableStory[]): number =>
+    stories.reduce((min, s) => Math.min(min, getFolderNumber(s.folder)), Number.MAX_SAFE_INTEGER)
+
   const sortedGroups = [...groups.entries()].sort((a, b) => {
-    const minA = Math.min(...a[1].map((s) => getFolderNumber(s.folder)))
-    const minB = Math.min(...b[1].map((s) => getFolderNumber(s.folder)))
+    const minA = minFolderNumber(a[1])
+    const minB = minFolderNumber(b[1])
     return minA - minB || a[0].localeCompare(b[0])
   })
 

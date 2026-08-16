@@ -5,10 +5,9 @@
 
 import fs from "node:fs"
 import path from "node:path"
-import { getLocale, resolveLang } from "../i18n/index.ts"
-import { detectCliLang } from "../utils/cli-utils.ts"
-import { detectEncodingIssue, encodingWarning } from "../utils/encoding.ts"
+import { resolveLang } from "../i18n/index.ts"
 import { ErrorCode, StoryError } from "../utils/errors.ts"
+import { readJsonFileSync } from "../utils/json-utils.ts"
 import type { Language, StoryConfig } from "./types.ts"
 import { type ValidationOverrides, validateConfig } from "./validate.ts"
 
@@ -32,10 +31,7 @@ export function loadStoryConfig(
 
   let rawConfig: Record<string, unknown>
   try {
-    const buffer = fs.readFileSync(configPath)
-    const issue = detectEncodingIssue(configPath, buffer)
-    if (issue) console.warn(encodingWarning(issue, getLocale(detectCliLang())))
-    rawConfig = JSON.parse(new TextDecoder("utf-8").decode(buffer)) as Record<string, unknown>
+    rawConfig = readJsonFileSync(configPath)
   } catch (e) {
     throw new StoryError(`config.json parse failed: ${folder} - ${(e as Error).message}`, ErrorCode.CONFIG_PARSE, {
       folder,

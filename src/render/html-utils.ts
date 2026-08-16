@@ -22,10 +22,13 @@ export function escapeHtml(text: unknown): string {
   return String(text).replace(/&/g, AMP).replace(/</g, LT).replace(/>/g, GT).replace(/"/g, QUOT).replace(/'/g, APOS)
 }
 
+/** 允许的 data URI 图片类型（白名单） */
+const ALLOWED_DATA_IMAGE_TYPES = /^data:image\/(png|jpe?g|gif|webp|bmp);/i
+
 /**
  * 过滤危险 URL 协议（XSS 防护）
- * 允许：http(s)、mailto、相对路径、data:image/* 图片
- * 禁止：javascript:、vbscript:、data:text/html 等
+ * 允许：http(s)、mailto、相对路径、安全的 data:image/* 图片
+ * 禁止：javascript:、vbscript:、data:image/svg+xml（可嵌入脚本）、data:text/html 等
  * @param url 原始 URL
  * @returns 安全 URL；危险 URL 返回 null
  */
@@ -40,6 +43,8 @@ export function sanitizeUrl(url: string): string | null {
 
   // 过滤危险协议
   if (/^(javascript|vbscript|data:text\/html)/i.test(trimmed)) return null
+  // data: URI 仅允许白名单图片类型（SVG 可嵌入脚本/事件属性，必须拒绝）
+  if (/^data:/i.test(trimmed) && !ALLOWED_DATA_IMAGE_TYPES.test(trimmed)) return null
   return trimmed
 }
 
@@ -70,13 +75,11 @@ export const PAGE_STYLE = `
 `
 
 /**
- * 读取故事标题（失败则回退到文件夹名）
- * 供 export-html.ts 使用
+ * 读取故事 config.json 中的 title 字段
  * @param folderPath 故事文件夹路径
- * @param folder 故事文件夹名
- * @returns 故事标题
+ * @returns title 字符串（读取失败或缺失时返回空字符串）
  */
-export function readStoryTitle(folderPath: string, folder: string): string {
+export function readConfigTitle(folderPath: string): string {
   try {
     const configPath = path.join(folderPath, "config.json")
     if (fs.existsSync(configPath)) {
@@ -88,5 +91,5 @@ export function readStoryTitle(folderPath: string, folder: string): string {
   } catch {
     // 忽略配置读取失败
   }
-  return folder
+  return ""
 }

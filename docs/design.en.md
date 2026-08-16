@@ -225,11 +225,80 @@ make epub                      # Export all EPUBs
 
 **Division of responsibilities**:
 
-| Layer            | Tool        | Responsibility                         | Example                                |
-| ---------------- | ----------- | -------------------------------------- | -------------------------------------- |
-| Workflow         | `Makefile`  | Combine multiple steps, handle deps    | `make push` = build + commit + push    |
-| Atomic ability   | `story` CLI | Single step, do one thing well         | `story build` / `story stats`          |
-| Domain logic     | `src/`      | Scanning / validation / rendering      | `scanner.ts` / `validate.ts`           |
+| Layer          | Tool        | Responsibility                      | Example                             |
+| -------------- | ----------- | ----------------------------------- | ----------------------------------- |
+| Workflow       | `Makefile`  | Combine multiple steps, handle deps | `make push` = build + commit + push |
+| Atomic ability | `story` CLI | Single step, do one thing well      | `story build` / `story stats`       |
+| Domain logic   | `src/`      | Scanning / validation / rendering   | `scanner.ts` / `validate.ts`        |
+
+---
+
+## ⚡ Token Economics: Content Infrastructure Designed for AI Consumption
+
+**story-cli is not just a content governance tool — it's content infrastructure optimized at the Token level for AI consumption.**
+
+The core bottleneck in the AI era is Token cost. Traditional approaches either stuff the full text into context (quickly blowing out the window) or rely on RAG retrieval (high vector-store maintenance costs, unstable results). story-cli slices content at the **file-system level** — using directory conventions, chapter segmentation, and structured metadata so AI can fetch data precisely and on-demand, like querying a database.
+
+### One Principle Across All Designs
+
+> **AI only thinks; the CLI provides the context it needs at the lowest possible cost.**
+
+### Four Token-Optimized Design Patterns
+
+#### 1. `scan_stories` Compact-by-Default Output (80-95% savings for directory browsing)
+
+When browsing a library, AI usually only needs to know "what stories exist, roughly their status." The default returns compact fields:
+
+```json
+{
+  "folder": "01-story-A",
+  "title": "story-A",
+  "type": "original",
+  "status": "ongoing",
+  "lang": "zh",
+  "wordCount": "~120K chars"
+}
+```
+
+Instead of full metadata + full content. In a library of 1,000 stories, this can mean **hundreds of thousands of Tokens vs. tens of thousands**.
+
+#### 2. `read_chapter` + `tailLength` Truncation (95%+ savings for continuation)
+
+The core need for AI continuation is "know what the end of the last chapter was about," not loading tens of thousands of words. `tailLength=2000` lets AI read only the last 2,000 characters to resume precisely:
+
+```
+❌ Load entire text.md (assume 50K words → ~50K Tokens)
+✅ Read only last 2,000 chars → ~2K Tokens
+```
+
+#### 3. `chapterIndex` On-Demand Loading (80-90% savings for targeted edits)
+
+When AI wants to modify chapter 2, it doesn't need to load all chapters. Precise targeting avoids Token waste on irrelevant content.
+
+#### 4. `--stdout` + Structured JSON (No Exploration, Fetch Everything in One Shot)
+
+Traditional approaches make AI explore the file system with `cat` / `find`, burning Tokens on every step to understand directory structure. story-cli outputs structured data directly:
+
+```
+story stats --json     → AI directly gets total words/chapters/series progress
+story export json      → AI directly gets the complete structured story library
+story export md        → AI directly gets merged Markdown
+```
+
+### Token Cost Comparison
+
+| Scenario                                 | Traditional (without story-cli)              | story-cli                          | Token Savings |
+| :--------------------------------------- | :------------------------------------------- | :--------------------------------- | :------------ |
+| AI browses a 100-story library           | `cat */config.json` + read file by file      | `scan_stories` (compact mode)      | **~80-95%**   |
+| AI continues a long novel's next chapter | Reads entire text.md                         | `read_chapter` + `tailLength=2000` | **~95%+**     |
+| AI edits chapter 5                       | Reads all chapters                           | `read_chapter` + `chapterIndex=4`  | **~80-90%**   |
+| AI reports writing progress              | Counts lines/words file by file              | `stats --json` one call            | **~99%**      |
+| AI understands project structure         | Multiple `ls` + `cat` + guessing conventions | `init` template + spec docs        | **~90%**      |
+| AI merges/concatenates stories           | Manual `cat` + handling separators           | `export md --stdout`               | **~70-80%**   |
+
+> These are estimated magnitudes for typical scenarios; actual savings depend on content complexity and context window size.
+
+**In long-form creation scenarios (5,000–10,000 words per chapter), the cumulative savings from `tailLength` + `chapterIndex` can exceed 90% of Token consumption.**
 
 ---
 

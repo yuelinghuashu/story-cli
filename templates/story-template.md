@@ -1,10 +1,4 @@
-{{#if (eq lang "en")}}
-# {{title}}
-
-{{else}}
-# 《{{title}}》
-
-{{/if}}
+# {{#if (eq lang "en")}}{{title}}{{else}}《{{title}}》{{/if}}
 > [{{backToStoryList}}](../README.md)
 
 {{#if series}}
@@ -36,10 +30,8 @@
 {{/if}}
 ## {{licenseTitle}}
 
-{{#if (eq type "original")}}
 {{licenseText}}
-{{else}}
-{{licenseText}}
+{{#if (eq type "original")}}{{else}}
 
 {{licenseNote}}
 {{/if}}

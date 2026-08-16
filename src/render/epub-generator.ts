@@ -3,13 +3,14 @@ import path from "node:path"
 import type { Zippable } from "fflate"
 import { strToU8, zipSync } from "fflate"
 import type { EpubChapter, EpubImage } from "../core/types.ts"
+import { escapeHtml } from "./html-utils.ts"
 
-// 使用 String.fromCharCode 拼接 HTML 实体，避免字符串被 XML 解析器转义
-const AMP = `${String.fromCharCode(38)}amp;`
-const LT = `${String.fromCharCode(38)}lt;`
-const GT = `${String.fromCharCode(38)}gt;`
-const QUOT = `${String.fromCharCode(38)}quot;`
-const APOS = `${String.fromCharCode(38)}apos;`
+/**
+ * XML/HTML 转义共用同一套规则（& < > " '），复用 html-utils 的 escapeHtml
+ * @param text 文本
+ * @returns 转义后的文本
+ */
+const escapeXml = escapeHtml
 
 /**
  * 生成最小合规的 EPUB 3 文件
@@ -24,15 +25,6 @@ const APOS = `${String.fromCharCode(38)}apos;`
  *     ├── chapterN.xhtml          ← 各章节
  *     └── images/                 ← 故事中引用的图片
  */
-
-/**
- * 转义 XML 特殊字符
- * @param text 文本
- * @returns 转义后的文本
- */
-function escapeXml(text: unknown): string {
-  return String(text).replace(/&/g, AMP).replace(/</g, LT).replace(/>/g, GT).replace(/"/g, QUOT).replace(/'/g, APOS)
-}
 
 /**
  * 根据文件扩展名推断 MIME 类型（用于 EPUB manifest）

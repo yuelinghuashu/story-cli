@@ -7,6 +7,7 @@ import type { StoryData, StorySummary } from "../core/types.ts"
 import { getLocale } from "../i18n/index.ts"
 import { generateRootReadme, generateStoryReadme } from "../render/readme.ts"
 import { detectCliLang, detectRenames } from "../utils/cli-utils.ts"
+import { formatError } from "../utils/errors.ts"
 import { templatesDir } from "../utils/paths.ts"
 
 /**
@@ -15,11 +16,18 @@ import { templatesDir } from "../utils/paths.ts"
  * @param stories 故事列表
  * @param cliLang CLI 输出语言
  * @param onlyFolder 仅重建指定故事的 README（watch 增量模式），其余故事 README 保持不变
+ * @param logger 日志输出函数（默认 console.log；MCP Server 可传入收集器避免拦截全局）
  * @returns 生成的故事 README 数量
  */
-export function generateReadmes(rootDir: string, stories: StoryData[], cliLang = "zh", onlyFolder?: string): number {
+export function generateReadmes(
+  rootDir: string,
+  stories: StoryData[],
+  cliLang = "zh",
+  onlyFolder?: string,
+  logger: (msg: string) => void = (msg) => console.log(msg),
+): number {
   const locale = getLocale(cliLang)
-  console.log(`\n${locale.generatingReadmes}`)
+  logger(`\n${locale.generatingReadmes}`)
   const templatePath = path.join(templatesDir, "story-template.md")
   let readmeCount = 0
 
@@ -59,7 +67,7 @@ export function generateReadmes(rootDir: string, stories: StoryData[], cliLang =
     }
 
     generateStoryReadme(folderPath, templatePath, renderData)
-    console.log(locale.storyReadmeDone(folder))
+    logger(locale.storyReadmeDone(folder))
     readmeCount++
   }
 
@@ -78,7 +86,7 @@ export function generateReadmes(rootDir: string, stories: StoryData[], cliLang =
   }))
 
   generateRootReadme(rootDir, storySummaries)
-  console.log(locale.generatingRoot)
+  logger(locale.generatingRoot)
 
   return readmeCount
 }
@@ -229,6 +237,12 @@ function runWatchMode(rootDir: string, options: { validateOnly: boolean; saveCou
         console.log(`${locale.watchDone(stories.length)}`)
       } else {
         console.log(`${locale.validateOnly(stories.length)}`)
+      }
+    } catch (e) {
+      // 捕获未处理的异常（如 I/O 错误），打印后继续监听而不是崩溃
+      console.error(formatError(e))
+      if (process.env.DEBUG && e instanceof Error && e.stack) {
+        console.error(e.stack)
       }
     } finally {
       rebuilding = false

@@ -4,6 +4,7 @@ import { parseArgs } from "../args.ts"
 import { loadRepoConfig } from "../core/config.ts"
 import { getNextNumber } from "../core/sequence.ts"
 import type { Language } from "../core/types.ts"
+import { validateConfig } from "../core/validate.ts"
 
 /**
  * 创建新故事
@@ -78,6 +79,13 @@ export async function createNewStory(rootDir: string, args: string[]): Promise<v
     }
     config.originalWork = options.author
     config.originalAuthor = options.creator
+  }
+
+  // 使用共享 validateConfig 校验配置（与 import-json 行为一致）
+  const validation = validateConfig(config, title, { types: validTypes })
+  if (!validation.valid) {
+    const issues = validation.issues.map((i) => i.message).join("; ")
+    throw new Error(`Config validation failed: ${issues}`)
   }
 
   fs.writeFileSync(path.join(folderPath, "config.json"), `${JSON.stringify(config, null, 2)}\n`, "utf-8")

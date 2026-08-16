@@ -1042,3 +1042,44 @@ test("story build 检测到文件夹重命名时输出警示", () => {
   assert.ok(stdout.includes("03-故事B"), "警示应包含新文件夹名")
   assert.ok(stdout.includes("series / seriesOrder"), "警示应提示使用系列字段")
 })
+
+// ─── 边界情况测试：epub / export / init ─────────────────────
+
+test("story epub 无参数无 --all 时报错", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  createStory(dir, "01-测试故事", createStoryConfig("测试故事"))
+
+  const result = spawnSync(process.execPath, [binPath, "epub"], {
+    cwd: dir,
+    encoding: "utf-8",
+  })
+  assert.notStrictEqual(result.status, 0, "无参数的 epub 应返回非零退出码")
+})
+
+test("story epub 不存在的标题返回错误", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  createStory(dir, "01-测试故事", createStoryConfig("测试故事"))
+
+  const result = spawnSync(process.execPath, [binPath, "epub", "不存在的故事"], {
+    cwd: dir,
+    encoding: "utf-8",
+  })
+  assert.notStrictEqual(result.status, 0, "不存在的标题应返回非零退出码")
+})
+
+test("story export html 空故事列表生成空站点", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  runCli(["export", "html"], dir)
+
+  const indexHtml = fs.readFileSync(path.join(dir, "dist", "html", "index.html"), "utf-8")
+  assert.ok(indexHtml.includes("暂无故事") || indexHtml.includes("No stories yet"), "应显示暂无故事")
+})
+
+test("story init --template=invalid 回退默认并警告", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const stdout = runCli(["init", "--template=invalid"], dir)
+
+  assert.ok(fs.existsSync(path.join(dir, "config.original.json")), "应生成 config.original.json")
+  assert.ok(fs.existsSync(path.join(dir, "config.fanfic.json")), "应生成 config.fanfic.json")
+  assert.ok(stdout.includes("未知模板类型"), "应输出未知模板警告")
+})

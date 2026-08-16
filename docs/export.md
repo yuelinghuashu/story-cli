@@ -26,6 +26,7 @@ story export html
 生成静态站点：`dist/html/index.html` + 每个故事的独立 `.html` 页面。
 
 - **自带打印样式**（`@media print`）：隐藏导航元素、标题孤行控制、代码块/表格不跨页
+- **支持 Markdown 子集渲染**：粗体/斜体/标题/列表/表格/代码块/引用等，完整语法见 [specification.md §3.3](specification.md#33-支持的-markdown-语法)
 - **可浏览器打印为 PDF**：打开 `index.html` → `Ctrl+P` → 另存为 PDF
 - 自定义输出目录：`story export html --output=dist/custom`
 

@@ -39,6 +39,10 @@ dist/epub/
 
 ## 📝 Supported Markdown Syntax
 
+Story bodies use Markdown format, supporting a **common CommonMark subset** (bold, italic, strikethrough, inline code, headings, blockquotes, links, images, ordered/unordered lists, tables, code blocks, horizontal rules, backslash escapes).
+
+> 💡 See [specification.en.md §3.3](specification.en.md#33-supported-markdown-syntax) for the complete syntax list and unsupported features.
+
 | Syntax          | Example                    | Notes                       |
 | --------------- | -------------------------- | --------------------------- |
 | Bold            | `**text**`                 |                             |

@@ -9,7 +9,7 @@ LANG ?= zh
 MESSAGE ?= "chore: update stories"
 FORMAT ?= epub
 
-.PHONY: help init new build commit push epub export import stats clean
+.PHONY: help init new build commit push epub export import stats clean verify
 
 ## 📖 显示所有可用命令
 help:
@@ -67,3 +67,6 @@ stats:
 ## 🧹 清理构建产物
 clean:
 	rm -rf dist/
+## ✅ 一键验证（校验配置 + 构建）
+verify:
+	story build --validate-only && story build

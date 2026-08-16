@@ -63,7 +63,7 @@ jobs:
 
 1. **Type safety** — `tsc --noEmit` ensures TypeScript types are correct
 2. **Code style** — Biome enforces consistent lint + format
-3. **Quality assurance** — 237 tests cover scanning, validation, rendering, EPUB, CLI, and more, preventing regressions
+3. **Quality assurance** — 418 tests cover scanning, validation, rendering, EPUB, CLI, MCP protocol, GitHub Action structure, and more, preventing regressions
 
 ---
 
@@ -71,15 +71,19 @@ jobs:
 
 ### Using story-cli in a story repository
 
-The story-cli source repository is **not a story repository**, so `story build` is not run in its CI. To integrate CI in your **story repository**, use:
+The story-cli source repository is **not a story repository**, so `story build` is not run in its CI. To integrate CI in your **story repository**, the recommended way is to use the **story-cli Action**:
 
 ```yaml
-- name: Validate configs
-  run: node dist/bin/index.js build --validate-only
-
-- name: Build READMEs
-  run: node dist/bin/index.js build
+- uses: actions/checkout@v4
+- name: Build README
+  uses: yuelinghuashu/story-cli@v1
+  with:
+    command: "build"
 ```
+
+**Inputs:** `command` (required), `cli-version` (default `latest`), `working-directory` (default `.`).
+
+Alternative: run the published npm package directly with `npx --yes @yuelinghuashu/story-cli build --validate-only`
 
 ### Multi-branch builds
 

@@ -6,18 +6,31 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **`story export md --stdout`**: Markdown export supports stdout (pipe-friendly), multiple stories joined with `<!-- story-separator -->`
-- **`story export txt --stdout`**: text export supports stdout (pipe-friendly), each story prefixed with a title line, multiple stories joined with separator
+- **MCP Server**: AI clients (Claude Desktop / Cursor) can read and write your content library directly. Exposes 8 tools covering the full "browse → read → write → validate → build → stats" loop; built-in Token optimizations (compact output / on-demand loading / tail truncation)
+- **General-purpose content platform**: `story init` supports three preset templates (story / knowledge / tech), covering fiction, knowledge base, and tech docs scenarios
+- **`--stdout` pipeline export**: `export md / txt / json` support stdout, composable with external tools (yq / jq / pandoc)
+- **`stats --json` enhanced**: each story now includes chapter/paragraph/dialogue details, feeding `make analyze`
+- **GitHub Action**: zero-config CI entry, one-click "Push → Build → Release" pipeline
+- **Makefile verify target**: one-command validation (typecheck + lint + test + build)
 
 ### Improved
 
-- **Toolchain composition**: `docs/export.md` gains a "Toolchain Composition" section with pipe examples using yq / jq / pandoc / wkhtmltopdf
-- **Help output updated**: `story help` documents `export md/txt/json --stdout` pipe-friendly usage
+- **Markdown renderer refactored**: nested formatting, URL parenthesis balancing, list indentation continuation, lists inside blockquotes; 20+ new boundary tests
+- **Shared module extraction**: `loader` / `sequence` / `exporter` / `epub-assets` / `json-utils` eliminate duplicated code
+- **`--save-counts` batch writes**: config writes switch from serial IO to parallel batch for 1000+ story repos
+- **Watch mode**: exception recovery without crashing, auto-listens to newly created story directories
+- **MCP `generateReadmes` supports injectable logger**: removes the fragile global `console.log` interception approach
+
+### Fixed
+
+- **XSS vulnerability**: `sanitizeUrl` now uses a data URI whitelist
+- **URL double-escaping**: Markdown link rendering escapes capture groups individually
+- **Shell injection risk**: `execSync` → `execFileSync`
 
 ### Tests
 
-- Added `--stdout` tests: `export md --stdout` (separator/no disk writes), `export txt --stdout` (title line/separator/no disk writes)
-- 273 tests run, 270 pass (+2)
+- Added boundary tests: Markdown rendering (nested / URL / encoding safety), MCP protocol/tools, `--stdout` pipeline, `sanitizeFileName` / `extractNumericWordCount` / template cache
+- 423 tests run, 420 pass (3 GBK tests skipped on small-ICU Node builds)
 
 <details>
 <summary>## [1.2.0] - 2026-08-15</summary>

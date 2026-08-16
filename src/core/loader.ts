@@ -7,8 +7,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { formatStatus, formatType, getLocale, resolveLang } from "../i18n/index.ts"
-import { detectCliLang } from "../utils/cli-utils.ts"
-import { detectEncodingIssue, encodingWarning } from "../utils/encoding.ts"
+import { readJsonFileAsync } from "../utils/json-utils.ts"
 import { loadRepoConfigAsync } from "./config.ts"
 import {
   extractChaptersLocalized,
@@ -33,12 +32,9 @@ export async function loadStoryConfigAsync(
 ): Promise<{ config: StoryConfig | null; issues: ValidationIssue[] }> {
   const configPath = path.join(folderPath, "config.json")
 
-  let rawText: string
+  let rawConfig: Record<string, unknown>
   try {
-    const buffer = await fs.promises.readFile(configPath)
-    const issue = detectEncodingIssue(configPath, buffer)
-    if (issue) console.warn(encodingWarning(issue, getLocale(detectCliLang())))
-    rawText = new TextDecoder("utf-8").decode(buffer)
+    rawConfig = await readJsonFileAsync(configPath)
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code
     if (code === "ENOENT") {
@@ -54,22 +50,6 @@ export async function loadStoryConfigAsync(
           code: "parse",
           field: "config.json",
           message: `${folder}: config.json read failed - ${(e as Error).message}`,
-        },
-      ],
-    }
-  }
-
-  let rawConfig: Record<string, unknown>
-  try {
-    rawConfig = JSON.parse(rawText) as Record<string, unknown>
-  } catch (e) {
-    return {
-      config: null,
-      issues: [
-        {
-          code: "parse",
-          field: "config.json",
-          message: `${folder}: config.json parse failed - ${(e as Error).message}`,
         },
       ],
     }
@@ -94,7 +74,7 @@ export async function loadStoryContentAsync(
     warnings.push(locale.mergedWarning(path.basename(folderPath)))
     if (!validateOnly) {
       await fs.promises.writeFile(path.join(folderPath, "text.md"), content, "utf-8")
-      console.log(locale.generatedText(path.basename(folderPath)))
+      console.error(locale.generatedText(path.basename(folderPath)))
     }
   }
 
@@ -139,6 +119,9 @@ export async function loadStories(
     warnings.push(locale.duplicateNumberWarning(num))
   }
 
+  // saveCounts 模式：收集需要更新字数的配置文件路径，批量并行写入
+  const pendingWrites: Array<{ folder: string; path: string; content: string }> = []
+
   const loadResults = await Promise.all(
     folders.map(async (folder): Promise<StoryLoadResult> => {
       const folderPath = path.join(rootDir, folder)
@@ -150,15 +133,15 @@ export async function loadStories(
       const story = buildStoryData(folder, config, content, typeLabels, statusLabels)
 
       if (!config.wordCount) {
-        console.log(locale.autoWordCount(folder, story.wordCount, saveCounts))
+        console.error(locale.autoWordCount(folder, story.wordCount, saveCounts))
       }
 
       if (saveCounts && story.wordCount !== config.wordCount) {
-        await fs.promises.writeFile(
-          path.join(folderPath, "config.json"),
-          `${JSON.stringify({ ...config, wordCount: story.wordCount }, null, 2)}\n`,
-          "utf-8",
-        )
+        pendingWrites.push({
+          folder,
+          path: path.join(folderPath, "config.json"),
+          content: `${JSON.stringify({ ...config, wordCount: story.wordCount }, null, 2)}\n`,
+        })
       }
 
       return { story, issues: [], contentWarnings }
@@ -169,6 +152,11 @@ export async function loadStories(
     issues.push(...result.issues)
     warnings.push(...result.contentWarnings)
     if (result.story) stories.push(result.story)
+  }
+
+  // 批量并行写入所有需要更新的 config.json（避免逐文件 await 串行 IO）
+  if (pendingWrites.length > 0) {
+    await Promise.all(pendingWrites.map((w) => fs.promises.writeFile(w.path, w.content, "utf-8")))
   }
 
   return { stories, issues, warnings }

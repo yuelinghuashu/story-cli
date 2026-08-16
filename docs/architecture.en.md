@@ -334,3 +334,34 @@ class StoryError extends Error {
 - Each core module has an independent test file
 - CLI entry points are integration-tested via `execFileSync` running real commands
 - Key behavior coverage: scanning, validation, rendering, word counting, i18n, README generation, EPUB export, CLI commands
+
+### 📊 Performance Benchmark
+
+Measured with `bench/generate.ts` (creates the repo) + `bench/bench.ts` (runs timings):
+
+**Benchmark repo size** (1000 stories):
+
+| Dimension         | Value                               |
+| ----------------- | ----------------------------------- |
+| Stories           | 1,000                               |
+| Total chapters    | ~6,000                              |
+| Stats word count  | ~42,000 words                       |
+| Source files size | ~0.7 MB (excluding exports)         |
+| Total files       | ~5,000                              |
+| Per-story average | text.md ~828 B + config.json ~618 B |
+
+**Results** (on current dev machine):
+
+| Operation               | Time    |
+| ----------------------- | ------- |
+| `build --validate-only` | ~300 ms |
+| `build` (full)          | ~471 ms |
+| `export json`           | ~198 ms |
+| `export md`             | ~222 ms |
+| `epub --all`            | ~863 ms |
+
+**Watch incremental rebuild**: single-story change detect + rebuild ≈ **304 ms** (includes 300ms debounce; actual rebuild ~4ms).
+
+> ⚠️ Performance depends on hardware; these are reference values from the current dev machine.
+>
+> 💡 Reproduce: `node bench/generate.ts 1000 <dir>` + `node bench/bench.ts <dir>`

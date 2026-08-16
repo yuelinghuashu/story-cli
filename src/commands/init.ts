@@ -25,6 +25,24 @@ const SCAFFOLD_FILES: Array<{
   { template: "scaffold/CHANGELOG.md", target: "CHANGELOG.md", onlyFull: true, replaceDate: true },
 ]
 
+/** 支持的模板类型 */
+export type InitTemplate = "story" | "knowledge" | "tech"
+
+/** 预设模板配置 */
+interface TemplateConfig {
+  /** 显示名称 */
+  label: string
+  /** 是否生成故事专属模板文件 */
+  hasStoryConfigs: boolean
+}
+
+/** 可选模板映射 */
+const TEMPLATE_MAP: Record<InitTemplate, TemplateConfig> = {
+  story: { label: "小说模式", hasStoryConfigs: true },
+  knowledge: { label: "知识库模式", hasStoryConfigs: false },
+  tech: { label: "技术文档模式", hasStoryConfigs: false },
+}
+
 /**
  * 获取当天日期（YYYY-MM-DD）
  * @returns 当天日期字符串
@@ -48,43 +66,59 @@ function readTemplate(relPath: string, replaceDate = false): string {
 }
 
 /**
- * 初始化一个全新的故事仓库
+ * 初始化一个全新的内容仓库
  * 创建模板文件与约定的目录结构（assets/、assets/sponsor/）
  * 已存在的文件不会被覆盖
  *
  * 支持 --full：额外生成 LICENSE、docs/add-story.md、CHANGELOG.md
+ * 支持 --template=story|knowledge|tech：选择不同的内容模板（默认 story）
  *
  * @param rootDir 目标目录
- * @param args CLI 参数（--full 可选）
+ * @param args CLI 参数（--full / --template 可选）
  */
 export function initProject(rootDir: string, args: string[] = []): void {
   const { options } = parseArgs(args)
   const isFull = !!options.full
 
-  console.log("🚀 Initializing story repository...")
+  // 解析模板类型（默认 story，未知类型回退默认并警告）
+  const rawTemplate = typeof options.template === "string" ? options.template : "story"
+  const template = TEMPLATE_MAP[rawTemplate as InitTemplate]
+  if (!template) {
+    console.warn(
+      `⚠️ 未知模板类型 "${rawTemplate}"，已回退到默认故事模式。可选：${Object.keys(TEMPLATE_MAP).join(" / ")}`,
+    )
+  }
+  const activeTemplate: InitTemplate = (template ? rawTemplate : "story") as InitTemplate
+
+  console.log(`🚀 Initializing content repository (${TEMPLATE_MAP[activeTemplate].label})...`)
 
   // 复制模板配置，将 created 占位符替换为当天日期
   const today = getToday()
   const replaceCreated = (json: string): string => json.replace(/"created"\s*:\s*""/, `"created": "${today}"`)
 
-  // 需要生成的文件列表：路径 → 内容（null 表示直接复制模板文件）
-  const filesToWrite: Array<{ relPath: string; content: string | null }> = [
-    {
-      relPath: "config.original.json",
-      content: replaceCreated(readTemplate("config.original.json")),
-    },
-    {
-      relPath: "config.fanfic.json",
-      content: replaceCreated(readTemplate("config.fanfic.json")),
-    },
+  // 需要生成的文件列表：路径 → 内容
+  const filesToWrite: Array<{ relPath: string; content: string }> = []
+
+  // 故事模式：额外生成 config.original.json / config.fanfic.json
+  if (TEMPLATE_MAP[activeTemplate].hasStoryConfigs) {
+    filesToWrite.push(
+      { relPath: "config.original.json", content: replaceCreated(readTemplate("config.original.json")) },
+      { relPath: "config.fanfic.json", content: replaceCreated(readTemplate("config.fanfic.json")) },
+    )
+  }
+
+  // 按模板类型选择 story.config.json
+  const repoConfigTemplate = activeTemplate === "story" ? "story.config.json" : `${activeTemplate}/story.config.json`
+
+  filesToWrite.push(
     { relPath: "story-template.md", content: readTemplate("story-template.md") },
-    { relPath: "story.config.json", content: readTemplate("story.config.json") },
+    { relPath: "story.config.json", content: readTemplate(repoConfigTemplate) },
     // 脚手架模板：从 templates/scaffold/ 读取
     ...SCAFFOLD_FILES.filter((f) => !f.onlyFull || isFull).map((f) => ({
       relPath: f.target,
       content: readTemplate(f.template, f.replaceDate),
     })),
-  ]
+  )
 
   // 跳过已存在的文件，避免覆盖用户已有内容
   const skipped: string[] = []
@@ -98,7 +132,7 @@ export function initProject(rootDir: string, args: string[] = []): void {
       skipped.push(relPath)
       continue
     }
-    fs.writeFileSync(fullPath, content ?? "", "utf-8")
+    fs.writeFileSync(fullPath, content, "utf-8")
   }
 
   // 创建约定的目录结构（含 .gitkeep 以便 Git 追踪空目录）
@@ -121,20 +155,25 @@ export function initProject(rootDir: string, args: string[] = []): void {
 
 运行 \`story build\` 后，根目录 README 会自动生成"☕ 赞助支持"折叠区块。
 
-**注意**：此目录是收款码专用，请勿将小说配图放在这里。
+**注意**：此目录是收款码专用，请勿将内容配图放在这里。
 `,
       "utf-8",
     )
   }
 
   console.log(`
-✅ Story repository initialized!
+✅ Content repository initialized!
 
 Repository structure:
-  config.original.json    # 原创故事模板（story new --type=original）
+  story.config.json       # 仓库级配置（自定义类型/状态，${TEMPLATE_MAP[activeTemplate].label}）
+${
+  TEMPLATE_MAP[activeTemplate].hasStoryConfigs
+    ? `  config.original.json    # 原创故事模板（story new --type=original）
   config.fanfic.json      # 二创故事模板（story new --type=fanfic）
-  story-template.md       # 故事 README 的 Handlebars 模板
-  story.config.json       # 仓库级配置（自定义类型/状态）
+`
+    : ""
+}
+  story-template.md       # 条目 README 的 Handlebars 模板
   .gitignore              # Git 忽略规则（防构建产物入库）
   .storyignore            # story-cli 扫描排除规则（草稿/临时文件）
   Makefile                # 工作流入口（make help 查看所有命令）
@@ -143,13 +182,13 @@ Repository structure:
 ${
   isFull
     ? `  LICENSE                 # CC BY-NC-SA 4.0 许可证
-  docs/add-story.md       # 如何新增故事
+  docs/add-story.md       # 如何新增条目
   CHANGELOG.md            # 变更日志
 `
     : ""
 }
 Next steps:
-  1. Run: make new TITLE="Your Story Title"  # 或 story new "Your Story Title"
+  1. Run: make new TITLE="Your Entry Title"  # 或 story new "Your Entry Title"
   2. Edit the generated config.json and text.md
   3. Run: make build                        # 或 story build
 

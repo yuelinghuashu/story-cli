@@ -3,6 +3,7 @@
  * 通过 stdin/stdout 提供 JSON-RPC 2.0 协议，供 MCP 客户端（Claude Desktop / Cursor 等）连接
  */
 import { createInterface } from "node:readline"
+import { getPackageVersion } from "../utils/paths.ts"
 import {
   JsonRpcErrorCode,
   type JsonRpcRequest,
@@ -21,8 +22,9 @@ import {
  */
 export function startMcpServer(rootDir: string, tools: RegisteredTool[]): void {
   const rl = createInterface({ input: process.stdin, terminal: false })
+  const pending = new Set<Promise<void>>()
 
-  rl.on("line", async (line) => {
+  rl.on("line", (line) => {
     const trimmed = line.trim()
     if (!trimmed) return
     let request: JsonRpcRequest
@@ -33,17 +35,23 @@ export function startMcpServer(rootDir: string, tools: RegisteredTool[]): void {
       process.stdout.write(serializeMessage(makeErrorResponse(null, code, (e as Error).message)))
       return
     }
-    const response = await handleRequest(request, rootDir, tools)
-    if (response) process.stdout.write(serializeMessage(response))
+    // 跟踪 in-flight 请求，确保 stdin 关闭时异步 handler 已完成
+    const task = (async () => {
+      const response = await handleRequest(request, rootDir, tools)
+      if (response) process.stdout.write(serializeMessage(response))
+    })()
+    pending.add(task)
+    task.finally(() => pending.delete(task))
   })
 
   rl.on("close", () => {
-    // 等待 stdout 刷新后再退出（避免输出被截断）
-    process.stdout.write("", () => process.exit(0))
+    // 等待所有 in-flight 请求完成后刷新 stdout 再退出（避免输出被截断）
+    void Promise.allSettled([...pending]).then(() => {
+      process.stdout.write("", () => process.exit(0))
+    })
   })
   process.on("SIGINT", () => {
     rl.close()
-    process.stdout.write("", () => process.exit(0))
   })
 }
 
@@ -69,7 +77,7 @@ async function handleRequest(
       return makeResponse(id, {
         protocolVersion: "2025-03-26",
         capabilities: { tools: {} },
-        serverInfo: { name: "story-cli-mcp", version: "1.3.0" },
+        serverInfo: { name: "story-cli-mcp", version: getPackageVersion() },
       })
     }
     if (method === "tools/call") {

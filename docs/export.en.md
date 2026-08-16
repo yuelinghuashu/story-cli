@@ -26,6 +26,7 @@ story export html
 Generates a static site: `dist/html/index.html` + a standalone `.html` page for each story.
 
 - **Built-in print styles** (`@media print`): hides navigation elements, controls widows/orphans, prevents code blocks/tables from breaking across pages
+- **Markdown subset rendering**: bold/italic/headings/lists/tables/code blocks/blockquotes, see [specification.en.md §3.3](specification.en.md#33-supported-markdown-syntax) for the full list
 - **Printable to PDF**: open `index.html` → `Ctrl+P` → Save as PDF
 - Custom output: `story export html --output=dist/custom`
 

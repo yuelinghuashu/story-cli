@@ -41,14 +41,18 @@ Usage:
   story export md --stdout  Export all stories as Markdown stream (pipe-friendly)
   story stats               Show writing statistics
   story demo                Generate a demo story repository
+  story mcp-server          Start MCP stdio server (AI client connection entry)
   story help                Show this help
   story version             Show version
 
 Options:
   story new "Title" --type=original|fanfic --author="Work" --creator="Author" --lang=zh|en
+  story init --template=story|knowledge|tech
 
 Examples:
   story init
+  story init --template=knowledge    # 知识库模式（论文/访谈/博客/笔记）
+  story init --template=tech         # 技术文档模式（教程/API 文档/变更日志）
   story new "My First Story"
   story new "Fan Work" --type=fanfic --author="Original Work" --creator="Author" --lang=en
   story build

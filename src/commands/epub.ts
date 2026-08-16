@@ -9,6 +9,7 @@ import type { ValidationOverrides } from "../core/validate.ts"
 import { getLocale } from "../i18n/index.ts"
 import { loadCoverImage } from "../render/epub-assets.ts"
 import { generateEpub, isSvgSafe, safeImageName } from "../render/epub-generator.ts"
+import { readConfigTitle } from "../render/html-utils.ts"
 import { mdToHtml } from "../render/md-to-html.ts"
 import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
 import { ErrorCode, formatError, StoryError } from "../utils/errors.ts"
@@ -125,23 +126,6 @@ function rewriteImageSrcs(html: string, srcMap: Map<string, string>): string {
 }
 
 /**
- * 从故事文件夹的 config.json 中读取 title 字段（读取失败返回空字符串）
- * @param rootDir 项目根目录
- * @param folder 故事文件夹名
- * @returns config.json 中的 title 字段（可能为空）
- */
-function readConfigTitle(rootDir: string, folder: string): string {
-  try {
-    const raw = JSON.parse(fs.readFileSync(path.join(rootDir, folder, "config.json"), "utf-8")) as {
-      title?: unknown
-    }
-    return typeof raw.title === "string" ? raw.title : ""
-  } catch {
-    return ""
-  }
-}
-
-/**
  * 确定 EPUB 导出目标
  * 匹配优先级：
  *   1. config.json 的 title 字段精确匹配（用户从 README 看到的标题）
@@ -165,7 +149,7 @@ function resolveTargets(
   const query = title ?? ""
 
   // 优先级 1：config.json 的 title 字段精确匹配
-  const byConfigTitle = folders.find((folder) => readConfigTitle(rootDir, folder) === query)
+  const byConfigTitle = folders.find((folder) => readConfigTitle(path.join(rootDir, folder)) === query)
   if (byConfigTitle) return [byConfigTitle]
 
   // 优先级 2：文件夹名包含匹配（收集所有匹配，判断歧义）

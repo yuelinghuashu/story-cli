@@ -171,7 +171,41 @@ chapter-2-1-twist.md      # Volume 2, Act 1, Scene: Twist
 | `chapter-1-1-opening.md` | Script scenes               | First `#` heading or `chapter-1-1-opening` |
 | `chapter-2-3-ending.md`  | Script scenes               | First `#` heading or `chapter-2-3-ending`  |
 
-### 3.3 Chapter Boundary Rules
+### 3.3 Supported Markdown Syntax
+
+Story bodies use Markdown format, processed by the built-in renderer (`md-to-html.ts`). HTML export and EPUB export share the same rendering logic.
+
+#### Supported Features
+
+| Syntax           | Example                    | Description                                            |
+| ---------------- | -------------------------- | ------------------------------------------------------ |
+| Bold             | `**text**`                 | Supports nested italics / strikethrough                |
+| Italic           | `*text*`                   |                                                        |
+| Strikethrough    | `~~text~~`                 | Supports nested inline code                            |
+| Inline code      | `` `code` ``               |                                                        |
+| Headings         | `#` - `######`             | `#` / `##` → h2, `###`+ → h3                           |
+| Blockquote       | `> quote`                  | Supports nested lists / multiple paragraphs            |
+| Links            | `[text](https://...)`      | Supports URL parenthesis, Chinese paths, query strings |
+| Images           | `![alt](assets/cover.png)` |                                                        |
+| Unordered lists  | `- item`                   | Supports multi-level nesting + indented continuation   |
+| Ordered lists    | `1. item`                  | Supports multi-level nesting + indented continuation   |
+| Tables           | `\| col1 \| col2 \|`       | Standard Markdown tables, alignment separators         |
+| Code blocks      | ` ```js ...``` `           | Preserves original formatting, HTML-safe escaping      |
+| Horizontal rule  | `---` / `***`              |                                                        |
+| Backslash escape | `\* not italic \*`         | Supports common escapes (`\\`, `*`, `_`, `[`, etc.)    |
+
+#### Explicitly Unsupported
+
+| Syntax                       | Reason                                              |
+| ---------------------------- | --------------------------------------------------- |
+| Raw HTML tags                | Escaped as plain text for security (XSS protection) |
+| Task lists `- [x]`           | Not implemented                                     |
+| Footnotes / definition lists | Not implemented                                     |
+| LaTeX math                   | Not implemented                                     |
+
+> 💡 This syntax subset covers the vast majority of fiction / paper / tutorial writing scenarios. For special layout needs, use plain text in `summary` or the body.
+
+### 3.4 Chapter Boundary Rules
 
 - `#` or `##` headings define chapter boundaries
 - Empty chapters (heading with no content after) should be skipped

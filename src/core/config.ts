@@ -7,9 +7,7 @@
 import fs from "node:fs"
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { getLocale } from "../i18n/index.ts"
-import { detectCliLang } from "../utils/cli-utils.ts"
-import { detectEncodingIssue, encodingWarning } from "../utils/encoding.ts"
+import { parseJsonBuffer } from "../utils/json-utils.ts"
 import { VALID_STATUSES, VALID_TYPES } from "./schema.ts"
 
 /** 单个枚举值的本地化标签（按语言映射） */
@@ -126,9 +124,7 @@ function normalizeRepoConfig(raw: StoryRepoConfig): LoadedRepoConfig {
  * @returns 解析后的原始配置
  */
 function parseConfigBuffer(configPath: string, buffer: Uint8Array): StoryRepoConfig {
-  const issue = detectEncodingIssue(configPath, buffer)
-  if (issue) console.warn(encodingWarning(issue, getLocale(detectCliLang())))
-  return JSON.parse(new TextDecoder("utf-8").decode(buffer)) as StoryRepoConfig
+  return parseJsonBuffer(configPath, buffer) as StoryRepoConfig
 }
 
 /**

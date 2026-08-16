@@ -1,0 +1,45 @@
+{
+  "types": [
+    "paper",
+    "interview",
+    "blog",
+    "note"
+  ],
+  "statuses": [
+    "draft",
+    "published",
+    "archived"
+  ],
+  "typeLabels": {
+    "paper": {
+      "zh": "论文",
+      "en": "Paper"
+    },
+    "interview": {
+      "zh": "访谈",
+      "en": "Interview"
+    },
+    "blog": {
+      "zh": "博客",
+      "en": "Blog"
+    },
+    "note": {
+      "zh": "笔记",
+      "en": "Note"
+    }
+  },
+  "statusLabels": {
+    "draft": {
+      "zh": "草稿",
+      "en": "Draft"
+    },
+    "published": {
+      "zh": "已发布",
+      "en": "Published"
+    },
+    "archived": {
+      "zh": "已归档",
+      "en": "Archived"
+    }
+  }
+}

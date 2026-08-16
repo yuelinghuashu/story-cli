@@ -1,0 +1,35 @@
+{
+  "types": [
+    "tutorial",
+    "api-doc",
+    "changelog"
+  ],
+  "statuses": [
+    "draft",
+    "published"
+  ],
+  "typeLabels": {
+    "tutorial": {
+      "zh": "教程",
+      "en": "Tutorial"
+    },
+    "api-doc": {
+      "zh": "API 文档",
+      "en": "API Doc"
+    },
+    "changelog": {
+      "zh": "变更日志",
+      "en": "Changelog"
+    }
+  },
+  "statusLabels": {
+    "draft": {
+      "zh": "草稿",
+      "en": "Draft"
+    },
+    "published": {
+      "zh": "已发布",
+      "en": "Published"
+    }
+  }
+}

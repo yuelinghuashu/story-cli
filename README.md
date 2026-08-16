@@ -8,205 +8,182 @@
 [![npm version](https://img.shields.io/npm/v/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
 [![npm downloads](https://img.shields.io/npm/dm/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
 
-**零部署、Git 原生的 Markdown 故事内容管理 CLI。**
-
-通过简单的目录约定管理故事，自动生成 GitHub 友好的 README，支持导出 EPUB，双语（中/英）内容支持。
+**零部署、Git 原生的 Markdown 内容管理 CLI。** 用简单的目录约定管理故事/论文/笔记/教程，自动生成 README，导出 EPUB，中英双语。
 
 ---
 
 ## ✨ 功能特性
 
-- **简单目录约定** — 故事就是文件夹：`NN-名称/` 包含 `config.json` + `text.md`
-- **自动生成 README** — 每个故事和根目录索引 README 都能自动生成（模板驱动，可自定义）
-- **系列分组排序** — `config.json` 中的 `series` / `seriesOrder` 控制展示顺序（分数索引，任意插入无需重排）
+- **简单目录约定** — 内容就是文件夹：`NN-名称/` 包含 `config.json` + `text.md`
+- **自动生成 README** — 每个条目和根目录索引自动生成（模板驱动，可自定义）
+- **系列分组排序** — `series` / `seriesOrder` 控制展示顺序，任意插入无需重排
 - **运行时校验** — 构建前检查配置（必填字段、枚举、格式）
-- **双语支持** — `language: "zh" | "en"` 配置，生成本地化 README
-- **字数统计** — 语言感知的中文字符 / 英文单词计数
-- **章节提取** — README 中展示章节标题 + 字数
-- **EPUB 导出** — 一条命令把故事转成 `.epub`，含封面页（支持封面图）、版权页
-- **脚手架** — `story new "标题"` 创建一切所需
-- **观看模式** — `story build --watch` 文件变更自动重建
-- **可扩展枚举** — 通过 `story.config.json` 自定义故事类型和状态
-- **赞助支持** — 在 `assets/sponsor/` 放收款码图片，自动生成 ☕ 赞助区块
-- **MCP Server** — `story mcp-server` 暴露 JSON-RPC 2.0 over stdio 协议，AI 客户端（Claude Desktop / Cursor 等）可直接读写故事库
-- **CI 友好** — 完美适配 GitHub Actions（含 lint + 测试）
-
----
-
-## 🤔 为什么用 story-cli？
-
-| 场景           |    网文写作软件    |  手动管理 Markdown   |        **story-cli**        |
-| -------------- | :----------------: | :------------------: | :-------------------------: |
-| 数据所有权     | ❌ 专有格式 / 云端 |      ✅ 纯文件       |          ✅ 纯文件          |
-| Git 原生工作流 |     ❌ 不适用      | ⚠️ 需手动维护 README | ✅ 自动 README + 重命名检测 |
-| 中英文双语     |     通常不支持     |    ⚠️ 需自行处理     |       ✅ 内置双语支持       |
-| 章节管理       |      ✅ 内置       |   ⚠️ 需手动建目录    |   ✅ 自动提取章节 + 字数    |
-| EPUB 导出      |      ✅ 内置       |    ⚠️ 需额外工具     |         ✅ 一条命令         |
-| 编辑器自由     |      ❌ 锁定       |       ✅ 任意        |           ✅ 任意           |
-| AI 工具自由    |    ❌ 平台绑定     |       ✅ 任意        |           ✅ 任意           |
-
-**story-cli 给喜欢 Git 的创作者提供一条"数据永可迁移"的写作工作流。** 你的故事永远是普通文件，任何工具、任何编辑器、任何时间都能打开。
-
----
-
-## ⚠️ 文件编码要求
-
-**所有文件（`config.json`、`text.md`、`chapter-*.md`、`.storyignore`）必须使用 UTF-8 编码保存。**
-
-- **VS Code**：右下角点击编码按钮 → 「通过编码保存」→ 选择 `UTF-8`
-- **Windows 记事本**：另存为 → 编码选择 `UTF-8`
-- **macOS / Linux**：默认即 UTF-8，无需额外操作
-
-> 如果你用 GBK/GB2312 编码保存文件，`story build` 会输出乱码警告，字数统计也会出错。
-> story-cli 会在检测到编码问题时提示你转换，但不阻断构建。
-
----
-
-## 📦 安装
-
-```bash
-# 全局安装
-npm install -g @yuelinghuashu/story-cli
-
-# 或使用 npx 直接运行
-npx @yuelinghuashu/story-cli
-```
-
-> 发布包为编译后的 `dist/` 产物，需要 Node >= 22。开发时使用 Node 24+ 可直接运行源码：`node bin/index.ts version`。
+- **双语支持** — 中英内容 + 自动生成本地化 README
+- **章节 + 字数** — 自动提取章节标题与语言感知的字数统计
+- **多格式导出** — EPUB / HTML / TXT / JSON / Markdown，支持 `--stdout` 管道
+- **通用内容中台** — 知识库模式（论文/访谈/笔记）、技术文档模式（教程/API）
+- **MCP Server** — AI 客户端（Claude / Cursor）可直接读写内容库
+- **GitHub Action** — 零配置 CI 入口（`yuelinghuashu/story-cli@v1`），一键实现「Push → Build → 发布」
+- **Watch 模式** — 文件变更自动重建
 
 ---
 
 ## 🚀 快速开始
 
 ```bash
-# 0. 想快速看效果？直接生成一个示例故事仓库
+# 创建示例仓库并查看效果
 story demo
 
-# 1. 初始化一个空的故事仓库
+# 初始化仓库
 story init
 
-# 2. 创建你的第一个故事
+# 创建内容并编写
 story new "我的新故事"
 
-# 或英文原创故事
-story new "My First Story" --lang=en
-
-# 或二创（fanfic）故事
-story new "My Fan World" --type=fanfic --author="原作名" --creator="原作者" --lang=en
-
-# 3. 编写/编辑故事内容
-#   - 编辑 config.json（标题、类型、状态、简介等）
-#   - 在 text.md 中写作（或使用 chapter-*.md 分章）
-
-# 4. 构建所有 README
+# 构建所有 README
 story build
 
-# 5. 导出 EPUB
-story epub "我的新故事"
-# 或导出全部
+# 导出 EPUB / 统计
 story epub --all
-
-# 6. 查看创作统计
 story stats
 ```
 
-> 💡 **推荐使用 Makefile 工作流（更高效）：**
->
-> ```bash
-> make init                     # 初始化
-> make new TITLE="我的新故事"    # 新建并自动构建
-> make commit                   # 构建 + 提交
-> make push                     # 构建 + 提交 + 推送
-> make stats                    # 查看创作统计
-> ```
->
-> 更多命令请运行 `make help`。
->
-> `story init` 会自动生成一个可编辑的 `Makefile`，你也可以手动执行 `story build` 等原子命令。
->
-> 💡 **Windows 用户**：`story init` 还会生成 `story.ps1`（PowerShell 版工作流入口），用法与 Makefile 一致：
->
-> ```powershell
-> .\story.ps1 init
-> .\story.ps1 new -Title '我的新故事'
-> .\story.ps1 build
-> ```
+<details>
+<summary>💡 推荐使用 Makefile 工作流（更高效）</summary>
+
+```bash
+make init                 # 初始化
+make new TITLE="我的故事"  # 新建并自动构建
+make commit               # 构建 + 提交
+make push                 # 构建 + 提交 + 推送
+make stats                # 查看创作统计
+```
+
+Windows 用户也可使用 `story init` 生成的 `story.ps1`（PowerShell 版工作流）：`.\story.ps1 init` / `.\story.ps1 new -Title '我的故事'` / `.\story.ps1 build`。
+
+</details>
 
 ---
 
-## 🛠️ 命令参考
+## 🌱 不止于故事
 
-| 命令                                  | 描述                                            |
-| ------------------------------------- | ----------------------------------------------- |
-| `story init`                          | 初始化仓库（模板 + `.gitignore` + README 骨架） |
-| `story init --full`                   | 额外生成 LICENSE / docs/CHANGELOG               |
-| `story new "标题" [选项]`             | 创建新故事脚手架                                |
-| `story build`                         | 构建所有故事 README + 根索引                    |
-| `story build --validate-only`         | 仅校验配置不生成 README                         |
-| `story build --save-counts`           | 构建时将自动字数写入 config.json                |
-| `story build --watch`                 | 监听文件变更，自动重建 README                   |
-| `story epub "标题"`                   | 导出单个故事为 EPUB                             |
-| `story epub "标题" --split-by-volume` | 按 config.volume 分卷导出（文件名带卷名）       |
-| `story epub --all`                    | 导出所有故事为 EPUB                             |
-| `story export html`                   | 导出静态 HTML 站点（可浏览器打印为 PDF）        |
-| `story export txt`                    | 导出全部故事为纯文本（.txt）                    |
-| `story export txt --stdout`           | 纯文本导出到标准输出（管道友好，带标题行）      |
-| `story export json`                   | 导出全部故事为结构化 JSON（AI 友好）            |
-| `story export json --stdout`          | JSON 导出到标准输出（管道友好）                 |
-| `story export md`                     | 导出全部故事为合并 Markdown（含 Frontmatter）   |
-| `story export md --stdout`            | Markdown 导出到标准输出（管道友好，多故事分隔） |
-| `story import json`                   | 从 JSON 导入故事（AI 输出 → 自动生成目录结构）  |
-| `story mcp-server`                    | 启动 MCP stdio 服务器（AI 客户端连接入口）      |
-| `story help`                          | 显示帮助                                        |
-| `story version`                       | 显示版本号                                      |
+**通用内容治理** — 任何能被"规范化"的文字资产都可以用同一套工作流：
 
-### `story new` 选项
+| 模板模式                   | 内容类型                   | 典型场景           |
+| :------------------------- | :------------------------- | :----------------- |
+| `--template=story`（默认） | 小说 / 故事                | 原创、二创         |
+| `--template=knowledge`     | 论文 / 访谈 / 博客 / 笔记  | 知识库、研究库     |
+| `--template=tech`          | 教程 / API 文档 / 变更日志 | 技术博客、项目文档 |
 
-| 选项                      | 描述                                 |
-| ------------------------- | ------------------------------------ |
-| `--type=original\|fanfic` | 故事类型（默认：`original`）         |
-| `--author="原作名"`       | 原作名称（二创必填）                 |
-| `--creator="原作者"`      | 原作者（二创必填）                   |
-| `--lang=zh\|en`           | 故事语言（默认：`zh`，非法值会报错） |
+```bash
+story init --template=knowledge
+story init --template=tech
+```
 
-### 仓库级配置（story.config.json）
+---
 
-通过根目录的 `story.config.json` 自定义故事类型和状态枚举（默认已包含 `original/fanfic` 和 `completed/ongoing`），并可为自定义枚举配置中英文标签：
+## 🤖 让 AI 管理你的内容库
+
+story-cli 内置 **MCP Server** —— AI 客户端（Claude Desktop / Cursor / VSCode Copilot Chat）可直接读写你的内容库。AI 能独立完成「创建 → 写作 → 构建 → 统计」的完整闭环，无需在终端手动执行命令。
+
+> 💡 **Token 经济性**：MCP 工具从设计之初就以节省 AI 调用成本为核心原则。`scan_stories` 默认精简输出（目录浏览节省 ~80-95%）、`read_chapter` 支持按需截断（续写场景节省 ~95%+）、`stats` 一次调用拿全数据（~99%）——每个细节都在为你的 AI 工作流降低 Token 消耗。
+
+| 能力    | MCP 工具                         | 说明                                                       |
+| ------- | -------------------------------- | ---------------------------------------------------------- |
+| 📖 浏览 | `scan_stories` / `read_chapter`  | 列出故事库、读取章节（支持按需加载与末尾截断，节省 Token） |
+| ✍️ 写作 | `write_chapter` / `create_story` | 创建新故事、原子写入正文                                   |
+| ✅ 治理 | `build` / `validate`             | 真正执行 README 重建、校验配置合法性                       |
+| 📊 统计 | `stats`                          | 获取总字数 / 章节数 / 系列进度 / 健康度                    |
+
+```bash
+# 启动 MCP Server（需在故事仓库根目录）
+story mcp-server
+```
+
+> 💡 详细配置与示例见 [docs/mcp.md](docs/mcp.md)
+
+---
+
+## 📦 安装
+
+```bash
+npm install -g @yuelinghuashu/story-cli
+# 或 npx @yuelinghuashu/story-cli
+```
+
+> 需要 Node >= 22。发布包为编译后 `dist/` 产物。
+
+---
+
+## 🛠️ 常用命令
+
+| 命令                                                        | 描述                                       |
+| ----------------------------------------------------------- | ------------------------------------------ |
+| `story init [--template=story\|knowledge\|tech]`            | 初始化仓库（默认故事/知识库/技术文档模式） |
+| `story new "标题" [--type] [--lang] [--author] [--creator]` | 创建新条目                                 |
+| `story build [--validate-only] [--save-counts] [--watch]`   | 构建 README                                |
+| `story epub "标题" [--all] [--split-by-volume]`             | 导出 EPUB                                  |
+| `story export html / txt / json / md [--stdout]`            | 导出多种格式                               |
+| `story import json --file=xxx.json`                         | 从 JSON 批量导入                           |
+| `story stats [--json]`                                      | 创作统计                                   |
+| `story mcp-server`                                          | 启动 MCP Server（AI 连接入口）             |
+
+<details>
+<summary>完整命令参考</summary>
+
+| 命令                                  | 描述                                |
+| ------------------------------------- | ----------------------------------- |
+| `story init --full`                   | 额外生成 LICENSE / docs / CHANGELOG |
+| `story build --save-counts`           | 将自动字数写入 config.json          |
+| `story build --watch`                 | 监听文件变更自动重建                |
+| `story epub "标题" --split-by-volume` | 按 volume 分卷导出                  |
+| `story export txt --stdout`           | 纯文本流输出                        |
+| `story export json --stdout`          | JSON 流输出                         |
+| `story export md --stdout`            | Markdown 流输出                     |
+| `story help` / `story version`        | 帮助 / 版本                         |
+
+**`story new` 选项**：`--type=original|fanfic`（默认 original）、`--author="原作名"`（二创必填）、`--creator="原作者"`（二创必填）、`--lang=zh|en`（默认 zh）。
+
+</details>
+
+<details>
+<summary>repository 级配置（story.config.json）</summary>
+
+自定义故事类型/状态及本地化标签：
 
 ```json
 {
   "types": ["original", "fanfic", "translation"],
   "statuses": ["completed", "ongoing", "planned"],
-  "typeLabels": {
-    "translation": { "zh": "翻译", "en": "Translation" }
-  },
-  "statusLabels": {
-    "planned": { "zh": "计划中", "en": "Planned" }
-  }
+  "typeLabels": { "translation": { "zh": "翻译", "en": "Translation" } }
 }
 ```
 
-- `typeLabels` / `statusLabels` 为可选字段，用于自定义枚举的本地化显示
-- 内置枚举（`original`、`fanfic`、`completed`、`ongoing`）已内置中英文标签，无需重复配置
-- 未配置标签的自定义枚举值在 README 中显示为原始代码字符串
+内置枚举已内置标签，无需重复配置。删除文件即回退默认。
 
-`story init` 会自动生成此文件。删除该文件即回退到默认枚举。
+</details>
 
 ---
 
 ## 📚 文档
 
-| 文档              | 中文                                      | English                                         | 内容                                |
-| ----------------- | ----------------------------------------- | ----------------------------------------------- | ----------------------------------- |
-| 设计理念          | [design.md](docs/design.md)               | [design.en.md](docs/design.en.md)               | 为什么这样做、项目哲学              |
-| 仓库规范          | [specification.md](docs/specification.md) | [specification.en.md](docs/specification.en.md) | 目录约定数据规范（第三方兼容）      |
-| 如何新增故事      | [add-story.md](docs/add-story.md)         | [add-story.en.md](docs/add-story.en.md)         | 目录约定、config.json、写作方式     |
-| 内容导出          | [export.md](docs/export.md)               | [export.en.md](docs/export.en.md)               | HTML / TXT / EPUB / PDF / JSON / MD |
-| EPUB / PDF 导出   | [epub.md](docs/epub.md)                   | [epub.en.md](docs/epub.en.md)                   | EPUB 格式、PDF 导出（浏览器打印）   |
-| GitHub Actions CI | [ci.md](docs/ci.md)                       | [ci.en.md](docs/ci.en.md)                       | 自动构建工作流配置                  |
-| MCP Server        | [mcp.md](docs/mcp.md)                     | [mcp.en.md](docs/mcp.en.md)                     | 连接 Claude / Cursor、MCP 工具列表  |
-| 技术架构          | [architecture.md](docs/architecture.md)   | [architecture.en.md](docs/architecture.en.md)   | 模块设计、核心思路、依赖清单        |
-| 更新日志          | [CHANGELOG.md](CHANGELOG.md)              | [CHANGELOG.en.md](CHANGELOG.en.md)              | 版本变更记录                        |
+| 文档         | 中文                                      | English                                         | 内容           |
+| ------------ | ----------------------------------------- | ----------------------------------------------- | -------------- |
+| 设计理念     | [design.md](docs/design.md)               | [design.en.md](docs/design.en.md)               | 项目哲学       |
+| 仓库规范     | [specification.md](docs/specification.md) | [specification.en.md](docs/specification.en.md) | 数据规范       |
+| 如何新增内容 | [add-story.md](docs/add-story.md)         | [add-story.en.md](docs/add-story.en.md)         | 目录约定       |
+| 内容导出     | [export.md](docs/export.md)               | [export.en.md](docs/export.en.md)               | 导出指南       |
+| EPUB / PDF   | [epub.md](docs/epub.md)                   | [epub.en.md](docs/epub.en.md)                   | EPUB 导出      |
+| CI           | [ci.md](docs/ci.md)                       | [ci.en.md](docs/ci.en.md)                       | GitHub Actions |
+| MCP Server   | [mcp.md](docs/mcp.md)                     | [mcp.en.md](docs/mcp.en.md)                     | AI 连接指南    |
+| 架构         | [architecture.md](docs/architecture.md)   | [architecture.en.md](docs/architecture.en.md)   | 模块设计       |
+| 更新日志     | [CHANGELOG.md](CHANGELOG.md)              | [CHANGELOG.en.md](CHANGELOG.en.md)              | 变更记录       |
+
+---
+
+## ⚠️ 编码要求
+
+所有文件必须使用 **UTF-8** 编码。检测到 GBK/GB2312 时会警告但不阻断构建。
 
 ---
 
@@ -216,9 +193,7 @@ story stats
 make test         # 或 pnpm test
 ```
 
-当前 300 项测试全部通过，覆盖：扫描器、系列分组排序、文件夹重命名检测、校验、模板渲染、字数统计（含 CJK 扩展区生僻字）、国际化、README 生成（含系列分组）、EPUB 导出（含封面图、分卷导出）、参数解析、仓库配置、CLI 入口、Markdown 转换边界、`.storyignore` 排除规则、编码检测（UTF-8/GBK）、JSON 导入（import json）、创作统计（stats）、Makefile 工作流、MCP 协议/工具（JSON-RPC 解析、scan/read/write/validate）。
-
-> 💡 **开发者快捷命令**：项目根目录的 `Makefile` 提供 `make build` / `make test` / `make typecheck` / `make lint` / `make format` 等开发工作流入口。运行 `make help` 查看全部命令。
+**421 项测试运行，418 项通过**。覆盖：扫描器、系列分组、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出、CLI 端到端（冒烟测试覆盖全部命令）、`.storyignore`、MCP 协议、JSON 导入、GitHub Action 结构等。
 
 ---
 

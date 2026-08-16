@@ -19,8 +19,12 @@ src/
 │   ├── build.ts         # build 命令（含 watch 模式，异步并行加载）
 │   ├── epub.ts          # EPUB 导出命令
 │   ├── export-html.ts   # export html 命令（i18n + 校验 + 错误处理）
+│   ├── export-json.ts   # export json 命令（结构化 JSON 导出）
+│   ├── export-md.ts     # export md 命令（合并 Markdown）
 │   ├── export-txt.ts    # export txt 命令（纯文本导出）
-│   ├── init.ts          # 仓库初始化命令
+│   ├── import-json.ts   # import json 命令（批量导入）
+│   ├── init.ts          # 仓库初始化命令（三种模板）
+│   ├── mcp.ts           # MCP Server 启动命令
 │   ├── new-story.ts     # story new 脚手架命令
 │   └── stats.ts         # story stats 创作统计命令
 │
@@ -30,18 +34,31 @@ src/
 │   ├── schema.ts        # 声明式校验规则（必填字段 / 枚举 / 格式）
 │   ├── validate.ts      # 基于 schema 的通用校验引擎（支持仓库级覆盖）
 │   ├── config.ts        # 仓库级配置（story.config.json 自定义枚举 + 本地化标签）
+│   ├── loader.ts        # 故事加载器（loadStories，build 与 MCP 共享）
+│   ├── sequence.ts      # 序号管理（getNextNumber）
+│   ├── exporter.ts      # 导出共享工具
+│   ├── story-loader.ts  # 单故事配置加载与校验
 │   └── types.ts         # 全局 TypeScript 类型定义
+│
+├── mcp/                 # MCP Server 适配层（AI 客户端连接）
+│   ├── protocol.ts      # JSON-RPC 2.0 协议
+│   ├── server.ts        # stdio 服务器
+│   └── tools.ts         # MCP 工具注册
 │
 ├── render/              # 渲染 / 输出
 │   ├── readme.ts        # 生成故事 README 和根目录 README（模板驱动）
 │   ├── template.ts      # Handlebars 模板渲染（带编译缓存）
-│   ├── epub-generator.ts # 最小合规 EPUB 3 生成器 + Markdown → HTML
-│   └── html-utils.ts    # 公共 HTML 工具（escapeHtml / sanitizeUrl / PAGE_STYLE / readStoryTitle）
+│   ├── epub-generator.ts # 最小合规 EPUB 3 生成器
+│   ├── epub-assets.ts   # 封面图片加载与安全校验
+│   ├── md-to-html.ts    # Markdown → HTML 转换器
+│   └── html-utils.ts    # 公共 HTML 工具
 │
 └── utils/               # 无副作用的纯工具
-    ├── cli-utils.ts     # CLI 公共工具（detectCliLang / sanitizeFileName）
-    ├── i18n.ts          # 中英文文案
-    ├── errors.ts        # 结构化错误（带错误码 + 上下文）
+    ├── cli-utils.ts     # CLI 公共工具
+    ├── encoding.ts      # UTF-8 / GBK 编码检测
+    ├── json-utils.ts    # JSON 读取统一流程
+    ├── errors.ts        # 结构化错误
+    ├── paths.ts         # 路径解析
     └── word-count.ts    # 语言感知的字数统计
 
 tests/                   # node:test 测试（零额外测试依赖）
@@ -337,3 +354,34 @@ class StoryError extends Error {
 - CLI 入口通过 `execFileSync` 运行真实命令进行集成测试
 - 关键行为测试：扫描、排序、校验、渲染、字数统计、i18n、README 生成、EPUB 导出、仓库配置、CLI 命令
 - 代码规范：`@biomejs/biome` 统一 lint + format
+
+### 📊 性能基准
+
+使用 `bench/generate.ts` 生成基准仓库后运行 `bench/bench.ts` 测量：
+
+**基准仓库规模**（1000 个故事）：
+
+| 维度         | 数值                                |
+| ------------ | ----------------------------------- |
+| 故事数       | 1,000                               |
+| 章节总数     | ~6,000                              |
+| 统计数据字数 | ~42,000 字                          |
+| 源文件总量   | ~0.7 MB（不含导出产物）             |
+| 文件总数     | ~5,000                              |
+| 单个故事平均 | text.md ~828 B + config.json ~618 B |
+
+**测试结果**（当前开发机）：
+
+| 操作                    | 耗时    |
+| ----------------------- | ------- |
+| `build --validate-only` | ~300 ms |
+| `build`（全量）         | ~471 ms |
+| `export json`           | ~198 ms |
+| `export md`             | ~222 ms |
+| `epub --all`            | ~863 ms |
+
+**Watch 增量重建**：单故事变更检测 + rebuild 总耗时约 **304 ms**（含 300ms debounce，实际重建约 4ms）。
+
+> ⚠️ 性能数据依赖硬件环境，以上结果为当前开发机上的参考值。
+>
+> 💡 自行复现：`node bench/generate.ts 1000 <目录>` + `node bench/bench.ts <目录>`
