@@ -8,6 +8,7 @@ import { exportMd } from "./commands/export-md.ts"
 import { exportTxt } from "./commands/export-txt.ts"
 import { importJson } from "./commands/import-json.ts"
 import { initProject } from "./commands/init.ts"
+import { runMcpServer } from "./commands/mcp.ts"
 import { createNewStory } from "./commands/new-story.ts"
 import { runStats } from "./commands/stats.ts"
 import { formatError } from "./utils/errors.ts"
@@ -33,8 +34,11 @@ Usage:
   story epub --all          Export all stories to epub
   story export html         Export as static HTML site
   story export txt          Export all stories as plain text
+  story export txt --stdout Export all stories as text stream (pipe-friendly)
   story export json         Export all stories as structured JSON
+  story export json --stdout Export all stories as JSON stream (pipe-friendly)
   story export md           Export all stories as merged Markdown
+  story export md --stdout  Export all stories as Markdown stream (pipe-friendly)
   story stats               Show writing statistics
   story demo                Generate a demo story repository
   story help                Show this help
@@ -102,6 +106,12 @@ export async function run(argv: string[]): Promise<number> {
         }
         console.log("❌ Unknown import subcommand. Use: story import json")
         return 1
+
+      case "mcp-server":
+      case "mcp":
+        // MCP stdio 服务器（AI 客户端连接入口）
+        runMcpServer(rootDir)
+        return 0
 
       case "demo":
         return runDemo(rootDir)

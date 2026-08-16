@@ -1,13 +1,11 @@
 import fs from "node:fs"
 import path from "node:path"
-import { parseArgs } from "../args.ts"
-import { loadRepoConfig } from "../core/config.ts"
+import { loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
 import { readStoryText, scanStoryFolders } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
 import type { StoryConfig } from "../core/types.ts"
-import type { ValidationOverrides } from "../core/validate.ts"
 import { getLocale, resolveLang } from "../i18n/index.ts"
-import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
+import { sanitizeFileName } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
 
 /** 可序列化的元数据值 */
@@ -70,26 +68,26 @@ function buildMergedMarkdown(config: StoryConfig, content: string): string {
  * @param args 命令行参数（--output=dist/md）
  */
 export function exportMd(rootDir: string, args: string[]): number {
-  const { options } = parseArgs(args)
-  const outputDir = path.resolve(rootDir, typeof options.output === "string" ? options.output : "dist/md")
-  const cliLang = detectCliLang()
+  const { outputDir: relOutput, toStdout, cliLang } = resolveExportOptions(args, "dist/md")
+  const outputDir = resolveOutputDir(rootDir, relOutput)
   const locale = getLocale(cliLang)
 
-  console.log(`${locale.mdExporting}\n`)
-
-  // 读取仓库级自定义枚举
-  const repoConfig = loadRepoConfig(rootDir)
-  const validationOverrides: ValidationOverrides = {
-    types: repoConfig.types,
-    statuses: repoConfig.statuses,
+  if (!toStdout) {
+    console.log(`${locale.mdExporting}\n`)
   }
 
-  // 创建输出目录
-  fs.mkdirSync(outputDir, { recursive: true })
+  // 读取仓库级自定义枚举
+  const validationOverrides = loadExportOverrides(rootDir)
+
+  // stdout 模式：不需要创建输出目录；文件模式：创建输出目录
+  if (!toStdout) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
 
   const folders = scanStoryFolders(rootDir)
   let success = 0
   let failed = 0
+  const sections: string[] = []
 
   for (const folder of folders) {
     const folderPath = path.join(rootDir, folder)
@@ -109,15 +107,27 @@ export function exportMd(rootDir: string, args: string[]): number {
       // 合并 Markdown
       const merged = buildMergedMarkdown(config, content)
 
-      // 输出文件：以配置标题命名（安全文件名）
-      const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
-      const outputPath = path.join(outputDir, `${safeTitle}.md`)
-      fs.writeFileSync(outputPath, merged, "utf-8")
-      success++
+      if (toStdout) {
+        // stdout 模式：收集到数组，最后统一按分隔符拼接输出
+        sections.push(merged.trim())
+        success++
+      } else {
+        // 输出文件：以配置标题命名（安全文件名）
+        const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
+        const outputPath = path.join(outputDir, `${safeTitle}.md`)
+        fs.writeFileSync(outputPath, merged, "utf-8")
+        success++
+      }
     } catch (e) {
       console.error(formatError(e))
       failed++
     }
+  }
+
+  // stdout 模式：按分隔符拼接输出（管道友好）
+  if (toStdout) {
+    process.stdout.write(`${sections.join("\n\n<!-- story-separator -->\n\n")}\n`)
+    return failed > 0 ? 1 : 0
   }
 
   const relativeOutput = path.relative(rootDir, outputDir) || "."

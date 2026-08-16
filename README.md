@@ -28,6 +28,7 @@
 - **观看模式** — `story build --watch` 文件变更自动重建
 - **可扩展枚举** — 通过 `story.config.json` 自定义故事类型和状态
 - **赞助支持** — 在 `assets/sponsor/` 放收款码图片，自动生成 ☕ 赞助区块
+- **MCP Server** — `story mcp-server` 暴露 JSON-RPC 2.0 over stdio 协议，AI 客户端（Claude Desktop / Cursor 等）可直接读写故事库
 - **CI 友好** — 完美适配 GitHub Actions（含 lint + 测试）
 
 ---
@@ -149,9 +150,13 @@ story stats
 | `story epub --all`                    | 导出所有故事为 EPUB                             |
 | `story export html`                   | 导出静态 HTML 站点（可浏览器打印为 PDF）        |
 | `story export txt`                    | 导出全部故事为纯文本（.txt）                    |
+| `story export txt --stdout`           | 纯文本导出到标准输出（管道友好，带标题行）      |
 | `story export json`                   | 导出全部故事为结构化 JSON（AI 友好）            |
+| `story export json --stdout`          | JSON 导出到标准输出（管道友好）                 |
 | `story export md`                     | 导出全部故事为合并 Markdown（含 Frontmatter）   |
+| `story export md --stdout`            | Markdown 导出到标准输出（管道友好，多故事分隔） |
 | `story import json`                   | 从 JSON 导入故事（AI 输出 → 自动生成目录结构）  |
+| `story mcp-server`                    | 启动 MCP stdio 服务器（AI 客户端连接入口）      |
 | `story help`                          | 显示帮助                                        |
 | `story version`                       | 显示版本号                                      |
 
@@ -199,6 +204,7 @@ story stats
 | 内容导出          | [export.md](docs/export.md)               | [export.en.md](docs/export.en.md)               | HTML / TXT / EPUB / PDF / JSON / MD |
 | EPUB / PDF 导出   | [epub.md](docs/epub.md)                   | [epub.en.md](docs/epub.en.md)                   | EPUB 格式、PDF 导出（浏览器打印）   |
 | GitHub Actions CI | [ci.md](docs/ci.md)                       | [ci.en.md](docs/ci.en.md)                       | 自动构建工作流配置                  |
+| MCP Server        | [mcp.md](docs/mcp.md)                     | [mcp.en.md](docs/mcp.en.md)                     | 连接 Claude / Cursor、MCP 工具列表  |
 | 技术架构          | [architecture.md](docs/architecture.md)   | [architecture.en.md](docs/architecture.en.md)   | 模块设计、核心思路、依赖清单        |
 | 更新日志          | [CHANGELOG.md](CHANGELOG.md)              | [CHANGELOG.en.md](CHANGELOG.en.md)              | 版本变更记录                        |
 
@@ -210,7 +216,7 @@ story stats
 make test         # 或 pnpm test
 ```
 
-当前 265 项测试全部通过，覆盖：扫描器、系列分组排序、文件夹重命名检测、校验、模板渲染、字数统计（含 CJK 扩展区生僻字）、国际化、README 生成（含系列分组）、EPUB 导出（含封面图、分卷导出）、参数解析、仓库配置、CLI 入口、Markdown 转换边界、`.storyignore` 排除规则、编码检测（UTF-8/GBK）、JSON 导入（import json）、创作统计（stats）、Makefile 工作流。
+当前 300 项测试全部通过，覆盖：扫描器、系列分组排序、文件夹重命名检测、校验、模板渲染、字数统计（含 CJK 扩展区生僻字）、国际化、README 生成（含系列分组）、EPUB 导出（含封面图、分卷导出）、参数解析、仓库配置、CLI 入口、Markdown 转换边界、`.storyignore` 排除规则、编码检测（UTF-8/GBK）、JSON 导入（import json）、创作统计（stats）、Makefile 工作流、MCP 协议/工具（JSON-RPC 解析、scan/read/write/validate）。
 
 > 💡 **开发者快捷命令**：项目根目录的 `Makefile` 提供 `make build` / `make test` / `make typecheck` / `make lint` / `make format` 等开发工作流入口。运行 `make help` 查看全部命令。
 

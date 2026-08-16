@@ -1,18 +1,12 @@
 import fs from "node:fs"
 import path from "node:path"
-import { parseArgs } from "../args.ts"
-import { loadRepoConfig } from "../core/config.ts"
+import { loadExportRepoConfig, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
 import { readStoryText, resolveWordCount, scanStoryFolders } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
-import type { ValidationOverrides } from "../core/validate.ts"
 import { formatStatus, formatType, getLocale } from "../i18n/index.ts"
 import { escapeHtml, PAGE_STYLE } from "../render/html-utils.ts"
 import { mdToHtml } from "../render/md-to-html.ts"
-import { detectCliLang } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
-
-/** 类型/状态的本地化标签映射 */
-type LabelMap = Record<string, Record<string, string>>
 
 /**
  * 导出为静态 HTML 站点
@@ -21,21 +15,14 @@ type LabelMap = Record<string, Record<string, string>>
  */
 export function exportHtml(rootDir: string, args: string[]): number {
   // 解析参数
-  const { options } = parseArgs(args)
-  const outputDir = path.resolve(rootDir, typeof options.output === "string" ? options.output : "dist/html")
-  const cliLang = detectCliLang()
+  const { outputDir: relOutput, cliLang } = resolveExportOptions(args, "dist/html")
+  const outputDir = resolveOutputDir(rootDir, relOutput)
   const locale = getLocale(cliLang)
 
   console.log(`${locale.htmlExporting}\n`)
 
   // 读取仓库级自定义枚举与本地化标签
-  const repoConfig = loadRepoConfig(rootDir)
-  const validationOverrides: ValidationOverrides = {
-    types: repoConfig.types,
-    statuses: repoConfig.statuses,
-  }
-  const typeLabels: LabelMap = repoConfig.typeLabels
-  const statusLabels: LabelMap = repoConfig.statusLabels
+  const { overrides: validationOverrides, typeLabels, statusLabels } = loadExportRepoConfig(rootDir)
 
   // 创建输出目录
   fs.mkdirSync(outputDir, { recursive: true })

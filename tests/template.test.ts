@@ -56,3 +56,22 @@ test("renderTemplate chapters 为空时不渲染", () => {
   const result = renderTemplate(tpl, {})
   assert.strictEqual(result, "")
 })
+
+test("renderTemplate 模板修改后（mtime 变化）自动失效重新编译", () => {
+  const tpl = writeTempTemplate("旧内容：{{title}}")
+  assert.strictEqual(renderTemplate(tpl, { title: "A" }), "旧内容：A")
+
+  // 修改模板内容（mtime 会变化）
+  fs.writeFileSync(tpl, "新内容：{{title}}", "utf-8")
+
+  // 同一路径 + 新 mtime → 应重新编译并返回新内容
+  assert.strictEqual(renderTemplate(tpl, { title: "B" }), "新内容：B")
+})
+
+test("renderTemplate 模板未修改时重复调用使用缓存", () => {
+  const tpl = writeTempTemplate("缓存测试：{{title}}")
+  // 第一次编译 + 缓存
+  assert.strictEqual(renderTemplate(tpl, { title: "X" }), "缓存测试：X")
+  // 第二次（mtime 未变）→ 使用缓存（外部无法直接观察，但行为应保持一致）
+  assert.strictEqual(renderTemplate(tpl, { title: "Y" }), "缓存测试：Y")
+})

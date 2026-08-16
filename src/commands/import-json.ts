@@ -2,6 +2,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { parseArgs } from "../args.ts"
 import { loadRepoConfig } from "../core/config.ts"
+import { getNextNumber } from "../core/sequence.ts"
 import { type ValidationOverrides, validateConfig } from "../core/validate.ts"
 import { getLocale } from "../i18n/index.ts"
 import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
@@ -45,21 +46,6 @@ export interface ImportResult {
 }
 
 /**
- * 获取下一个序号（复用 new-story.ts 逻辑）
- * @param rootDir 项目根目录
- * @returns 两位数字序号
- */
-function getNextNumber(rootDir: string): string {
-  const folders = fs.readdirSync(rootDir).filter((item) => /^\d{2,}-/.test(item))
-  let max = 0
-  for (const folder of folders) {
-    const num = parseInt(folder.split("-")[0], 10)
-    if (!Number.isNaN(num) && num > max) max = num
-  }
-  return String(max + 1).padStart(2, "0")
-}
-
-/**
  * 从 JSON 数据创建单个故事
  * @param rootDir 目标根目录
  * @param story 故事数据
@@ -67,7 +53,7 @@ function getNextNumber(rootDir: string): string {
  * @param overrides 仓库级校验覆盖
  * @returns 创建的文件夹名（失败时返回 null）
  */
-function createStoryFromJson(
+export function createStoryFromJson(
   rootDir: string,
   story: ImportStory,
   number: string,

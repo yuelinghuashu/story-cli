@@ -149,8 +149,11 @@ story stats
 | `story epub --all`                     | Export all stories to EPUB                                          |
 | `story export html`                    | Export as static HTML site (print to PDF via browser)               |
 | `story export txt`                     | Export all stories as plain text (.txt)                             |
+| `story export txt --stdout`            | Export all stories as text stream (pipe-friendly, with title lines) |
 | `story export json`                    | Export all stories as structured JSON (AI-friendly)                 |
+| `story export json --stdout`           | Export all stories as JSON stream (pipe-friendly)                   |
 | `story export md`                      | Export all stories as merged Markdown (with frontmatter)            |
+| `story export md --stdout`             | Export all stories as Markdown stream (pipe-friendly, separated)    |
 | `story stats`                          | Show writing statistics (stories, words, series, health)            |
 | `story import json`                    | Import stories from JSON (AI output → auto directory structure)     |
 | `story help`                           | Show usage                                                          |

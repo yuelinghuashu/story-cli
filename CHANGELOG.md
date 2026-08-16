@@ -2,7 +2,35 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [1.2.0] - 2026-08-15
+## [1.3.0] - 2026-08-16
+
+### 新增
+
+- **`story export md --stdout`**：Markdown 导出支持标准输出（管道友好），多故事用 `<!-- story-separator -->` 分隔拼接
+- **`story export txt --stdout`**：纯文本导出支持标准输出（管道友好），每个故事前自动插入标题行，多故事用分隔符拼接
+- **MCP Server（`story mcp-server`）**：AI 时代的战略入口，通过 JSON-RPC 2.0 over stdio 协议暴露 6 个工具（`scan_stories` / `read_chapter` / `write_chapter` / `import_json` / `validate` / `build`），零新增运行时依赖，复用 `core/loader.ts` 共享逻辑。支持 Claude Desktop / Cursor 等 MCP 客户端连接。
+- **MCP 文档**：新增 `docs/mcp.md` / `docs/mcp.en.md`，包含 Claude Desktop / Cursor 连接配置与示例对话。
+- **`stats --json` 增强**：每个故事新增 `chapters`（章节明细）、`paragraphs`（段落数）、`dialogues`（对话数）字段，为 `make analyze` 提供原料；Makefile 新增 `analyze` target（需 jq）。
+
+### 改进
+
+- **工具链组合**：`docs/export.md` 新增「工具链组合」章节，展示与 yq / jq / pandoc / wkhtmltopdf 等外部工具的管道组合用法
+- **Help 输出更新**：`story help` 增加 `export md/txt/json --stdout` 管道用法说明
+- **构建与导出模块重组**（为 MCP Server / 插件系统铺垫）：
+  - `build.ts`（485 行 → 259 行）：`loadStories` / `loadStoryConfigAsync` / `loadStoryContentAsync` / `buildStoryData` 抽取至 `core/loader.ts`，保留 README 渲染与命令编排
+  - `core/sequence.ts` 新建：`getNextNumber` 去重（`new-story.ts` 与 `import-json.ts` 共用，统一使用 `scanStoryFolders`，正确排除基础设施目录与 `.storyignore`）
+  - `core/exporter.ts` 新建：导出公共的 `resolveExportOptions` / `loadExportOverrides` / `loadExportRepoConfig` / `resolveOutputDir`，消除四个 export 命令重复的参数解析与配置加载模板代码
+  - `render/epub-assets.ts` 新建：封面图片加载从 `epub.ts`（434 行 → 394 行）抽离，与 `epub-generator.ts` 职责分离
+
+### 测试
+
+- 新增 `--stdout` 测试：`export md --stdout`（多故事分隔符/不落盘）、`export txt --stdout`（标题行/分隔符/不落盘）
+- 新增单元测试：`sanitizeFileName`（6 项：非法字符/连续空格/超长截断/Unicode）、`extractNumericWordCount`（7 项：千字/万字/K words/小数/无法解析）、`renderTemplate` 缓存失效（2 项：mtime 变化重新编译/未变化使用缓存）
+- 新增 MCP 协议/工具测试（14 项）：JSON-RPC 解析/序列化、工具注册、`scan_stories` / `read_chapter` / `write_chapter`（原子写入）/ `import_json`（批量导入）/ `validate`
+- 302 项测试运行，299 项通过（+29）
+
+<details>
+<summary>## [1.2.0] - 2026-08-15</summary>
 
 ### 新增
 
@@ -45,6 +73,8 @@
 
 - EPUB 集成测试：结构完整性（mimetype/container/opf/toc）、mimetype STORE 压缩验证、manifest/spine 引用一致性、章节索引命名、目录导航、图片引用一致性
 - 271 项测试运行，268 项通过（+6，新增 EPUB 集成测试；另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
+
+</details>
 
 <details>
 <summary>## [1.1.0] - 2026-08-15</summary>

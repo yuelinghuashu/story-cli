@@ -2,7 +2,25 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
-## [1.2.0] - 2026-08-15
+## [1.3.0] - 2026-08-16
+
+### Added
+
+- **`story export md --stdout`**: Markdown export supports stdout (pipe-friendly), multiple stories joined with `<!-- story-separator -->`
+- **`story export txt --stdout`**: text export supports stdout (pipe-friendly), each story prefixed with a title line, multiple stories joined with separator
+
+### Improved
+
+- **Toolchain composition**: `docs/export.md` gains a "Toolchain Composition" section with pipe examples using yq / jq / pandoc / wkhtmltopdf
+- **Help output updated**: `story help` documents `export md/txt/json --stdout` pipe-friendly usage
+
+### Tests
+
+- Added `--stdout` tests: `export md --stdout` (separator/no disk writes), `export txt --stdout` (title line/separator/no disk writes)
+- 273 tests run, 270 pass (+2)
+
+<details>
+<summary>## [1.2.0] - 2026-08-15</summary>
 
 ### Added
 
@@ -39,6 +57,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 ### Tests
 
 - All 265 tests pass (+13, including encoding detection)
+
+</details>
 
 <details>
 <summary>## [1.1.0] - 2026-08-15</summary>

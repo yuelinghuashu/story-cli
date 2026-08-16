@@ -111,6 +111,10 @@ test("story stats --json 输出结构化数据", () => {
   assert.strictEqual(data.stories.length, 1)
   assert.strictEqual(data.stories[0].title, "故事A")
   assert.ok(Array.isArray(data.series))
+  // 新增章节明细与结构指标
+  assert.ok(Array.isArray(data.stories[0].chapters), "应包含章节明细")
+  assert.ok(typeof data.stories[0].paragraphs === "number", "应包含段落数")
+  assert.ok(typeof data.stories[0].dialogues === "number", "应包含对话数")
 })
 
 test("story stats 忽略无效配置的故事但不崩溃", () => {

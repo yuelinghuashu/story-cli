@@ -4,6 +4,7 @@ import { parseArgs } from "../args.ts"
 import { loadRepoConfig } from "../core/config.ts"
 import { extractChaptersLocalized, readStoryText, resolveRawWordCount, scanStoryFolders } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
+import type { ChapterInfo } from "../core/types.ts"
 import type { ValidationOverrides } from "../core/validate.ts"
 import { getLocale } from "../i18n/index.ts"
 import { detectCliLang } from "../utils/cli-utils.ts"
@@ -24,6 +25,12 @@ interface StoryStats {
   summary?: string
   configWordCount?: string
   chapterCount: number
+  /** 章节明细（标题 + 字数） */
+  chapters: ChapterInfo[]
+  /** 段落数（按空行分割） */
+  paragraphCount: number
+  /** 对话数（中文引号 / 英文引号内的对话片段） */
+  dialogueCount: number
 }
 
 /**
@@ -147,6 +154,9 @@ export function runStats(rootDir: string, args: string[]): number {
         summary: config.summary,
         configWordCount: config.wordCount,
         chapterCount: chapters.length,
+        chapters,
+        paragraphCount: countParagraphs(content),
+        dialogueCount: countDialogues(content),
       })
     } catch (e) {
       // 跳过有问题的故事（与 build 行为一致）
@@ -237,6 +247,14 @@ export function runStats(rootDir: string, args: string[]): number {
         series: s.series,
         seriesOrder: s.seriesOrder,
         chapterCount: s.chapterCount,
+        // 章节级明细（为 make analyze 提供原料）
+        chapters: s.chapters.map((c) => ({
+          title: c.title,
+          wordCount: c.wordCount,
+        })),
+        // 结构与节奏指标
+        paragraphs: s.paragraphCount,
+        dialogues: s.dialogueCount,
       })),
     }
     console.log(JSON.stringify(result, null, 2))
@@ -291,7 +309,31 @@ export function runStats(rootDir: string, args: string[]): number {
  * @param lang 语言
  * @returns 数字或 null（无法解析时）
  */
-function extractNumericWordCount(formatted: string, lang: string): number | null {
+/**
+ * 统计段落数（按空行分割的非空块）
+ * @param content 正文内容
+ * @returns 段落数
+ */
+export function countParagraphs(content: string): number {
+  if (!content.trim()) return 0
+  return content.split(/\n\s*\n/).filter((block) => block.trim().length > 0).length
+}
+
+/**
+ * 统计对话片段数（中文「」/“” 或英文 "..." 引号内的内容）
+ * @param content 正文内容
+ * @returns 对话片段数
+ */
+export function countDialogues(content: string): number {
+  if (!content) return 0
+  // 中文引号「」/「」 或 弯引号“”
+  const zhMatches = content.match(/[「“][^」”]*[」”]/g) ?? []
+  // 英文双引号 "..."
+  const enMatches = content.match(/"[^"]*"/g) ?? []
+  return zhMatches.length + enMatches.length
+}
+
+export function extractNumericWordCount(formatted: string, lang: string): number | null {
   const match = formatted.match(/(\d+(?:\.\d+)?)/)
   if (!match) return null
   const num = Number.parseFloat(match[1])

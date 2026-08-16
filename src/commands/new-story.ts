@@ -2,24 +2,8 @@ import fs from "node:fs"
 import path from "node:path"
 import { parseArgs } from "../args.ts"
 import { loadRepoConfig } from "../core/config.ts"
-import { scanStoryFolders } from "../core/scanner.ts"
+import { getNextNumber } from "../core/sequence.ts"
 import type { Language } from "../core/types.ts"
-
-/**
- * 获取下一个序号
- * 复用 scanner 的故事文件夹识别逻辑（排除基础设施目录 + 应用 .storyignore）
- * @param rootDir 项目根目录
- * @returns 两位数字序号
- */
-function getNextNumber(rootDir: string): string {
-  const folders = scanStoryFolders(rootDir)
-  let max = 0
-  for (const folder of folders) {
-    const num = parseInt(folder.split("-")[0], 10)
-    if (!Number.isNaN(num) && num > max) max = num
-  }
-  return String(max + 1).padStart(2, "0")
-}
 
 /**
  * 创建新故事

@@ -459,6 +459,120 @@ test("story export md 导出合并 Markdown（含 YAML Frontmatter）", () => {
   assert.ok(content.includes("这是正文内容。"), "应包含正文内容")
 })
 
+test("story export md --stdout 输出管道友好的合并 Markdown", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-md-stdout-"))
+
+  // 创建两个故事，验证分隔符与多故事输出
+  const storyDirA = path.join(dir, "01-故事A")
+  fs.mkdirSync(storyDirA, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDirA, "config.json"),
+    JSON.stringify(
+      {
+        title: "故事A",
+        type: "original",
+        status: "ongoing",
+        language: "zh",
+        summary: "故事A的简介。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDirA, "text.md"), "# 第一章\n\n故事A正文内容。", "utf-8")
+
+  const storyDirB = path.join(dir, "02-故事B")
+  fs.mkdirSync(storyDirB, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDirB, "config.json"),
+    JSON.stringify(
+      {
+        title: "故事B",
+        type: "original",
+        status: "completed",
+        language: "zh",
+        summary: "故事B的简介。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDirB, "text.md"), "# 第一章\n\n故事B正文内容。", "utf-8")
+
+  const stdout = runCli(["export", "md", "--stdout"], dir)
+
+  // 应包含两个故事的 Frontmatter 和正文
+  assert.ok(stdout.includes('title: "故事A"'), "应包含故事A的标题元数据")
+  assert.ok(stdout.includes('title: "故事B"'), "应包含故事B的标题元数据")
+  assert.ok(stdout.includes("故事A正文内容"), "应包含故事A正文")
+  assert.ok(stdout.includes("故事B正文内容"), "应包含故事B正文")
+  // 应包含分隔符
+  assert.ok(stdout.includes("<!-- story-separator -->"), "多故事应使用分隔符连接")
+  // 不应创建输出目录（--stdout 不落盘）
+  assert.ok(!fs.existsSync(path.join(dir, "dist", "md")), "--stdout 模式不应创建 dist/md 目录")
+})
+
+test("story export txt --stdout 输出带标题行的纯文本", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-txt-stdout-"))
+
+  // 创建两个故事，验证标题行 + 分隔符
+  const storyDirA = path.join(dir, "01-故事A")
+  fs.mkdirSync(storyDirA, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDirA, "config.json"),
+    JSON.stringify(
+      {
+        title: "故事A",
+        type: "original",
+        status: "ongoing",
+        language: "zh",
+        summary: "故事A的简介。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDirA, "text.md"), "# 第一章\n\n故事A正文内容。", "utf-8")
+
+  const storyDirB = path.join(dir, "02-故事B")
+  fs.mkdirSync(storyDirB, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDirB, "config.json"),
+    JSON.stringify(
+      {
+        title: "故事B",
+        type: "original",
+        status: "completed",
+        language: "zh",
+        summary: "故事B的简介。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDirB, "text.md"), "# 第一章\n\n故事B正文内容。", "utf-8")
+
+  const stdout = runCli(["export", "txt", "--stdout"], dir)
+
+  // 应包含标题行
+  assert.ok(stdout.includes("================\n故事A\n================"), "应包含故事A的标题行")
+  assert.ok(stdout.includes("================\n故事B\n================"), "应包含故事B的标题行")
+  assert.ok(stdout.includes("故事A正文内容"), "应包含故事A正文")
+  assert.ok(stdout.includes("故事B正文内容"), "应包含故事B正文")
+  // 应包含分隔符
+  assert.ok(stdout.includes("<!-- story-separator -->"), "多故事应使用分隔符连接")
+  // 不应创建输出目录
+  assert.ok(!fs.existsSync(path.join(dir, "dist", "txt")), "--stdout 模式不应创建 dist/txt 目录")
+})
+
 test("story epub --all 导出全部故事", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
   const storyDir = path.join(dir, "01-测试故事")

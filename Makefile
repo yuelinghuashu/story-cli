@@ -37,3 +37,7 @@ format:
 ## 🎬 生成示例故事仓库（开发验证用）
 demo:
 	node bin/index.ts demo
+
+## 📊 写作质量分析（依赖 jq，展示章节字数/段落/对话趋势）
+analyze:
+	@node bin/index.ts stats --json | jq '.stories[] | {title, chapterCount, paragraphs, dialogues, chapters: [.chapters[].wordCount]}'

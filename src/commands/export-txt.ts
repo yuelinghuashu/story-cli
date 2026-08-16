@@ -1,12 +1,10 @@
 import fs from "node:fs"
 import path from "node:path"
-import { parseArgs } from "../args.ts"
-import { loadRepoConfig } from "../core/config.ts"
+import { loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
 import { readStoryText, scanStoryFolders } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
-import type { ValidationOverrides } from "../core/validate.ts"
 import { getLocale } from "../i18n/index.ts"
-import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
+import { sanitizeFileName } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
 
 /**
@@ -16,26 +14,26 @@ import { formatError } from "../utils/errors.ts"
  */
 export function exportTxt(rootDir: string, args: string[]): number {
   // 解析参数
-  const { options } = parseArgs(args)
-  const outputDir = path.resolve(rootDir, typeof options.output === "string" ? options.output : "dist/txt")
-  const cliLang = detectCliLang()
+  const { outputDir: relOutput, toStdout, cliLang } = resolveExportOptions(args, "dist/txt")
+  const outputDir = resolveOutputDir(rootDir, relOutput)
   const locale = getLocale(cliLang)
 
-  console.log(`${locale.txtExporting}\n`)
-
-  // 读取仓库级自定义枚举
-  const repoConfig = loadRepoConfig(rootDir)
-  const validationOverrides: ValidationOverrides = {
-    types: repoConfig.types,
-    statuses: repoConfig.statuses,
+  if (!toStdout) {
+    console.log(`${locale.txtExporting}\n`)
   }
 
-  // 创建输出目录
-  fs.mkdirSync(outputDir, { recursive: true })
+  // 读取仓库级自定义枚举
+  const validationOverrides = loadExportOverrides(rootDir)
+
+  // stdout 模式：不需要创建输出目录；文件模式：创建输出目录
+  if (!toStdout) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
 
   const folders = scanStoryFolders(rootDir)
   let success = 0
   let failed = 0
+  const sections: string[] = []
 
   for (const folder of folders) {
     const folderPath = path.join(rootDir, folder)
@@ -52,17 +50,30 @@ export function exportTxt(rootDir: string, args: string[]): number {
         continue
       }
 
-      // 安全文件名 + 输出路径
-      const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
-      const outputPath = path.join(outputDir, `${safeTitle}.txt`)
+      if (toStdout) {
+        // stdout 模式：每个故事加标题行 + 收集到数组
+        const titleLine = `================\n${String(config.title)}\n================`
+        sections.push(`${titleLine}\n\n${content.trim()}`)
+        success++
+      } else {
+        // 安全文件名 + 输出路径
+        const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
+        const outputPath = path.join(outputDir, `${safeTitle}.txt`)
 
-      // 写入纯文本（保留 Markdown 原始格式，作为纯文字稿）
-      fs.writeFileSync(outputPath, content, "utf-8")
-      success++
+        // 写入纯文本（保留 Markdown 原始格式，作为纯文字稿）
+        fs.writeFileSync(outputPath, content, "utf-8")
+        success++
+      }
     } catch (e) {
       console.error(formatError(e))
       failed++
     }
+  }
+
+  // stdout 模式：按分隔符拼接输出（管道友好）
+  if (toStdout) {
+    process.stdout.write(`${sections.join("\n\n<!-- story-separator -->\n\n")}\n`)
+    return failed > 0 ? 1 : 0
   }
 
   const relativeOutput = path.relative(rootDir, outputDir) || "."

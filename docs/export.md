@@ -42,6 +42,16 @@ story export txt
 - 适合：纯文字稿、通用文本分发
 - 自定义输出目录：`story export txt --output=dist/custom`
 
+**管道友好（`--stdout`）**：
+
+```bash
+# 输出到标准输出（带故事标题行 + 分隔符，管道友好）
+story export txt --stdout
+story export txt --stdout | grep -c "story-separator"  # 统计故事数
+```
+
+> 多故事输出用 `<!-- story-separator -->` 分隔，每个故事前有标题行，便于下游脚本按故事切分。
+
 ---
 
 ## 📚 EPUB 导出
@@ -134,6 +144,16 @@ story export md
 
 将每个故事导出为**单文件 Markdown**（`dist/md/故事标题.md`），包含 YAML Frontmatter 元数据。
 
+**管道友好（`--stdout`）**：
+
+```bash
+# 输出到标准输出（多故事用分隔符连接，可直接管道给 pandoc）
+story export md --stdout
+story export md --stdout | pandoc -f markdown -t docx -o book.docx
+```
+
+> 多故事输出用 `<!-- story-separator -->` 分隔，每一段都是一个合法独立的 MD 文件。
+
 ```markdown
 ---
 title: "我的故事"
@@ -154,6 +174,55 @@ author: "作者名"
 
 - 📦 **跨平台搬运**：论坛发帖、邮件分享、发给朋友
 - 💾 **便携备份**：一个文件包含完整故事 + 元数据
+
+---
+
+## 🔗 工具链组合（与其他工具协作）
+
+story-cli 不穷举所有输出格式，而是通过 `--stdout` 与专业工具组合完成高级转换。
+
+### 导出为 YAML
+
+```bash
+# 需要先安装 yq（brew install yq / apt install yq）
+story export json --stdout | yq -P > stories.yaml
+```
+
+### 导出为 Word（.docx）
+
+```bash
+# 需要先安装 pandoc（brew install pandoc）
+story export md --stdout | pandoc -f markdown -t docx -o book.docx
+```
+
+### 导出为 PDF
+
+```bash
+# 方案 1：浏览器打印（推荐，见上文）
+# 方案 2：wkhtmltopdf
+story export html --output=dist/html
+wkhtmltopdf dist/html/index.html book.pdf
+```
+
+### 字数分布报表
+
+```bash
+story stats --json | jq -r '.stories[] | "\(.title): \(.wordCount)"'
+```
+
+### 系列总字数排行
+
+```bash
+story stats --json | jq 'group_by(.series) | map({series: .[0].series, total: map(.wordCount) | add}) | sort_by(-.total)'
+```
+
+### 分章节字数分布
+
+```bash
+story export json --stdout | jq '.stories[].chapters | map(.title + ": " + (.content | length | tostring) + "字")'
+```
+
+> **原则**：CLI 做原子能力（输出标准原料），用户做编排（自由组合工具）。数据永远在你自己手里。
 
 ---
 

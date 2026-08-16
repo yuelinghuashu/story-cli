@@ -1,7 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import { parseArgs } from "../args.ts"
-import { loadRepoConfig } from "../core/config.ts"
+import { loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
 import {
   readStoryText,
   resolveRawWordCount,
@@ -11,9 +10,7 @@ import {
 } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
 import type { StoryConfig } from "../core/types.ts"
-import type { ValidationOverrides } from "../core/validate.ts"
 import { getLocale, resolveLang } from "../i18n/index.ts"
-import { detectCliLang } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
 
 /** 单个章节的 JSON 结构 */
@@ -101,10 +98,8 @@ function buildExportStory(folder: string, config: StoryConfig, content: string):
  * @param args 命令行参数（--output=dist/json、--stdout）
  */
 export function exportJson(rootDir: string, args: string[]): number {
-  const { options } = parseArgs(args)
-  const toStdout = !!options.stdout
-  const outputDir = path.resolve(rootDir, typeof options.output === "string" ? options.output : "dist/json")
-  const cliLang = detectCliLang()
+  const { outputDir: relOutput, toStdout, cliLang } = resolveExportOptions(args, "dist/json")
+  const outputDir = resolveOutputDir(rootDir, relOutput)
   const locale = getLocale(cliLang)
 
   if (!toStdout) {
@@ -112,11 +107,7 @@ export function exportJson(rootDir: string, args: string[]): number {
   }
 
   // 读取仓库级自定义枚举
-  const repoConfig = loadRepoConfig(rootDir)
-  const validationOverrides: ValidationOverrides = {
-    types: repoConfig.types,
-    statuses: repoConfig.statuses,
-  }
+  const validationOverrides = loadExportOverrides(rootDir)
 
   // 收集所有故事
   const folders = scanStoryFolders(rootDir)
