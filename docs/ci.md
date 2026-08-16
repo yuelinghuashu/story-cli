@@ -71,7 +71,9 @@ jobs:
 
 ### 在故事仓库中使用 story-cli
 
-story-cli 的源码仓库**不是故事仓库**，因此 CI 中不会运行 `story build`。如果要在你的**故事仓库**中集成 CI，推荐使用 **story-cli Action**：
+story-cli 的源码仓库**不是故事仓库**，因此 CI 中不会运行 `story build`（即不需要在 push 时执行 `example.yml`）。该示例工作流仅用于**展示** story-cli Action 的用法，默认**手动触发**，不会自动执行。
+
+如果要在你的**故事仓库**中集成 CI，推荐使用 **story-cli Action**：
 
 ```yaml
 - uses: actions/checkout@v4
@@ -82,6 +84,8 @@ story-cli 的源码仓库**不是故事仓库**，因此 CI 中不会运行 `sto
 ```
 
 **输入参数：** `command`（必填）、`cli-version`（默认 latest）、`working-directory`（默认 `.`）。
+
+> 💡 本项目自带的 `.github/workflows/example.yml` 为手动触发的演示工作流，展示了 `build` / `epub --all` 的典型用法。在你的故事仓库中按需复制修改即可。
 
 备选：直接运行 npm 包 `npx --yes @yuelinghuashu/story-cli build --validate-only`
 

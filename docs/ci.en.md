@@ -83,6 +83,8 @@ The story-cli source repository is **not a story repository**, so `story build` 
 
 **Inputs:** `command` (required), `cli-version` (default `latest`), `working-directory` (default `.`).
 
+> 💡 The `.github/workflows/example.yml` in this repo is a **manual-trigger demo workflow** showing typical usage of `build` / `epub --all`. It does NOT run automatically on push — copy and adapt it to your own story repository as needed.
+
 Alternative: run the published npm package directly with `npx --yes @yuelinghuashu/story-cli build --validate-only`
 
 ### Multi-branch builds

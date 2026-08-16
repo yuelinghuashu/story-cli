@@ -31,3 +31,10 @@ test("example.yml 展示用户使用方式", () => {
   assert.ok(content.includes('command: "build"'), "应包含 build 命令")
   assert.ok(content.includes('command: "epub --all"'), "应包含 epub 命令")
 })
+
+test("example.yml 仅手动触发（不自动执行）", () => {
+  const content = fs.readFileSync(workflowPath, "utf-8")
+  // 必须只包含 workflow_dispatch，不能有 push 或 pull_request 自动触发
+  assert.ok(content.includes("workflow_dispatch"), "应包含 workflow_dispatch")
+  assert.ok(!content.includes("pull_request"), "不应自动响应 pull_request")
+})
