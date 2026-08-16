@@ -33,7 +33,12 @@
     "writing",
     "markdown",
     "cms",
-    "cli"
+    "cli",
+    "git",
+    "epub",
+    "mcp",
+    "ai",
+    "llm"
   ],
   "author": "yuelinghuashu",
   "license": "MIT",
