@@ -18,6 +18,8 @@ const SCAFFOLD_FILES: Array<{
   { template: "scaffold/.gitignore.template", target: ".gitignore" },
   { template: "scaffold/.storyignore.template", target: ".storyignore" },
   { template: "scaffold/README.md", target: "README.md" },
+  { template: "scaffold/Makefile.template", target: "Makefile" },
+  { template: "scaffold/story.ps1.template", target: "story.ps1" },
   { template: "scaffold/LICENSE", target: "LICENSE", onlyFull: true },
   { template: "scaffold/add-story.md", target: "docs/add-story.md", onlyFull: true },
   { template: "scaffold/CHANGELOG.md", target: "CHANGELOG.md", onlyFull: true, replaceDate: true },
@@ -135,6 +137,7 @@ Repository structure:
   story.config.json       # 仓库级配置（自定义类型/状态）
   .gitignore              # Git 忽略规则（防构建产物入库）
   .storyignore            # story-cli 扫描排除规则（草稿/临时文件）
+  Makefile                # 工作流入口（make help 查看所有命令）
   README.md               # 仓库说明（build 后自动更新为完整索引）
   assets/sponsor/         # 赞助收款码目录（可选，放收款码图片）
 ${
@@ -146,9 +149,13 @@ ${
     : ""
 }
 Next steps:
-  1. Run: story new "Your Story Title"
+  1. Run: make new TITLE="Your Story Title"  # 或 story new "Your Story Title"
   2. Edit the generated config.json and text.md
-  3. Run: story build
+  3. Run: make build                        # 或 story build
+
+💡 快速入口（可选）：在 ~/.bashrc 中添加以下别名，即可从任意目录使用本仓库的工作流：
+    alias sm='make -C \${PWD}'
+    # 然后任意目录运行: sm new TITLE="..." / sm stats / sm push
 `)
 
   if (isFull) {

@@ -10,7 +10,6 @@
  */
 import fs from "node:fs"
 import path from "node:path"
-import { fileURLToPath } from "node:url"
 
 /**
  * 从指定目录向上查找包含 package.json 的目录（包根）
@@ -28,8 +27,8 @@ function findPackageRoot(startDir: string): string {
   return startDir
 }
 
-/** 当前模块目录 */
-const moduleDir = path.dirname(fileURLToPath(import.meta.url))
+/** 当前模块目录（Node 21.2+ 内置） */
+const moduleDir = import.meta.dirname
 
 /** 包根目录（含 package.json） */
 export const packageRoot = findPackageRoot(moduleDir)

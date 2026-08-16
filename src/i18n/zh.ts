@@ -111,6 +111,9 @@ export const zh: Locale = {
   epubOutputDir: (output) => `📁 输出目录: ${output}`,
   epubNoArgsError: `请指定故事标题或使用 --all!\n  Usage:\n    story epub "Title"       # Export one story\n    story epub --all           # Export all stories`,
   epubNotFound: (title) => `未找到匹配 "${title}" 的故事文件夹`,
+  epubCoverMissing: (p) => `⚠️ 封面图片不存在: ${p}`,
+  epubSvgUnsafe: (p) => `⚠️ 封面 SVG 包含危险内容（脚本/事件属性），已跳过: ${p}`,
+  epubCoverReadFailed: (p, msg) => `⚠️ 读取封面图片失败: ${p} - ${msg}`,
 
   // HTML 导出
   htmlExporting: "🌐 正在导出 HTML 站点...",
@@ -134,6 +137,33 @@ export const zh: Locale = {
   mdExportSuccess: (count, output) => `✅ Markdown 导出完成：${count} 个故事 → ${output}/`,
   mdEmptyContent: (folder) => `⚠️ ${folder}: 正文为空，已跳过`,
 
+  // Demo 模式
+  demoGenerating: "🎬 正在生成示例故事仓库...",
+  demoDone: "✅ 示例故事仓库已生成！",
+  demoExplain: (count) => `已创建 ${count} 个示例故事。你可以：
+
+  1. 编辑任意故事的 text.md 开始写作
+  2. 运行 \`story build\` 生成 README（已自动生成）
+  3. 运行 \`story epub "星河入梦"\` 导出 EPUB
+  4. 运行 \`story export html\` 导出静态站点
+
+  本目录现在是一个功能完整的故事仓库，随时可以提交到 Git！`,
+
+  // Stats 创作统计
+  statsScanning: "📊 正在统计创作数据...",
+  statsStoryCount: (count, completed, ongoing) => `📚 故事: ${count} 部 (${completed} 完成 / ${ongoing} 连载中)`,
+  statsTotalWords: (words, chapters) => `📝 总字数: ${words} (${chapters} 个章节)`,
+  statsSeries: (name, count, completion) => `📈 系列「${name}」: ${count} 部 → ${completion}`,
+  statsStandalone: (count) => `📌 独立故事: ${count} 部`,
+  statsActivity: (thisMonth, lastMonth) => `🔥 写作活跃度: 本月 ${thisMonth} (上月 ${lastMonth})`,
+  statsNoGit: "⚠️ 非 Git 仓库，无法统计写作活跃度",
+  statsHealthTitle: (count) => `⚠️ 健康度检查: ${count} 项警告`,
+  statsStaleWordCount: (folder, config, actual) => `    [过期字数] ${folder}: config=${config}, 实际=${actual}`,
+  statsMissingSummary: (folder) => `    [缺 summary] ${folder}`,
+  statsHealthy: "✅ 健康度检查: 全部正常",
+  statsThisMonth: "本月",
+  statsLastMonth: "上月",
+
   // JSON 导入
   importJsonReading: "📥 正在从 JSON 导入故事...",
   importJsonFileNotFound: (p) => `文件不存在: ${p}`,
@@ -149,4 +179,9 @@ story import json --file=stories.json --output=my-stories/  # 指定输出目录
   importJsonDone: (success, failed) => `📥 导入完成：${success} 成功, ${failed} 失败`,
   importJsonOutputDir: (dir) => `输出目录: ${dir}`,
   importJsonNextStep: "运行 `story build` 生成 README",
+
+  // 编码检测
+  encodingGbkWarning: (filePath) =>
+    `⚠️ ${filePath} 可能使用 GBK/GB2312 编码，请用 VS Code 或记事本「另存为 UTF-8」后重新运行`,
+  encodingUnknownWarning: (filePath) => `⚠️ ${filePath} 不是有效的 UTF-8 编码，请将文件转换为 UTF-8 后重新运行`,
 }

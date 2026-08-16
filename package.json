@@ -1,6 +1,6 @@
 {
   "name": "@yuelinghuashu/story-cli",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "packageManager": "pnpm@11.21.0",
   "description": "A zero-deploy, Git-native content management CLI for Markdown stories. Manage stories with directory conventions, generate READMEs, export epub.",
   "type": "module",
@@ -16,10 +16,13 @@
     "build": "tsc -p tsconfig.build.json && chmod +x dist/bin/index.js",
     "test": "node --test tests/*.test.ts",
     "test:unit": "node --test tests/*.test.ts",
+    "test:coverage": "node --test --experimental-test-coverage tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/ tests/ bin/",
-    "lint:fix": "biome check --write src/ tests/ bin/",
-    "format": "biome format --write src/ tests/ bin/",
+    "lint": "biome check src/ tests/ bin/ bench/",
+    "lint:fix": "biome check --write src/ tests/ bin/ bench/",
+    "format": "biome format --write src/ tests/ bin/ bench/",
+    "bench": "node bench/generate.ts && node bench/bench.ts",
+    "bench:generate": "node bench/generate.ts",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint:fix && pnpm build"
   },
@@ -43,7 +46,7 @@
     "url": "https://github.com/yuelinghuashu/story-cli/issues"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "fflate": "^0.8.3",

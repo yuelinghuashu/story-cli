@@ -114,6 +114,9 @@ export const en: Locale = {
   epubOutputDir: (output) => `📁 Output: ${output}`,
   epubNoArgsError: `Please specify a story title or use --all!\n  Usage:\n    story epub "Title"       # Export one story\n    story epub --all           # Export all stories`,
   epubNotFound: (title) => `No story folder matching "${title}"`,
+  epubCoverMissing: (p) => `⚠️ Cover image not found: ${p}`,
+  epubSvgUnsafe: (p) => `⚠️ Cover SVG contains dangerous content (scripts/event handlers), skipped: ${p}`,
+  epubCoverReadFailed: (p, msg) => `⚠️ Failed to read cover image: ${p} - ${msg}`,
 
   // HTML export
   htmlExporting: "🌐 Exporting HTML site...",
@@ -137,6 +140,34 @@ export const en: Locale = {
   mdExportSuccess: (count, output) => `✅ Markdown export complete: ${count} stories → ${output}/`,
   mdEmptyContent: (folder) => `⚠️ ${folder}: empty content, skipped`,
 
+  // Demo mode
+  demoGenerating: "🎬 Generating demo story repository...",
+  demoDone: "✅ Demo story repository created!",
+  demoExplain: (count) => `Created ${count} demo stories. You can:
+
+  1. Edit any story's text.md to start writing
+  2. Run \`story build\` to generate READMEs (already done)
+  3. Run \`story epub "Starlight Dreams"\` to export EPUB
+  4. Run \`story export html\` to export a static site
+
+  This directory is now a fully functional story repository — ready to commit to Git!`,
+
+  // Stats
+  statsScanning: "📊 Collecting writing statistics...",
+  statsStoryCount: (count, completed, ongoing) => `📚 Stories: ${count} (${completed} completed / ${ongoing} ongoing)`,
+  statsTotalWords: (words, chapters) => `📝 Total words: ${words} (${chapters} chapters)`,
+  statsSeries: (name, count, completion) => `📈 Series "${name}": ${count} stories → ${completion}`,
+  statsStandalone: (count) => `📌 Standalone stories: ${count}`,
+  statsActivity: (thisMonth, lastMonth) => `🔥 Writing activity: this month ${thisMonth} (last month ${lastMonth})`,
+  statsNoGit: "⚠️ Not a git repository, cannot compute writing activity",
+  statsHealthTitle: (count) => `⚠️ Health check: ${count} warnings`,
+  statsStaleWordCount: (folder, config, actual) =>
+    `    [Stale word count] ${folder}: config=${config}, actual=${actual}`,
+  statsMissingSummary: (folder) => `    [Missing summary] ${folder}`,
+  statsHealthy: "✅ Health check: all good",
+  statsThisMonth: "this month",
+  statsLastMonth: "last month",
+
   // JSON import
   importJsonReading: "📥 Importing stories from JSON...",
   importJsonFileNotFound: (p) => `File not found: ${p}`,
@@ -152,4 +183,8 @@ story import json --file=stories.json --output=my-stories/  # Specify output dir
   importJsonDone: (success, failed) => `📥 Import complete: ${success} success, ${failed} failed`,
   importJsonOutputDir: (dir) => `Output directory: ${dir}`,
   importJsonNextStep: "Run `story build` to generate READMEs",
+
+  // Encoding detection
+  encodingGbkWarning: (filePath) => `⚠️ ${filePath} may use GBK/GB2312 encoding. Please re-save it as UTF-8 and re-run.`,
+  encodingUnknownWarning: (filePath) => `⚠️ ${filePath} is not valid UTF-8. Please convert it to UTF-8 and re-run.`,
 }

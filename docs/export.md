@@ -47,14 +47,16 @@ story export txt
 ## 📚 EPUB 导出
 
 ```bash
-# 导出单个故事
-story epub "故事标题"
+story epub "故事标题"     # 导出单个
+    
+story epub --all          # 导出全部
 
-# 导出全部故事
-story epub --all
+story epub "故事标题" --split-by-volume  # 按 config.volume 分卷导出
 ```
 
 生成标准 EPUB 3 格式（封面、版权页、目录、图片支持）。详见 [docs/epub.md](epub.md)。
+
+> 💡 **分卷导出**：`--split-by-volume` 按 `config.json` 中的 `volume` 字段生成 `标题-卷名.epub`，适合长篇（百万字级）分卷发布。
 
 ---
 
@@ -87,6 +89,14 @@ story export json
 
 将全部故事导出为单个结构化 JSON 文件：`dist/json/stories.json`。
 
+**管道友好（`--stdout`）**：
+
+```bash
+# 输出到标准输出（配合 jq 等工具使用）
+story export json --stdout
+story export json --stdout | jq '.stories[0].title'
+```
+
 ```json
 {
   "version": "1.0.0",
@@ -110,7 +120,7 @@ story export json
 
 **用途**：
 
-- 🤖 **AI 工作流**：把故事喂给 Claude / ChatGPT 进行续写、翻译、分析
+- 🤖 **AI 工作流**：把故事喂给 Claude / ChatGPT 进行续写、翻译、分析（`--stdout` 可直接管道传输）
 - 📊 **数据分析**：统计章节数、字数趋势、角色出场
 - 📝 **Obsidian Dataview**：用 Dataview 插件查询和管理你的故事库
 
@@ -157,16 +167,3 @@ author: "作者名"
 | 给 AI 续写 / 翻译   | JSON                    |
 | 搬到论坛 / 发给朋友 | 合并 Markdown           |
 | 纯文字稿            | TXT                     |
-
-</｜｜DSML｜｜>
-<task_progress>
-
-- [x] 在 epub-generator.ts 中添加 isSvgSafe 函数
-- [x] 在 epub.ts 中集成 SVG 过滤
-- [ ] 创建 docs/export.md（待完成）
-- [ ] 创建 docs/export.en.md
-- [ ] README/CHANGELOG 更新
-- [ ] docs/design.md / design.en.md 深化说明
-- [ ] 全链路验证
-      </task_progress>
-      </write_to_file>

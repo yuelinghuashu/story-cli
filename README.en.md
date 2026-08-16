@@ -3,7 +3,7 @@
 [![中文](https://img.shields.io/badge/简体中文-README-blue?style=flat-square)](README.md)
 [![English](https://img.shields.io/badge/English-README-blue?style=flat-square)](README.en.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](package.json)
 [![CI](https://img.shields.io/github/actions/workflow/status/yuelinghuashu/story-cli/build.yml?style=flat-square)](https://github.com/yuelinghuashu/story-cli/actions)
 [![npm version](https://img.shields.io/npm/v/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
 [![npm downloads](https://img.shields.io/npm/dm/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
@@ -32,6 +32,35 @@ Manage stories with simple directory conventions, automatically generate GitHub-
 
 ---
 
+## 🤔 Why story-cli?
+
+| Scenario            |   Web Novel Software   |       Manual Markdown        |              **story-cli**               |
+| ------------------- | :--------------------: | :--------------------------: | :--------------------------------------: |
+| Data ownership      | ❌ Proprietary / cloud |        ✅ Plain files        |              ✅ Plain files              |
+| Git-native workflow |   ❌ Not applicable    | ⚠️ Manual README maintenance |    ✅ Auto READMEs + rename detection    |
+| Bilingual (zh/en)   |  Usually unsupported   |            ⚠️ DIY            |               ✅ Built-in                |
+| Chapter management  |      ✅ Built-in       |      ⚠️ Manual folders       | ✅ Auto chapter extraction + word counts |
+| EPUB export         |      ✅ Built-in       |     ⚠️ Needs extra tools     |              ✅ One command              |
+| Editor freedom      |      ❌ Locked in      |            ✅ Any            |                  ✅ Any                  |
+| AI tool freedom     |   ❌ Platform-bound    |            ✅ Any            |                  ✅ Any                  |
+
+**story-cli gives Git-loving creators a "data is always portable" writing workflow.** Your stories are always plain files — openable by any tool, any editor, anytime.
+
+---
+
+## ⚠️ File Encoding Requirements
+
+**All files (`config.json`, `text.md`, `chapter-*.md`, `.storyignore`) must be saved in UTF-8 encoding.**
+
+- **VS Code**: Click the encoding button at the bottom right → "Save with Encoding" → select `UTF-8`
+- **Windows Notepad**: Save As → Encoding → choose `UTF-8`
+- **macOS / Linux**: UTF-8 by default, no action needed
+
+> If you save files in GBK/GB2312 encoding, `story build` will output garbled text and word counts will be wrong.
+> story-cli warns you when encoding issues are detected but does not block the build.
+
+---
+
 ## 📦 Installation
 
 ```bash
@@ -49,6 +78,9 @@ npx @yuelinghuashu/story-cli
 ## 🚀 Quick Start
 
 ```bash
+# 0. Want to see it in action? Generate a demo repository
+story demo
+
 # 1. Initialize an empty story repository
 story init
 
@@ -72,30 +104,57 @@ story build
 story epub "My First Story"
 # or export all
 story epub --all
+
+# 6. Show writing statistics
+story stats
 ```
+
+> 💡 **Recommended: Use the Makefile workflow (more efficient):**
+>
+> ```bash
+> make init                     # Initialize
+> make new TITLE="My Story"      # Create + auto-build
+> make commit                   # Build + commit
+> make push                     # Build + commit + push
+> make stats                    # Show writing statistics
+> ```
+>
+> Run `make help` for all commands.
+>
+> `story init` auto-generates an editable `Makefile`. You can also run atomic commands like `story build` directly.
+>
+> 💡 **Windows users**: `story init` also generates `story.ps1` (PowerShell workflow entry), mirroring the Makefile:
+>
+> ```powershell
+> .\story.ps1 init
+> .\story.ps1 new -Title 'My Story'
+> .\story.ps1 build
+> ```
 
 ---
 
 ## 🛠️ Commands
 
-| Command                       | Description                                                     |
-| ----------------------------- | --------------------------------------------------------------- |
-| `story init`                  | Initialize a repository (templates + `.gitignore` + README)     |
-| `story init --full`           | Also generate LICENSE / docs / CHANGELOG                        |
-| `story new "Title" [options]` | Create a new story scaffold                                     |
-| `story build`                 | Build all READMEs + root index                                  |
-| `story build --validate-only` | Validate configs only, no README generation                     |
-| `story build --save-counts`   | Persist auto-calculated word counts to config.json              |
-| `story build --watch`         | Watch for file changes and auto-rebuild READMEs                 |
-| `story epub "Title"`          | Export a story to EPUB                                          |
-| `story epub --all`            | Export all stories to EPUB                                      |
-| `story export html`           | Export as static HTML site (print to PDF via browser)           |
-| `story export txt`            | Export all stories as plain text (.txt)                         |
-| `story export json`           | Export all stories as structured JSON (AI-friendly)             |
-| `story export md`             | Export all stories as merged Markdown (with frontmatter)        |
-| `story import json`           | Import stories from JSON (AI output → auto directory structure) |
-| `story help`                  | Show usage                                                      |
-| `story version`               | Show version                                                    |
+| Command                                | Description                                                         |
+| -------------------------------------- | ------------------------------------------------------------------- |
+| `story init`                           | Initialize a repository (templates + `.gitignore` + README)         |
+| `story init --full`                    | Also generate LICENSE / docs / CHANGELOG                            |
+| `story new "Title" [options]`          | Create a new story scaffold                                         |
+| `story build`                          | Build all READMEs + root index                                      |
+| `story build --validate-only`          | Validate configs only, no README generation                         |
+| `story build --save-counts`            | Persist auto-calculated word counts to config.json                  |
+| `story build --watch`                  | Watch for file changes and auto-rebuild READMEs                     |
+| `story epub "Title"`                   | Export a story to EPUB                                              |
+| `story epub "Title" --split-by-volume` | Export as split volumes based on config.volume (volume in filename) |
+| `story epub --all`                     | Export all stories to EPUB                                          |
+| `story export html`                    | Export as static HTML site (print to PDF via browser)               |
+| `story export txt`                     | Export all stories as plain text (.txt)                             |
+| `story export json`                    | Export all stories as structured JSON (AI-friendly)                 |
+| `story export md`                      | Export all stories as merged Markdown (with frontmatter)            |
+| `story stats`                          | Show writing statistics (stories, words, series, health)            |
+| `story import json`                    | Import stories from JSON (AI output → auto directory structure)     |
+| `story help`                           | Show usage                                                          |
+| `story version`                        | Show version                                                        |
 
 ### `story new` options
 
@@ -149,10 +208,12 @@ Generated by `story init`. Remove the file to fall back to defaults.
 ## 🧪 Testing
 
 ```bash
-pnpm test
+make test         # or pnpm test
 ```
 
-All 228 tests pass, covering: scanner, series grouping sorting, folder rename detection, validation, template rendering, word counting, i18n, README generation (including series grouping), EPUB export (including cover images), argument parsing, repo config, CLI entry points, XSS protection, Markdown parsing edge cases, init --full, `.storyignore` exclusion rules, and JSON import.
+All 265 tests pass, covering: scanner, series grouping sorting, folder rename detection, validation, template rendering, word counting (including CJK Extension A/B rare characters), i18n, README generation (including series grouping), EPUB export (including cover images and split volumes), argument parsing, repo config, CLI entry points, XSS protection, Markdown parsing edge cases, init --full, `.storyignore` exclusion rules, encoding detection (UTF-8/GBK), JSON import, writing statistics, and Makefile workflow.
+
+> 💡 **Dev quick commands**: the root `Makefile` provides `make build` / `make test` / `make typecheck` / `make lint` / `make format` as dev workflow entry points. Run `make help` for all commands.
 
 ---
 

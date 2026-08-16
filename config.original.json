@@ -1,0 +1,13 @@
+{
+  "title": "故事标题 / Story Title",
+  "type": "original",
+  "status": "completed",
+  "isMultiChapter": false,
+  "language": "zh",
+  "summary": "一句话概括故事核心冲突和结局。 / One-sentence summary of the story.",
+  "author": "作者名 / Author name",
+  "created": "2026-08-15",
+  "series": "系列名称（可选）/ Series name (optional)",
+  "seriesOrder": 1,
+  "volume": "卷/册名称（可选）/ Volume name (optional)"
+}

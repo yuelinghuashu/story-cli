@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import path from "node:path"
 import type { Zippable } from "fflate"
 import { strToU8, zipSync } from "fflate"
@@ -70,6 +71,8 @@ export function isSvgSafe(content: string): boolean {
   if (/javascript\s*:/i.test(content)) return false
   // 禁止 <foreignObject>（可嵌入任意 HTML，绕过其他检查）
   if (/<foreignobject[\s>]/i.test(content)) return false
+  // 禁止 style 元素中的 CSS 表达式注入（IE 时代 XSS，纵深防御）
+  if (/\bexpression\s*\(/i.test(content)) return false
   return true
 }
 
@@ -265,7 +268,7 @@ ${tocItems.join("\n")}
   const contentOpf = strToU8(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0" xml:lang="${safeLang}">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:identifier id="bookid">urn:uuid:${generateUuid()}</dc:identifier>
+    <dc:identifier id="bookid">urn:uuid:${randomUUID()}</dc:identifier>
     <dc:title>${safeTitle}</dc:title>
     <dc:creator>${safeAuthor}</dc:creator>
     <dc:language>${safeLang}</dc:language>
@@ -296,16 +299,4 @@ ${tocItems.join("\n")}
   }
 
   return zipSync(archive)
-}
-
-/**
- * 生成随机 UUID（用于 EPUB 标识符）
- * @returns UUID 字符串
- */
-function generateUuid(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    const v = c === "x" ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
 }

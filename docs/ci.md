@@ -36,6 +36,9 @@ jobs:
         run: pnpm build
       - name: Run tests
         run: pnpm test
+
+      - name: Test coverage
+        run: pnpm test:coverage
 ```
 
 ---
@@ -52,6 +55,7 @@ jobs:
 | `pnpm lint`             | **代码规范**：Biome 检查代码风格                 |
 | `pnpm build`            | **编译阶段**：TypeScript 编译为 `dist/`          |
 | `pnpm test`             | **测试阶段**：运行完整测试套件                   |
+| `pnpm test:coverage`    | **覆盖率**：统计测试覆盖率（当前约 91%）         |
 
 ---
 
@@ -59,7 +63,7 @@ jobs:
 
 1. **类型安全** — `tsc --noEmit` 确保 TypeScript 类型正确
 2. **代码规范** — Biome 统一 lint + format，保证代码风格一致
-3. **质量保障** — 175 项测试覆盖扫描、校验、渲染、EPUB、CLI 等核心逻辑，防止回归
+3. **质量保障** — 237 项测试覆盖扫描、校验、渲染、EPUB、CLI 等核心逻辑，防止回归
 
 ---
 
@@ -91,5 +95,5 @@ on:
 
 ## ⚠️ 注意事项
 
-- `actions/setup-node@v4` 中的 `node-version` 需要与 `package.json` 的 `engines.node` 保持一致（CI 直接运行源码测试需 Node 24+ 原生支持 `.ts`；发布运行时仅需 Node >= 20）
+- `actions/setup-node@v4` 中的 `node-version` 需要与 `package.json` 的 `engines.node` 保持一致（CI 直接运行源码测试需 Node 24+ 原生支持 `.ts`；发布运行时需 Node >= 22）
 - 如果使用 npm 而非 pnpm，将 `cache: pnpm` 改为 `cache: npm`，`pnpm install` 改为 `npm install`

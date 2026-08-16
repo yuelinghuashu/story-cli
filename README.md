@@ -3,7 +3,7 @@
 [![中文](https://img.shields.io/badge/简体中文-README-blue?style=flat-square)](README.md)
 [![English](https://img.shields.io/badge/English-README-blue?style=flat-square)](README.en.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](package.json)
 [![CI](https://img.shields.io/github/actions/workflow/status/yuelinghuashu/story-cli/build.yml?style=flat-square)](https://github.com/yuelinghuashu/story-cli/actions)
 [![npm version](https://img.shields.io/npm/v/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
 [![npm downloads](https://img.shields.io/npm/dm/@yuelinghuashu/story-cli?style=flat-square)](https://www.npmjs.com/package/@yuelinghuashu/story-cli)
@@ -32,6 +32,35 @@
 
 ---
 
+## 🤔 为什么用 story-cli？
+
+| 场景           |    网文写作软件    |  手动管理 Markdown   |        **story-cli**        |
+| -------------- | :----------------: | :------------------: | :-------------------------: |
+| 数据所有权     | ❌ 专有格式 / 云端 |      ✅ 纯文件       |          ✅ 纯文件          |
+| Git 原生工作流 |     ❌ 不适用      | ⚠️ 需手动维护 README | ✅ 自动 README + 重命名检测 |
+| 中英文双语     |     通常不支持     |    ⚠️ 需自行处理     |       ✅ 内置双语支持       |
+| 章节管理       |      ✅ 内置       |   ⚠️ 需手动建目录    |   ✅ 自动提取章节 + 字数    |
+| EPUB 导出      |      ✅ 内置       |    ⚠️ 需额外工具     |         ✅ 一条命令         |
+| 编辑器自由     |      ❌ 锁定       |       ✅ 任意        |           ✅ 任意           |
+| AI 工具自由    |    ❌ 平台绑定     |       ✅ 任意        |           ✅ 任意           |
+
+**story-cli 给喜欢 Git 的创作者提供一条"数据永可迁移"的写作工作流。** 你的故事永远是普通文件，任何工具、任何编辑器、任何时间都能打开。
+
+---
+
+## ⚠️ 文件编码要求
+
+**所有文件（`config.json`、`text.md`、`chapter-*.md`、`.storyignore`）必须使用 UTF-8 编码保存。**
+
+- **VS Code**：右下角点击编码按钮 → 「通过编码保存」→ 选择 `UTF-8`
+- **Windows 记事本**：另存为 → 编码选择 `UTF-8`
+- **macOS / Linux**：默认即 UTF-8，无需额外操作
+
+> 如果你用 GBK/GB2312 编码保存文件，`story build` 会输出乱码警告，字数统计也会出错。
+> story-cli 会在检测到编码问题时提示你转换，但不阻断构建。
+
+---
+
 ## 📦 安装
 
 ```bash
@@ -42,13 +71,16 @@ npm install -g @yuelinghuashu/story-cli
 npx @yuelinghuashu/story-cli
 ```
 
-> 发布包为编译后的 `dist/` 产物（兼容 Node 24 原生执行限制）。开发时仍可直接运行源码：`node bin/index.ts version`。
+> 发布包为编译后的 `dist/` 产物，需要 Node >= 22。开发时使用 Node 24+ 可直接运行源码：`node bin/index.ts version`。
 
 ---
 
 ## 🚀 快速开始
 
 ```bash
+# 0. 想快速看效果？直接生成一个示例故事仓库
+story demo
+
 # 1. 初始化一个空的故事仓库
 story init
 
@@ -72,30 +104,56 @@ story build
 story epub "我的新故事"
 # 或导出全部
 story epub --all
+
+# 6. 查看创作统计
+story stats
 ```
+
+> 💡 **推荐使用 Makefile 工作流（更高效）：**
+>
+> ```bash
+> make init                     # 初始化
+> make new TITLE="我的新故事"    # 新建并自动构建
+> make commit                   # 构建 + 提交
+> make push                     # 构建 + 提交 + 推送
+> make stats                    # 查看创作统计
+> ```
+>
+> 更多命令请运行 `make help`。
+>
+> `story init` 会自动生成一个可编辑的 `Makefile`，你也可以手动执行 `story build` 等原子命令。
+>
+> 💡 **Windows 用户**：`story init` 还会生成 `story.ps1`（PowerShell 版工作流入口），用法与 Makefile 一致：
+>
+> ```powershell
+> .\story.ps1 init
+> .\story.ps1 new -Title '我的新故事'
+> .\story.ps1 build
+> ```
 
 ---
 
 ## 🛠️ 命令参考
 
-| 命令                          | 描述                                            |
-| ----------------------------- | ----------------------------------------------- |
-| `story init`                  | 初始化仓库（模板 + `.gitignore` + README 骨架） |
-| `story init --full`           | 额外生成 LICENSE / docs/CHANGELOG               |
-| `story new "标题" [选项]`     | 创建新故事脚手架                                |
-| `story build`                 | 构建所有故事 README + 根索引                    |
-| `story build --validate-only` | 仅校验配置不生成 README                         |
-| `story build --save-counts`   | 构建时将自动字数写入 config.json                |
-| `story build --watch`         | 监听文件变更，自动重建 README                   |
-| `story epub "标题"`           | 导出单个故事为 EPUB                             |
-| `story epub --all`            | 导出所有故事为 EPUB                             |
-| `story export html`           | 导出静态 HTML 站点（可浏览器打印为 PDF）        |
-| `story export txt`            | 导出全部故事为纯文本（.txt）                    |
-| `story export json`           | 导出全部故事为结构化 JSON（AI 友好）            |
-| `story export md`             | 导出全部故事为合并 Markdown（含 Frontmatter）   |
-| `story import json`           | 从 JSON 导入故事（AI 输出 → 自动生成目录结构）  |
-| `story help`                  | 显示帮助                                        |
-| `story version`               | 显示版本号                                      |
+| 命令                                  | 描述                                            |
+| ------------------------------------- | ----------------------------------------------- |
+| `story init`                          | 初始化仓库（模板 + `.gitignore` + README 骨架） |
+| `story init --full`                   | 额外生成 LICENSE / docs/CHANGELOG               |
+| `story new "标题" [选项]`             | 创建新故事脚手架                                |
+| `story build`                         | 构建所有故事 README + 根索引                    |
+| `story build --validate-only`         | 仅校验配置不生成 README                         |
+| `story build --save-counts`           | 构建时将自动字数写入 config.json                |
+| `story build --watch`                 | 监听文件变更，自动重建 README                   |
+| `story epub "标题"`                   | 导出单个故事为 EPUB                             |
+| `story epub "标题" --split-by-volume` | 按 config.volume 分卷导出（文件名带卷名）       |
+| `story epub --all`                    | 导出所有故事为 EPUB                             |
+| `story export html`                   | 导出静态 HTML 站点（可浏览器打印为 PDF）        |
+| `story export txt`                    | 导出全部故事为纯文本（.txt）                    |
+| `story export json`                   | 导出全部故事为结构化 JSON（AI 友好）            |
+| `story export md`                     | 导出全部故事为合并 Markdown（含 Frontmatter）   |
+| `story import json`                   | 从 JSON 导入故事（AI 输出 → 自动生成目录结构）  |
+| `story help`                          | 显示帮助                                        |
+| `story version`                       | 显示版本号                                      |
 
 ### `story new` 选项
 
@@ -149,10 +207,12 @@ story epub --all
 ## 🧪 测试
 
 ```bash
-pnpm test
+make test         # 或 pnpm test
 ```
 
-当前 228 项测试全部通过，覆盖：扫描器、系列分组排序、文件夹重命名检测、校验、模板渲染、字数统计、国际化、README 生成（含系列分组）、EPUB 导出（含封面图）、参数解析、仓库配置、CLI 入口、Markdown 转换边界、`.storyignore` 排除规则、JSON 导入（import json）。
+当前 265 项测试全部通过，覆盖：扫描器、系列分组排序、文件夹重命名检测、校验、模板渲染、字数统计（含 CJK 扩展区生僻字）、国际化、README 生成（含系列分组）、EPUB 导出（含封面图、分卷导出）、参数解析、仓库配置、CLI 入口、Markdown 转换边界、`.storyignore` 排除规则、编码检测（UTF-8/GBK）、JSON 导入（import json）、创作统计（stats）、Makefile 工作流。
+
+> 💡 **开发者快捷命令**：项目根目录的 `Makefile` 提供 `make build` / `make test` / `make typecheck` / `make lint` / `make format` 等开发工作流入口。运行 `make help` 查看全部命令。
 
 ---
 

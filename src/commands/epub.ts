@@ -18,9 +18,15 @@ import { ErrorCode, formatError, StoryError } from "../utils/errors.ts"
  * @param folderPath 故事文件夹路径
  * @param rootDir 项目根目录路径
  * @param coverPath config.json 中的 cover 字段值
+ * @param locale 语言文案
  * @returns 封面图片；无封面或加载失败时返回 null
  */
-function loadCoverImage(folderPath: string, rootDir: string, coverPath: string): EpubImage | null {
+function loadCoverImage(
+  folderPath: string,
+  rootDir: string,
+  coverPath: string,
+  locale: ReturnType<typeof getLocale>,
+): EpubImage | null {
   // 解析路径：绝对路径 → 相对故事文件夹 → 相对项目根目录
   let resolved: string | null = null
   if (path.isAbsolute(coverPath)) {
@@ -36,7 +42,7 @@ function loadCoverImage(folderPath: string, rootDir: string, coverPath: string):
   }
 
   if (!resolved || !fs.existsSync(resolved)) {
-    console.warn(`⚠️ 封面图片不存在: ${coverPath}`)
+    console.warn(locale.epubCoverMissing(coverPath))
     return null
   }
 
@@ -48,7 +54,7 @@ function loadCoverImage(folderPath: string, rootDir: string, coverPath: string):
     if (ext === ".svg") {
       const content = fs.readFileSync(resolved, "utf-8")
       if (!isSvgSafe(content)) {
-        console.warn(`⚠️ 封面 SVG 包含危险内容（脚本/事件属性），已跳过: ${coverPath}`)
+        console.warn(locale.epubSvgUnsafe(coverPath))
         return null
       }
     }
@@ -56,7 +62,7 @@ function loadCoverImage(folderPath: string, rootDir: string, coverPath: string):
     // 使用 cover 固定文件名（保留扩展名）
     return { name: `cover${ext}`, data }
   } catch (e) {
-    console.warn(`⚠️ 读取封面图片失败: ${coverPath} - ${(e as Error).message}`)
+    console.warn(locale.epubCoverReadFailed(coverPath, (e as Error).message))
     return null
   }
 }
@@ -173,7 +179,27 @@ function rewriteImageSrcs(html: string, srcMap: Map<string, string>): string {
 }
 
 /**
+ * 从故事文件夹的 config.json 中读取 title 字段（读取失败返回空字符串）
+ * @param rootDir 项目根目录
+ * @param folder 故事文件夹名
+ * @returns config.json 中的 title 字段（可能为空）
+ */
+function readConfigTitle(rootDir: string, folder: string): string {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(rootDir, folder, "config.json"), "utf-8")) as {
+      title?: unknown
+    }
+    return typeof raw.title === "string" ? raw.title : ""
+  } catch {
+    return ""
+  }
+}
+
+/**
  * 确定 EPUB 导出目标
+ * 匹配优先级：
+ *   1. config.json 的 title 字段精确匹配（用户从 README 看到的标题）
+ *   2. 回退到文件夹名包含匹配（向后兼容）
  * @param rootDir 项目根目录
  * @param title 故事标题（可选）
  * @param all 是否导出全部
@@ -190,11 +216,25 @@ function resolveTargets(
   }
 
   const folders = scanStoryFolders(rootDir)
-  const exact = folders.find((f) => f.includes(title ?? ""))
-  if (!exact) {
-    throw new StoryError(locale.epubNotFound(title ?? ""), ErrorCode.STORY_NOT_FOUND, { title })
+  const query = title ?? ""
+
+  // 优先级 1：config.json 的 title 字段精确匹配
+  const byConfigTitle = folders.find((folder) => readConfigTitle(rootDir, folder) === query)
+  if (byConfigTitle) return [byConfigTitle]
+
+  // 优先级 2：文件夹名包含匹配（收集所有匹配，判断歧义）
+  const byFolderName = folders.filter((f) => f.includes(query))
+  if (byFolderName.length === 1) return byFolderName
+  if (byFolderName.length > 1) {
+    // 多个文件夹匹配同一名称 → 歧义错误，列出所有候选
+    throw new StoryError(
+      `ambiguous match for "${query}": ${byFolderName.join(", ")}. Use a more specific name or config.json title.`,
+      ErrorCode.INVALID_ARGS,
+      { title, matches: byFolderName },
+    )
   }
-  return [exact]
+
+  throw new StoryError(locale.epubNotFound(query), ErrorCode.STORY_NOT_FOUND, { title })
 }
 
 /**
@@ -319,6 +359,8 @@ export function exportEpub(rootDir: string, args: string[]): number {
   const { positional, options } = parseArgs(args)
   const title = positional[0]
   const all = !!options.all
+  /** 按 config.volume 分卷导出（启用时文件名带卷名） */
+  const splitByVolume = !!options["split-by-volume"]
   const distDir = path.join(rootDir, "dist", "epub")
   const locale = getLocale(detectCliLang())
 
@@ -359,14 +401,16 @@ export function exportEpub(rootDir: string, args: string[]): number {
       }
 
       // 安全文件名 + 输出路径
+      // 分卷模式：config.volume 有值时输出 `标题-卷名.epub`，无值则回退单卷
       const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
-      const outputPath = path.join(distDir, `${safeTitle}.epub`)
+      const volumeSuffix = splitByVolume && config.volume ? `-${sanitizeFileName(config.volume)}` : ""
+      const outputPath = path.join(distDir, `${safeTitle}${volumeSuffix}.epub`)
 
       // 生成元数据 + 许可证
       const option = buildEpubMetadata(config, lang)
 
       // 加载封面图片（可选）
-      const coverImage = config.cover ? loadCoverImage(folderPath, rootDir, config.cover) : null
+      const coverImage = config.cover ? loadCoverImage(folderPath, rootDir, config.cover, locale) : null
 
       // 写入 EPUB
       fs.mkdirSync(distDir, { recursive: true })

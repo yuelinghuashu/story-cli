@@ -98,15 +98,18 @@ function buildExportStory(folder: string, config: StoryConfig, content: string):
  * 输出：{ version, exportedAt, storyCount, stories: [...] }
  * 供 AI 工作流、数据分析、Obsidian Dataview 等消费
  * @param rootDir 项目根目录
- * @param args 命令行参数（--output=dist/json）
+ * @param args 命令行参数（--output=dist/json、--stdout）
  */
 export function exportJson(rootDir: string, args: string[]): number {
   const { options } = parseArgs(args)
+  const toStdout = !!options.stdout
   const outputDir = path.resolve(rootDir, typeof options.output === "string" ? options.output : "dist/json")
   const cliLang = detectCliLang()
   const locale = getLocale(cliLang)
 
-  console.log(`${locale.jsonExporting}\n`)
+  if (!toStdout) {
+    console.log(`${locale.jsonExporting}\n`)
+  }
 
   // 读取仓库级自定义枚举
   const repoConfig = loadRepoConfig(rootDir)
@@ -149,6 +152,12 @@ export function exportJson(rootDir: string, args: string[]): number {
     exportedAt: new Date().toISOString(),
     storyCount: stories.length,
     stories,
+  }
+
+  // --stdout 模式：输出到标准输出（管道友好）
+  if (toStdout) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    return failed > 0 ? 1 : 0
   }
 
   // 写入文件（美化格式化，便于人工阅读和 diff）

@@ -119,6 +119,12 @@ export interface Locale {
   epubOutputDir: (output: string) => string
   epubNoArgsError: string
   epubNotFound: (title: string) => string
+  /** 封面图片不存在 */
+  epubCoverMissing: (path: string) => string
+  /** 封面 SVG 含危险内容 */
+  epubSvgUnsafe: (path: string) => string
+  /** 封面图片读取失败 */
+  epubCoverReadFailed: (path: string, msg: string) => string
 
   // HTML 导出
   htmlExporting: string
@@ -141,6 +147,42 @@ export interface Locale {
   mdExporting: string
   mdExportSuccess: (count: number, output: string) => string
   mdEmptyContent: (folder: string) => string
+
+  // Demo 模式
+  /** 正在生成示例仓库 */
+  demoGenerating: string
+  /** 演示完成提示 */
+  demoDone: string
+  /** 演示说明 */
+  demoExplain: (count: number) => string
+
+  // Stats 创作统计
+  /** 正在统计中 */
+  statsScanning: string
+  /** 故事数量统计 */
+  statsStoryCount: (count: number, completed: number, ongoing: number) => string
+  /** 总字数统计 */
+  statsTotalWords: (words: string, chapters: number) => string
+  /** 系列统计 */
+  statsSeries: (name: string, count: number, completion: string) => string
+  /** 独立故事数 */
+  statsStandalone: (count: number) => string
+  /** 写作活跃度 */
+  statsActivity: (thisMonth: string, lastMonth: string) => string
+  /** 无 git 历史 */
+  statsNoGit: string
+  /** 健康度警告标题 */
+  statsHealthTitle: (count: number) => string
+  /** 字数过期警告 */
+  statsStaleWordCount: (folder: string, config: string, actual: string) => string
+  /** 缺少 summary 警告 */
+  statsMissingSummary: (folder: string) => string
+  /** 无警告 */
+  statsHealthy: string
+  /** 本月 */
+  statsThisMonth: string
+  /** 上月 */
+  statsLastMonth: string
 
   // JSON 导入
   /** 正在读取 JSON  */
@@ -165,6 +207,12 @@ export interface Locale {
   importJsonOutputDir: (dir: string) => string
   /** 下一步提示 */
   importJsonNextStep: string
+
+  // 编码检测
+  /** 检测到 GBK/GB2312 编码警告 */
+  encodingGbkWarning: (filePath: string) => string
+  /** 检测到未知非 UTF-8 编码警告 */
+  encodingUnknownWarning: (filePath: string) => string
 }
 
 import { en } from "./en.ts"

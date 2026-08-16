@@ -1,12 +1,14 @@
 /**
  * 统一的命令行参数解析工具
+ * 使用 Node 内置 util.parseArgs（Node >= 18.3）
  */
 
+import { parseArgs as parseArgsNode } from "node:util"
 import type { ParsedArgs } from "./core/types.ts"
 
 /**
  * 解析命令行参数
- * 支持：--key=value、--flag、位置参数（无前缀）
+ * 支持：--key=value、--flag、位置参数（无前缀）、-- 分隔符
  * 示例：
  *   ["Title", "--type=fanfic", "--all"]
  *   → { positional: ["Title"], options: { type: "fanfic", all: true } }
@@ -15,23 +17,21 @@ import type { ParsedArgs } from "./core/types.ts"
  * @returns 解析结果
  */
 export function parseArgs(args: string[]): ParsedArgs {
-  const positional: string[] = []
-  const options: Record<string, string | boolean> = {}
+  const { values, positionals } = parseArgsNode({
+    args,
+    allowPositionals: true,
+    strict: false, // 宽容模式：接受未知选项，保持与手写实现一致
+  })
 
-  for (const arg of args) {
-    if (arg.startsWith("--")) {
-      const eqIndex = arg.indexOf("=")
-      if (eqIndex !== -1) {
-        options[arg.slice(2, eqIndex)] = arg.slice(eqIndex + 1)
-      } else {
-        options[arg.slice(2)] = true
-      }
-    } else {
-      positional.push(arg)
+  // values 中的 undefined 值被过滤，保持与手写实现一致（不存在的选项不写入）
+  const options: Record<string, string | boolean> = {}
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) {
+      options[key] = value
     }
   }
 
-  return { positional, options }
+  return { positional: positionals, options }
 }
 
 /**

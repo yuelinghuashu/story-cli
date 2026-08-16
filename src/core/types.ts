@@ -117,6 +117,15 @@ export interface BuildResult {
 }
 
 /**
+ * 单个故事的加载结果（loadStories 内部使用）
+ * 成功时 story 有值、issues 为空；失败时 story 为 null、issues 有值
+ * 使用判别联合而非断言，避免 null as unknown as StoryData 这类不安全写法
+ */
+export type StoryLoadResult =
+  | { story: StoryData; issues: never[]; contentWarnings: string[] }
+  | { story: null; issues: ValidationIssue[]; contentWarnings: never[] }
+
+/**
  * 配置校验结果
  */
 export interface ValidationResult {

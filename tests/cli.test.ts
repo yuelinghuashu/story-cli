@@ -3,10 +3,29 @@ import { spawnSync } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { test } from "node:test"
+import { after, test } from "node:test"
 import { fileURLToPath } from "node:url"
 
 const binPath = fileURLToPath(new URL("../bin/index.ts", import.meta.url))
+
+// 测试结束后清理本文件创建的所有临时目录（前缀统一 "cli-"）
+after(() => {
+  try {
+    const tmpDir = os.tmpdir()
+    for (const entry of fs.readdirSync(tmpDir)) {
+      // 只清理本测试文件创建的前缀（cli-test- / cli-txt-multi- / cli-json- / cli-md- / cli-sort-test- / cli-fractional-test- / cli-series-info-test- / cli-rename-test-）
+      if (entry.startsWith("cli-") && fs.statSync(path.join(tmpDir, entry)).isDirectory()) {
+        try {
+          fs.rmSync(path.join(tmpDir, entry), { recursive: true, force: true })
+        } catch {
+          // 清理失败静默忽略
+        }
+      }
+    }
+  } catch {
+    // 忽略
+  }
+})
 
 /** 运行 CLI 并返回 stdout + stderr 合并输出 */
 function runCli(args: string[], cwd: string): string {
@@ -110,6 +129,7 @@ test("story init 创建模板文件和目录结构", () => {
   // 默认生成的仓库文件
   assert.ok(fs.existsSync(path.join(dir, ".gitignore")), "默认应生成 .gitignore")
   assert.ok(fs.existsSync(path.join(dir, ".storyignore")), "默认应生成 .storyignore")
+  assert.ok(fs.existsSync(path.join(dir, "Makefile")), "默认应生成 Makefile")
   assert.ok(fs.existsSync(path.join(dir, "README.md")), "默认应生成 README.md")
 
   // 约定目录结构
@@ -117,6 +137,59 @@ test("story init 创建模板文件和目录结构", () => {
   assert.ok(fs.existsSync(path.join(dir, "assets", "sponsor")))
   assert.ok(fs.existsSync(path.join(dir, "assets", "sponsor", "README.md")))
   assert.ok(fs.existsSync(path.join(dir, "assets", "sponsor", ".gitkeep")))
+})
+
+test("项目根目录 Makefile 存在且包含开发工作流", () => {
+  // 项目根目录的 Makefile（开发工作流）应该存在
+  const rootDir = fileURLToPath(new URL("..", import.meta.url))
+  const makefilePath = path.join(rootDir, "Makefile")
+  assert.ok(fs.existsSync(makefilePath), "项目根目录应存在 Makefile")
+
+  const makefile = fs.readFileSync(makefilePath, "utf-8")
+  // 应包含开发工作流 target
+  assert.ok(makefile.includes("help"), "应包含 help target")
+  assert.ok(makefile.includes("build"), "应包含 build target")
+  assert.ok(makefile.includes("test"), "应包含 test target")
+  assert.ok(makefile.includes("typecheck"), "应包含 typecheck target")
+  assert.ok(makefile.includes("lint"), "应包含 lint target")
+  assert.ok(makefile.includes("pnpm"), "应使用 pnpm 命令")
+})
+
+test("story init 生成的 Makefile 包含工作流入口", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const stdout = runCli(["init"], dir)
+
+  const makefile = fs.readFileSync(path.join(dir, "Makefile"), "utf-8")
+  // 应包含核心 target
+  assert.ok(makefile.includes("help"), "应包含 help target")
+  assert.ok(makefile.includes("new"), "应包含 new target")
+  assert.ok(makefile.includes("build"), "应包含 build target")
+  assert.ok(makefile.includes("commit"), "应包含 commit target")
+  assert.ok(makefile.includes("push"), "应包含 push target")
+  assert.ok(makefile.includes("stats"), "应包含 stats target")
+  assert.ok(makefile.includes("story"), "应包含 story 命令")
+
+  // 应输出 alias 快速入口建议
+  assert.ok(stdout.includes("快速入口"), "应提示 alias 快速入口")
+  assert.ok(stdout.includes("alias sm="), "应包含 alias 示例")
+})
+
+test("story init 不覆盖已存在的 Makefile", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  // 用户已有自定义 Makefile
+  const custom = "# custom makefile\n"
+  fs.writeFileSync(path.join(dir, "Makefile"), custom, "utf-8")
+
+  runCli(["init"], dir)
+
+  assert.strictEqual(fs.readFileSync(path.join(dir, "Makefile"), "utf-8"), custom, "不应覆盖用户文件")
+})
+
+test("story demo 生成包含 Makefile 的示例仓库", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-demo-test-"))
+  runCli(["demo"], dir)
+
+  assert.ok(fs.existsSync(path.join(dir, "Makefile")), "demo 应生成 Makefile")
 })
 
 test("story init --full 额外生成 LICENSE/docs/CHANGELOG", () => {
@@ -447,6 +520,115 @@ test("story epub 导出带封面的故事", () => {
   assert.ok(epubData.length > 0)
 })
 
+test("story epub 按 config.title 精确匹配（与文件夹名不一致时）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const storyDir = path.join(dir, "01-内部文件夹名")
+  fs.mkdirSync(storyDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDir, "config.json"),
+    JSON.stringify(
+      {
+        title: "用户看到的标题",
+        type: "original",
+        status: "completed",
+        summary: "title 与文件夹名不一致的故事。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDir, "text.md"), "# 第一章\n\n正文内容。", "utf-8")
+
+  // 用 config.title 的值导出（用户从 README 看到的标题）
+  runCli(["epub", "用户看到的标题"], dir)
+
+  const epubPath = path.join(dir, "dist", "epub", "用户看到的标题.epub")
+  assert.ok(fs.existsSync(epubPath), "应按 config.title 精确匹配并导出 EPUB")
+})
+
+test("story epub 文件夹名子串匹配有歧义时提示错误", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  // 创建两个文件夹名都包含"星河入梦"的故事
+  const storyDirA = path.join(dir, "01-星河入梦")
+  fs.mkdirSync(storyDirA, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDirA, "config.json"),
+    JSON.stringify(
+      {
+        title: "星河入梦·上",
+        type: "original",
+        status: "completed",
+        summary: "歧义测试 A。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDirA, "text.md"), "# 第一章\n\n正文内容 A。", "utf-8")
+
+  const storyDirB = path.join(dir, "02-星河入梦")
+  fs.mkdirSync(storyDirB, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDirB, "config.json"),
+    JSON.stringify(
+      {
+        title: "星河入梦·下",
+        type: "original",
+        status: "completed",
+        summary: "歧义测试 B。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDirB, "text.md"), "# 第一章\n\n正文内容 B。", "utf-8")
+
+  // 运行 story epub "星河入梦" → 应报歧义错误（退出码非 0）
+  const result = spawnSync(process.execPath, [binPath, "epub", "星河入梦"], {
+    cwd: dir,
+    encoding: "utf-8",
+  })
+  // 歧义匹配应失败（非 0 退出码）
+  assert.notStrictEqual(result.status, 0, "歧义匹配应报错而不是静默导出第一个")
+  assert.ok(result.stderr.includes("ambiguous match"), "应输出歧义错误消息")
+  assert.ok(result.stderr.includes("01-星河入梦"), "歧义错误应列出第一个候选")
+  assert.ok(result.stderr.includes("02-星河入梦"), "歧义错误应列出第二个候选")
+})
+
+test("story epub 按文件夹名子串匹配（向后兼容）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const storyDir = path.join(dir, "01-星河入梦")
+  fs.mkdirSync(storyDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDir, "config.json"),
+    JSON.stringify(
+      {
+        title: "另一个名字",
+        type: "original",
+        status: "completed",
+        summary: "验证文件夹名匹配回退。",
+        created: "2026-01-01",
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  )
+  fs.writeFileSync(path.join(storyDir, "text.md"), "# 第一章\n\n正文内容。", "utf-8")
+
+  // 用文件夹名部分匹配（旧行为）
+  runCli(["epub", "星河入梦"], dir)
+
+  const epubPath = path.join(dir, "dist", "epub", "另一个名字.epub")
+  assert.ok(fs.existsSync(epubPath), "应按文件夹名子串匹配回退并导出 EPUB")
+})
+
 test("story epub 封面图片不存在时警告但不失败", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
   const storyDir = path.join(dir, "01-无封面")
@@ -691,6 +873,28 @@ test("story build 故事 README 显示系列信息", () => {
   assert.ok(storyReadme.includes("三体"), "应包含系列名称")
   assert.ok(storyReadme.includes("第 1 部"), "应包含系列顺序")
   assert.ok(storyReadme.includes("第一部·地球往事"), "应包含卷名")
+})
+
+test("story demo 生成示例故事仓库", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-demo-test-"))
+  runCli(["demo"], dir)
+
+  // 基础脚手架文件
+  assert.ok(fs.existsSync(path.join(dir, "config.original.json")))
+  assert.ok(fs.existsSync(path.join(dir, "story.config.json")))
+  assert.ok(fs.existsSync(path.join(dir, ".gitignore")))
+
+  // 3 个示例故事
+  assert.ok(fs.existsSync(path.join(dir, "01-星河入梦", "config.json")))
+  assert.ok(fs.existsSync(path.join(dir, "01-星河入梦", "text.md")))
+  assert.ok(fs.existsSync(path.join(dir, "02-星海守望", "config.json")))
+  assert.ok(fs.existsSync(path.join(dir, "02-星海守望", "text.md")))
+  assert.ok(fs.existsSync(path.join(dir, "03-Starlight Dreams", "config.json")))
+  assert.ok(fs.existsSync(path.join(dir, "03-Starlight Dreams", "text.md")))
+
+  // build 后生成了 README
+  assert.ok(fs.existsSync(path.join(dir, "README.md")))
+  assert.ok(fs.existsSync(path.join(dir, "01-星河入梦", "README.md")))
 })
 
 test("story build 检测到文件夹重命名时输出警示", () => {

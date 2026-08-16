@@ -1,5 +1,6 @@
 import { parseCommand } from "./args.ts"
 import { runBuild } from "./commands/build.ts"
+import { runDemo } from "./commands/demo.ts"
 import { exportEpub } from "./commands/epub.ts"
 import { exportHtml } from "./commands/export-html.ts"
 import { exportJson } from "./commands/export-json.ts"
@@ -8,6 +9,7 @@ import { exportTxt } from "./commands/export-txt.ts"
 import { importJson } from "./commands/import-json.ts"
 import { initProject } from "./commands/init.ts"
 import { createNewStory } from "./commands/new-story.ts"
+import { runStats } from "./commands/stats.ts"
 import { formatError } from "./utils/errors.ts"
 import { getPackageVersion } from "./utils/paths.ts"
 
@@ -33,6 +35,8 @@ Usage:
   story export txt          Export all stories as plain text
   story export json         Export all stories as structured JSON
   story export md           Export all stories as merged Markdown
+  story stats               Show writing statistics
+  story demo                Generate a demo story repository
   story help                Show this help
   story version             Show version
 
@@ -87,6 +91,10 @@ export async function run(argv: string[]): Promise<number> {
         }
         return exportHtml(rootDir, args)
 
+      case "stats":
+      case "s":
+        return runStats(rootDir, args)
+
       case "import":
         // import 命令支持子命令：json
         if (args[0] === "json") {
@@ -94,6 +102,9 @@ export async function run(argv: string[]): Promise<number> {
         }
         console.log("❌ Unknown import subcommand. Use: story import json")
         return 1
+
+      case "demo":
+        return runDemo(rootDir)
 
       case "init":
       case "i":

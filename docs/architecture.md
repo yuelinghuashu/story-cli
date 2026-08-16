@@ -7,6 +7,7 @@
 ## 🏗️ 模块设计
 
 ```text
+Makefile                 # 开发工作流入口（make test / make build / make lint）
 bin/
 └── index.ts              # CLI 入口（仅调用 run）
 
@@ -20,7 +21,8 @@ src/
 │   ├── export-html.ts   # export html 命令（i18n + 校验 + 错误处理）
 │   ├── export-txt.ts    # export txt 命令（纯文本导出）
 │   ├── init.ts          # 仓库初始化命令
-│   └── new-story.ts     # story new 脚手架命令
+│   ├── new-story.ts     # story new 脚手架命令
+│   └── stats.ts         # story stats 创作统计命令
 │
 ├── core/                # 故事管理的领域核心
 │   ├── scanner.ts       # 扫描故事文件夹、读取正文、提取章节（含异步版本）
@@ -43,6 +45,7 @@ src/
     └── word-count.ts    # 语言感知的字数统计
 
 tests/                   # node:test 测试（零额外测试依赖）
+bench/                   # 基准测试（generate.ts 生成仓库 + bench.ts 测量性能）
 templates/               # 脚手架模板（config + story README 模板）
 ```
 
@@ -57,11 +60,29 @@ templates/
 ├── story.config.json       # 仓库级配置模板
 └── scaffold/               # story init 脚手架模板
     ├── .gitignore.template # 忽略规则（npm 排除 .gitignore，故用此名称）
+    ├── Makefile.template   # 工作流入口（make new/commit/push/stats）
+    ├── story.ps1.template  # Windows PowerShell 工作流入口（.\story.ps1）
     ├── README.md           # 初始说明
     ├── LICENSE             # --full 模式：CC BY-NC-SA 4.0
     ├── add-story.md        # --full 模式：如何新增故事
     └── CHANGELOG.md        # --full 模式：变更日志（含 {{DATE}}）
 ```
+
+### 💡 项目根 Makefile（开发工作流）
+
+项目根目录的 `Makefile` 是**开发者工作流入口**，使用 `make help` 查看全部命令：
+
+```bash
+make build       # 编译构建（tsc → dist/）
+make test        # 运行全部测试（node:test）
+make typecheck   # TypeScript 类型检查
+make lint        # 代码规范检查（biome）
+make lint-fix    # 自动修复代码规范
+make format      # 格式化代码
+make demo        # 生成示例故事仓库
+```
+
+CLI 的 `story init` 在用户仓库中生成的是**用户工作流 Makefile**（`make new` / `make commit` / `make push`）。项目根 Makefile 与用户模板 Makefile 是同一分层哲学的两个侧面——**原子能力 + 工作流编排**。
 
 ### 💡 自定义模板注意事项
 
@@ -70,6 +91,107 @@ templates/
 - **每个 Markdown 段落之间应恰好保留一个空行** —— 多余的空行会让渲染出现间距不一致，过少则段落连在一起
 - Handlebars 控制块（`{{#if}}` / `{{#each}}` / `{{else}}` / `{{/if}}`）本身不产生内容，但块标签前/后的空行会被保留——条件不满足或列表为空时，这些「泄漏空行」会导致输出出现多个连续空行
 - **建议不要随意增删模板中的段落空行**。如果确实需要调整布局，修改后请运行 `story build` 检查输出效果，并通过 `git diff` 确认变更范围符合预期
+
+### 📋 模板变量参考
+
+#### 根 README 模板（root-template.md）
+
+以下变量由 `src/render/readme.ts` 生成，可在根 README 模板中使用：
+
+| 变量                                                | 类型    | 说明                                                         |
+| --------------------------------------------------- | ------- | ------------------------------------------------------------ |
+| `rootTitle`                                         | string  | 仓库标题                                                     |
+| `rootStats`                                         | string  | 统计信息（故事数 / 总字数 / 最后更新日期）                   |
+| `rootWelcome`                                       | string  | 欢迎文本                                                     |
+| `tocLabel`                                          | string  | 目录区块标题                                                 |
+| `tocStoryList`                                      | string  | 目录「故事列表」链接文本                                     |
+| `tocHowToAdd`                                       | string  | 目录「如何新增故事」链接文本                                 |
+| `tocArchitecture`                                   | string  | 目录「技术架构」链接文本                                     |
+| `tocSponsor`                                        | string  | 目录「赞助支持」链接文本（`hasSponsor` 为 true 时显示）      |
+| `tocLicense`                                        | string  | 目录「许可证」链接文本                                       |
+| `storyListTitle`                                    | string  | 故事列表标题                                                 |
+| `storyListHeader`                                   | string  | 故事列表表格表头（Markdown 表格第一行）                      |
+| `storyListHint`                                     | string  | 故事列表提示文本                                             |
+| `hasSeries`                                         | boolean | 是否存在系列分组（配合 `{{#if}}` 使用）                      |
+| `seriesGroups`                                      | array   | 系列分组数组，结构为 `{ name: string, stories: StoryRow[] }` |
+| `hasUngrouped`                                      | boolean | 是否存在独立故事                                             |
+| `ungroupedStories`                                  | array   | 独立故事数组（`StoryRow[]` 结构）                            |
+| `independentStoriesTitle`                           | string  | 独立故事区块标题                                             |
+| `howToAddTitle`                                     | string  | 如何新增故事标题                                             |
+| `howToAddDesc`                                      | string  | 如何新增故事描述                                             |
+| `howToAddStep1` / `howToAddStep2` / `howToAddStep3` | string  | 如何新增故事的三步指引                                       |
+| `architectureTitle`                                 | string  | 架构区块标题                                                 |
+| `architectureDesc`                                  | string  | 架构描述文本                                                 |
+| `hasSponsor`                                        | boolean | 是否有赞助图片（`assets/sponsor/` 中存在图片为 true）        |
+| `sponsorTitle`                                      | string  | 赞助区块标题                                                 |
+| `sponsorSummary`                                    | string  | 赞助折叠摘要                                                 |
+| `sponsorImages`                                     | array   | 赞助图片数组，结构为 `{ src: string, alt: string }`          |
+| `licenseTitle`                                      | string  | 许可证标题                                                   |
+| `licenseOriginal`                                   | string  | 原创故事许可证说明                                           |
+| `licenseFanfic`                                     | string  | 二创故事许可证说明                                           |
+| `autoGenerated`                                     | string  | 自动生成声明                                                 |
+
+**StoryRow 结构**（`seriesGroups[].stories` 和 `ungroupedStories` 中的元素）：
+
+| 字段            | 类型   | 说明                            |
+| --------------- | ------ | ------------------------------- |
+| `num`           | string | 全局序号（如 `01`、`02`）       |
+| `folder`        | string | 故事文件夹名                    |
+| `title`         | string | 故事标题                        |
+| `typeDisplay`   | string | 本地化类型文本                  |
+| `wordCount`     | string | 格式化字数                      |
+| `statusDisplay` | string | 本地化状态文本                  |
+| `summary`       | string | 单行简介（自动截断到 120 字符） |
+
+#### 故事 README 模板（story-template.md）
+
+以下变量由 `src/commands/build.ts` 生成，可在故事 README 模板中使用：
+
+| 变量                | 类型   | 说明                                                    |
+| ------------------- | ------ | ------------------------------------------------------- |
+| `title`             | string | 故事标题                                                |
+| `type`              | string | 故事类型代码（`original` / `fanfic` / 自定义）          |
+| `status`            | string | 故事状态代码（`completed` / `ongoing` / 自定义）        |
+| `summary`           | string | 故事简介                                                |
+| `created`           | string | 创建日期（`YYYY-MM-DD`）                                |
+| `language`          | string | 语言（`zh` / `en`）                                     |
+| `author`            | string | 作者（可选）                                            |
+| `originalWork`      | string | 原作名称（fanfic 可选）                                 |
+| `originalAuthor`    | string | 原作者（fanfic 可选）                                   |
+| `wordCount`         | string | 格式化字数                                              |
+| `cover`             | string | 封面路径（可选）                                        |
+| `series`            | string | 系列名称（可选）                                        |
+| `seriesOrder`       | number | 系列内排序键（可选）                                    |
+| `volume`            | string | 卷/册名称（可选）                                       |
+| `typeDisplay`       | string | 本地化类型文本                                          |
+| `statusDisplay`     | string | 本地化状态文本                                          |
+| `chapters`          | array  | 章节列表，结构为 `{ title: string, wordCount: string }` |
+| `backToStoryList`   | string | 返回列表链接文本                                        |
+| `seriesLabel`       | string | 系列标签文本                                            |
+| `basicInfoTitle`    | string | 基本信息标题                                            |
+| `typeLabel`         | string | 类型标签                                                |
+| `wordCountLabel`    | string | 字数标签                                                |
+| `statusLabel`       | string | 状态标签                                                |
+| `createDateLabel`   | string | 发布日期标签                                            |
+| `summaryTitle`      | string | 简介标题                                                |
+| `readingGuideTitle` | string | 阅读指引标题                                            |
+| `textFileLabel`     | string | 正文文件标签                                            |
+| `chaptersTitle`     | string | 章节列表标题                                            |
+| `licenseTitle`      | string | 许可证标题                                              |
+| `licenseText`       | string | 许可证正文（已根据故事类型选择版本）                    |
+| `licenseNote`       | string | 二创许可证附加说明（fanfic 时非空）                     |
+| `autoGenerated`     | string | 自动生成声明                                            |
+
+#### 模板中可用的条件判断
+
+模板使用 [Handlebars](https://handlebarsjs.com/) 语法，支持以下条件：
+
+```handlebars
+{{#if hasSponsor}}   <!-- 布尔值条件 -->
+{{#if series}}       <!-- 字符串存在性 -->
+{{#each chapters}}   <!-- 数组遍历 -->
+{{#if (eq lang "en")}}  <!-- 字符串等值比较（内置 eq helper） -->
+```
 
 ---
 
@@ -127,9 +249,19 @@ import { run } from "../src/cli.ts"
 run(process.argv)
 ```
 
-发布包为编译后的 `dist/` 产物（兼容 Node 20 运行）。开发时直接运行 `.ts` 源码需要 Node.js 24+ 的原生 TypeScript type stripping。这也是 `engines.node >= 20`（发布运行时）的原因。
+发布包为编译后的 `dist/` 产物（兼容 Node 22+ 运行）。开发时直接运行 `.ts` 源码需要 Node.js 24+ 的原生 TypeScript type stripping。这也是 `engines.node >= 22`（发布运行时）的原因。
 
-### 6. EPUB 最小合规生成（epub-generator.ts）
+### 6. 创作统计（stats.ts）
+
+`story stats` 提供创作数据分析，与 `git status` 的「文件变更视角」形成互补：
+
+- **故事统计**：故事总数、完成/连载状态分布、总字数、章节数
+- **系列进度**：每个系列的部数 + 完成率（按 `status` 字段）
+- **健康度检查**：config 中 `wordCount` 与实际差距 >20% 警告、缺少 `summary` 警告
+- **写作活跃度**：通过 `git log --numstat` 统计本月/上月新增行数（近似字数）
+- **`--json` 输出**：结构化数据，支持管道消费
+
+### 7. EPUB 最小合规生成（epub-generator.ts）
 
 EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文件结构：
 
@@ -149,7 +281,7 @@ EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文�
 - Markdown → HTML 转换器支持表格、嵌套列表、代码块等
 - 图片路径支持绝对路径 / 相对故事文件夹 / 相对项目根目录
 
-### 7. 结构化错误处理（errors.ts）
+### 8. 结构化错误处理（errors.ts）
 
 CLI 工具的错误信息需要**机器可读**和**人类可读**兼顾。`StoryError` 提供了这种结构化设计：
 

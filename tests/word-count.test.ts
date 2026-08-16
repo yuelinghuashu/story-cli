@@ -22,6 +22,17 @@ test("countChineseChars 去除标点符号", () => {
   assert.strictEqual(countChineseChars("（测试）【示例】"), 4)
 })
 
+test("countChineseChars 统计扩展区生僻字", () => {
+  // 扩展 A 区（\u3400-\u4dbf）
+  assert.strictEqual(countChineseChars("㐀㐁"), 2)
+  // 扩展 B 区（\U00020000-\U0002A6DF，需 u 标志正确处理 surrogate pair）
+  assert.strictEqual(countChineseChars("𠀀𠀁"), 2)
+  // 混合基本区 + 扩展区（你 + 好 + 𠀀 + 世 + 界 = 5）
+  assert.strictEqual(countChineseChars("你好𠀀世界"), 5)
+  // 排除标点
+  assert.strictEqual(countChineseChars("𠀀，𠀁！"), 2)
+})
+
 test("countEnglishWords 统计英文单词数", () => {
   assert.strictEqual(countEnglishWords("Hello world"), 2)
   assert.strictEqual(countEnglishWords("Hello world, this is a test!"), 6)

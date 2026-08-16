@@ -1,0 +1,2 @@
+minimumReleaseAgeExclude:
+  - '@yuelinghuashu/story-cli@1.1.0'

@@ -30,19 +30,12 @@ No database. No cloud sync. No proprietary format. **Your stories are always pla
 
 **Only 2 runtime dependencies**: `fflate` (EPUB ZIP packing) and `handlebars` (template rendering).
 
-- No `commander`/`yargs` — 50 lines of hand-written arg parsing is enough
-- No `marked`/`markdown-it` — a 180-line hand-written Markdown converter covers writing needs
-- No test framework — `node:test` zero-dependency
-- No compilation step — Node 24+ runs TypeScript natively in dev; published dist runs on Node >= 20
+- Arg parsing uses Node built-in `util.parseArgs` (zero-dependency)
+- Markdown conversion uses an ~180-line custom implementation (covers the fiction-writing subset)
+- Tests use Node built-in `node:test` (zero-dependency)
+- No compilation step — Node 24+ runs TypeScript natively in dev; published dist runs on Node >= 22
 
-**Why hand-write instead of adopting mature libraries?**
-
-1. **Dependencies are responsibility** — each one brings bugs, version migrations, and supply chain risk
-2. **Toolchain stays controllable** — a 180-line converter means you can locate and fix any issue in minutes
-3. **Good enough is enough** — the Markdown subset needed for fiction writing is well-defined, no general-purpose parser required
-4. **Instant setup** — users `pnpm i` in seconds, `story build` runs directly
-
-The trade-off is edge-case handling is less mature than established libraries (nested quotes, complex escaping). This is addressed through **edge-case tests** (see `tests/md-to-html.test.ts`) rather than adopting dependencies.
+Edge cases are covered by **boundary tests** (see `tests/md-to-html.test.ts`) rather than adopting dependencies.
 
 ---
 
@@ -154,15 +147,17 @@ This is **Fractional Indexing** — borrowed from floating-point sort keys in da
 
 ---
 
-## 🇨🇳 Chinese-First
+## 🌐 Bilingual-First
 
-**Designed for Chinese creators, with full English support.**
+**Equal-first-class support for Chinese and English creators, architecturally ready for more languages.**
 
-- Chinese word counting (by hanzi characters, not character count)
+- Language-aware word counting (Chinese by hanzi characters, English by words)
 - Bilingual UI text (`LANG` env var auto-detection)
 - Bilingual documentation (every doc has both versions)
 - Mixed-language writing (per-story `language` field)
 - Chinese-friendly filename handling (Chinese titles preserved in README display)
+
+> The `language` field and i18n module are designed to extend to additional languages easily.
 
 ---
 
@@ -204,6 +199,37 @@ The editor handles the creation experience; the CLI handles content governance. 
 ### Long-Term Maintainability
 
 "Glue layers" (that bind excellent infrastructure together) often outlive "full-stack solutions". As long as Markdown and JSON don't disappear, `story new` / `story epub` will keep working. VS Code will iterate, AI models will change, but your story folder structure stays stable forever — core data (files) and core logic (CLI) remain firmly in your own hands.
+
+### Atomic Abilities and Workflow Orchestration
+
+**The CLI provides atomic capabilities; the Makefile orchestrates workflows.**
+
+Real user scenarios are never single commands — they're chains like "create → build → commit → push". Each story-cli command (`story new` / `story build` / `story stats`) is an **atomic capability** — doing one thing that is simple, predictable, and composable.
+
+`story init` also generates an **editable Makefile** that wraps high-frequency operation chains into workflow entry points:
+
+```bash
+make help                      # Show all available commands
+make new TITLE="My Story"       # Create story + auto-build
+make commit                    # Build + git add + git commit
+make push                      # Build + commit + push
+make stats                     # Writing statistics
+make epub                      # Export all EPUBs
+```
+
+**Why not add `--commit` / `--push` directly to the CLI?**
+
+1. **Unix philosophy**: each tool does one thing well. The CLI shouldn't be a "universal executor"
+2. **User-customizable**: the Makefile can freely add your own hooks (e.g. run scripts before commit, notify after push)
+3. **No lock-in**: don't enumerate every possible "chain combination" — users can simply edit the Makefile when they need something new
+
+**Division of responsibilities**:
+
+| Layer            | Tool        | Responsibility                         | Example                                |
+| ---------------- | ----------- | -------------------------------------- | -------------------------------------- |
+| Workflow         | `Makefile`  | Combine multiple steps, handle deps    | `make push` = build + commit + push    |
+| Atomic ability   | `story` CLI | Single step, do one thing well         | `story build` / `story stats`          |
+| Domain logic     | `src/`      | Scanning / validation / rendering      | `scanner.ts` / `validate.ts`           |
 
 ---
 

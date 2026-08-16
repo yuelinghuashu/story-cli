@@ -14,6 +14,27 @@ story epub "故事标题"
 story epub --all
 ```
 
+### 分卷导出（--split-by-volume）
+
+对于长篇故事（百万字级），可将单本 EPUB 拆分为多卷：
+
+```bash
+story epub "我的故事" --split-by-volume
+```
+
+- 当 `config.json` 中存在 `volume` 字段时，输出文件名为 `我的故事-<volume>.epub`
+- 未配置 `volume` 时，行为与普通导出一致（单卷输出）
+- 与 `--all` 组合可批量分卷导出全部故事
+
+### 标题匹配规则
+
+`story epub "标题"` 中的**标题**支持两种匹配方式（按优先级尝试）：
+
+1. **精确匹配 `config.json` 的 `title` 字段** — 即你在 README 中看到的故事标题
+2. **回退匹配文件夹名**（子串匹配）— 如 `story epub "星河入梦"` 可以匹配文件夹 `01-星河入梦`
+
+> 💡 通常情况下 `title` 与文件夹名一致（`story new` 生成时自动保持一致）。如果你修改了 `config.json` 中的 `title`，两种方式都可以用来定位故事。
+
 导出的文件输出到 `dist/epub/` 目录：
 
 ```bash

@@ -2,13 +2,15 @@ import assert from "node:assert"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { test } from "node:test"
+import { after, test } from "node:test"
 import {
   checkDuplicateNumbers,
   extractChapters,
   getSponsorImages,
   isIgnored,
   loadStoryIgnore,
+  mergeChapters,
+  parseIgnoreRules,
   readStoryText,
   resolveRawWordCount,
   resolveWordCount,
@@ -16,8 +18,12 @@ import {
   splitContentByChapters,
 } from "../src/core/scanner.ts"
 
+/** 创建的临时目录列表（测试结束后统一清理） */
+const tempDirs: string[] = []
+
 function setupTempDir(structure: Record<string, string>) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "scanner-test-"))
+  tempDirs.push(dir)
   for (const [relPath, content] of Object.entries(structure)) {
     const fullPath = path.join(dir, relPath)
     fs.mkdirSync(path.dirname(fullPath), { recursive: true })
@@ -25,6 +31,17 @@ function setupTempDir(structure: Record<string, string>) {
   }
   return dir
 }
+
+// 测试结束后递归清理所有临时目录
+after(() => {
+  for (const dir of tempDirs) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+    } catch {
+      // 清理失败静默忽略
+    }
+  }
+})
 
 test("scanStoryFolders 只扫描数字前缀目录", () => {
   const dir = setupTempDir({
@@ -281,6 +298,79 @@ test("getSponsorImages 空 sponsor 目录返回空数组", () => {
   const dir = setupTempDir({ "assets/sponsor/.gitkeep": "" })
   const images = getSponsorImages(dir)
   assert.deepStrictEqual(images, [])
+})
+
+// ---- 纯函数 parseIgnoreRules 测试 ----
+
+test("parseIgnoreRules 解析注释、空行和规则", () => {
+  const rules = parseIgnoreRules(`# 草稿目录
+
+_draft/
+*~
+`)
+  assert.strictEqual(rules.length, 2)
+  assert.strictEqual(rules[0].pattern, "_draft")
+  assert.strictEqual(rules[0].isDirOnly, true)
+  assert.strictEqual(rules[1].pattern, "*~")
+  assert.strictEqual(rules[1].isDirOnly, false)
+})
+
+test("parseIgnoreRules 空内容返回空数组", () => {
+  assert.deepStrictEqual(parseIgnoreRules(""), [])
+  assert.deepStrictEqual(parseIgnoreRules("# 只有注释"), [])
+  assert.deepStrictEqual(parseIgnoreRules("\n\n"), [])
+})
+
+test("parseIgnoreRules 目录规则末尾 / 被去除", () => {
+  const rules = parseIgnoreRules("_notes/\n")
+  assert.strictEqual(rules.length, 1)
+  assert.strictEqual(rules[0].pattern, "_notes")
+  assert.strictEqual(rules[0].isDirOnly, true)
+})
+
+test("parseIgnoreRules 通配符转正则正确", () => {
+  const rules = parseIgnoreRules("*.tmp\n")
+  assert.strictEqual(rules.length, 1)
+  // * 不应跨目录分隔符
+  assert.ok(rules[0].regex.test("file.tmp"))
+  assert.ok(!rules[0].regex.test("dir/file.tmp"))
+})
+
+// ---- 纯函数 mergeChapters 测试 ----
+
+test("mergeChapters 合并多章节", () => {
+  const files = [
+    { name: "chapter-1-开场.md", content: "# 开场\n\n第一章内容。" },
+    { name: "chapter-2-发展.md", content: "# 发展\n\n第二章内容。" },
+  ]
+  const result = mergeChapters(files)
+  assert.ok(result.includes("# 开场"))
+  assert.ok(result.includes("第一章内容。"))
+  assert.ok(result.includes("# 发展"))
+  assert.ok(result.includes("第二章内容。"))
+  assert.ok(result.includes("---"))
+})
+
+test("mergeChapters 跳过空内容", () => {
+  const files = [
+    { name: "chapter-1.md", content: "# 第一章\n\n内容。" },
+    { name: "chapter-2.md", content: "   " },
+  ]
+  const result = mergeChapters(files)
+  assert.ok(result.includes("# 第一章"))
+  assert.ok(!result.includes("chapter-2"))
+})
+
+test("mergeChapters 无标题时回退文件名", () => {
+  const files = [{ name: "chapter-01.md", content: "没有标题的正文。" }]
+  const result = mergeChapters(files)
+  assert.ok(result.includes("# chapter-01"))
+  assert.ok(result.includes("没有标题的正文。"))
+})
+
+test("mergeChapters 空输入返回空字符串", () => {
+  assert.strictEqual(mergeChapters([]), "")
+  assert.strictEqual(mergeChapters([{ name: "a.md", content: "" }]), "")
 })
 
 // ---- .storyignore 测试 ----

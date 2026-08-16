@@ -6,9 +6,12 @@ import type { Language } from "../core/types.ts"
  * @returns 中文字符数
  */
 export function countChineseChars(text: string): number {
-  // 直接提取所有汉字字符（\u4e00-\u9fa5 覆盖 CJK 统一表意文字）
-  // 无需维护标点黑名单：所有非汉字字符（标点、空白、数字、字母）自然被忽略
-  const matches = text.match(/[\u4e00-\u9fa5]/g)
+  // 提取所有汉字字符：
+  //   \u4e00-\u9fa5      CJK 统一表意文字（基本区，常见汉字）
+  //   \u3400-\u4dbf      CJK 扩展 A 区（古汉字、生僻字）
+  //   \u{20000}-\u{2A6DF} CJK 扩展 B 区（更多生僻字，需 u 标志正确处理 surrogate pair）
+  // 使用 u 标志使 \u{...} 按 code point 匹配，无需维护标点黑名单
+  const matches = text.match(/[\u4e00-\u9fa5\u3400-\u4dbf\u{20000}-\u{2A6DF}]/gu)
   return matches ? matches.length : 0
 }
 

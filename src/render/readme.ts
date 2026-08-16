@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
 import { getSponsorImages } from "../core/scanner.ts"
@@ -34,22 +34,34 @@ function truncateSummary(summary: string, maxLength = 120): string {
   return singleLine.length > maxLength ? `${singleLine.slice(0, maxLength)}...` : singleLine
 }
 
+/** git 日期查询结果缓存（避免 watch 模式重复执行） */
+let cachedGitDate: string | null = null
+
 /**
- * 获取 git 最后提交时间（若无 git 则返回当前日期）
+ * 获取 git 最后提交时间（若无 git 或超时则返回当前日期）
+ * 使用 execFileSync 替代 execSync，避免 shell 注入风险；
+ * 添加 1s 超时，防止在无 git 环境中阻塞。
  * @param rootDir 项目根目录
  * @returns 格式化日期（YYYY-MM-DD）
  */
 function getLastUpdated(rootDir: string): string {
+  // 已有缓存直接返回
+  if (cachedGitDate) return cachedGitDate
+
   try {
-    const result = execSync("git log -1 --format=%cs", {
+    const result = execFileSync("git", ["log", "-1", "--format=%cs"], {
       cwd: rootDir,
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1000,
     })
     const date = result.trim()
-    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      cachedGitDate = date
+      return date
+    }
   } catch {
-    // git 不可用时回退到当前日期
+    // git 不可用或超时时回退到当前日期
   }
   return new Date().toISOString().slice(0, 10)
 }

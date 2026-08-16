@@ -7,6 +7,9 @@
 import fs from "node:fs"
 import fsp from "node:fs/promises"
 import path from "node:path"
+import { getLocale } from "../i18n/index.ts"
+import { detectCliLang } from "../utils/cli-utils.ts"
+import { detectEncodingIssue, encodingWarning } from "../utils/encoding.ts"
 import { VALID_STATUSES, VALID_TYPES } from "./schema.ts"
 
 /** 单个枚举值的本地化标签（按语言映射） */
@@ -78,52 +81,94 @@ function normalizeLabels(
 }
 
 /**
+ * 回退到内置默认配置（解析失败或文件不存在时使用）
+ */
+function defaultRepoConfig(): LoadedRepoConfig {
+  return {
+    types: VALID_TYPES,
+    statuses: VALID_STATUSES,
+    typeLabels: { ...BUILTIN_TYPE_LABELS },
+    statusLabels: { ...BUILTIN_STATUS_LABELS },
+  }
+}
+
+/**
+ * 共享：将原始仓库配置规范化为有效配置（纯逻辑，同步/异步版本共用）
+ * @param raw 从 JSON 解析出的原始配置
+ * @returns 规范化的有效配置（类型/状态列表 + 本地化标签）
+ */
+function normalizeRepoConfig(raw: StoryRepoConfig): LoadedRepoConfig {
+  const types =
+    Array.isArray(raw.types) && raw.types.length > 0
+      ? raw.types.filter((t): t is string => typeof t === "string")
+      : VALID_TYPES
+  const statuses =
+    Array.isArray(raw.statuses) && raw.statuses.length > 0
+      ? raw.statuses.filter((s): s is string => typeof s === "string")
+      : VALID_STATUSES
+
+  return {
+    types,
+    statuses,
+    typeLabels: normalizeLabels(raw.typeLabels as Record<string, unknown> | undefined, BUILTIN_TYPE_LABELS, types),
+    statusLabels: normalizeLabels(
+      raw.statusLabels as Record<string, unknown> | undefined,
+      BUILTIN_STATUS_LABELS,
+      statuses,
+    ),
+  }
+}
+
+/**
+ * 共享：解析配置文件 Buffer（解码 + 编码检测 + JSON.parse）
+ * @param configPath 配置文件路径（用于错误信息）
+ * @param buffer 文件内容 Buffer
+ * @returns 解析后的原始配置
+ */
+function parseConfigBuffer(configPath: string, buffer: Uint8Array): StoryRepoConfig {
+  const issue = detectEncodingIssue(configPath, buffer)
+  if (issue) console.warn(encodingWarning(issue, getLocale(detectCliLang())))
+  return JSON.parse(new TextDecoder("utf-8").decode(buffer)) as StoryRepoConfig
+}
+
+/**
+ * 共享：加载仓库级配置的内部逻辑（同步版本）
+ * @param configPath 配置文件路径
+ * @returns 有效类型和状态列表 + 本地化标签（存在时规范化，否则回退默认值）
+ */
+function loadRepoConfigSync(configPath: string): LoadedRepoConfig {
+  if (!fs.existsSync(configPath)) return defaultRepoConfig()
+
+  try {
+    return normalizeRepoConfig(parseConfigBuffer(configPath, fs.readFileSync(configPath)))
+  } catch {
+    // 配置文件解析失败时回退默认值
+    return defaultRepoConfig()
+  }
+}
+
+/**
+ * 共享：加载仓库级配置的内部逻辑（异步版本）
+ * @param configPath 配置文件路径
+ * @returns 有效类型和状态列表 + 本地化标签（存在时规范化，否则回退默认值）
+ */
+async function loadRepoConfigAsyncInternal(configPath: string): Promise<LoadedRepoConfig> {
+  try {
+    const buffer = await fsp.readFile(configPath)
+    return normalizeRepoConfig(parseConfigBuffer(configPath, buffer))
+  } catch {
+    // 文件不存在或解析失败时回退默认值
+    return defaultRepoConfig()
+  }
+}
+
+/**
  * 读取仓库级配置（从根目录 story.config.json）
  * @param rootDir 项目根目录
  * @returns 有效类型和状态列表 + 本地化标签
  */
 export function loadRepoConfig(rootDir: string): LoadedRepoConfig {
-  const configPath = path.join(rootDir, REPO_CONFIG_FILE)
-
-  if (!fs.existsSync(configPath)) {
-    return {
-      types: VALID_TYPES,
-      statuses: VALID_STATUSES,
-      typeLabels: { ...BUILTIN_TYPE_LABELS },
-      statusLabels: { ...BUILTIN_STATUS_LABELS },
-    }
-  }
-
-  try {
-    const raw = JSON.parse(fs.readFileSync(configPath, "utf-8")) as StoryRepoConfig
-    const types =
-      Array.isArray(raw.types) && raw.types.length > 0
-        ? raw.types.filter((t): t is string => typeof t === "string")
-        : VALID_TYPES
-    const statuses =
-      Array.isArray(raw.statuses) && raw.statuses.length > 0
-        ? raw.statuses.filter((s): s is string => typeof s === "string")
-        : VALID_STATUSES
-
-    return {
-      types,
-      statuses,
-      typeLabels: normalizeLabels(raw.typeLabels as Record<string, unknown> | undefined, BUILTIN_TYPE_LABELS, types),
-      statusLabels: normalizeLabels(
-        raw.statusLabels as Record<string, unknown> | undefined,
-        BUILTIN_STATUS_LABELS,
-        statuses,
-      ),
-    }
-  } catch {
-    // 配置解析失败时回退默认值
-    return {
-      types: VALID_TYPES,
-      statuses: VALID_STATUSES,
-      typeLabels: { ...BUILTIN_TYPE_LABELS },
-      statusLabels: { ...BUILTIN_STATUS_LABELS },
-    }
-  }
+  return loadRepoConfigSync(path.join(rootDir, REPO_CONFIG_FILE))
 }
 
 /**
@@ -133,38 +178,7 @@ export function loadRepoConfig(rootDir: string): LoadedRepoConfig {
  * @returns 有效类型和状态列表 + 本地化标签
  */
 export async function loadRepoConfigAsync(rootDir: string): Promise<LoadedRepoConfig> {
-  const configPath = path.join(rootDir, REPO_CONFIG_FILE)
-
-  try {
-    const raw = JSON.parse(await fsp.readFile(configPath, "utf-8")) as StoryRepoConfig
-    const types =
-      Array.isArray(raw.types) && raw.types.length > 0
-        ? raw.types.filter((t): t is string => typeof t === "string")
-        : VALID_TYPES
-    const statuses =
-      Array.isArray(raw.statuses) && raw.statuses.length > 0
-        ? raw.statuses.filter((s): s is string => typeof s === "string")
-        : VALID_STATUSES
-
-    return {
-      types,
-      statuses,
-      typeLabels: normalizeLabels(raw.typeLabels as Record<string, unknown> | undefined, BUILTIN_TYPE_LABELS, types),
-      statusLabels: normalizeLabels(
-        raw.statusLabels as Record<string, unknown> | undefined,
-        BUILTIN_STATUS_LABELS,
-        statuses,
-      ),
-    }
-  } catch {
-    // 文件不存在或解析失败时回退默认值
-    return {
-      types: VALID_TYPES,
-      statuses: VALID_STATUSES,
-      typeLabels: { ...BUILTIN_TYPE_LABELS },
-      statusLabels: { ...BUILTIN_STATUS_LABELS },
-    }
-  }
+  return loadRepoConfigAsyncInternal(path.join(rootDir, REPO_CONFIG_FILE))
 }
 
 /**

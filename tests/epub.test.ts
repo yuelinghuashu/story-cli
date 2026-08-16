@@ -338,3 +338,190 @@ test("generateEpub 带封面时包含 cover-image 条目和文件", () => {
   // 3. 元数据中应包含 <meta name="cover" content="cover-image"/>
   assert.ok(opf.includes('<meta name="cover" content="cover-image"/>'), "metadata 应引用封面")
 })
+
+// ---- EPUB 集成测试：结构完整性校验 ----
+
+/**
+ * 解压 EPUB 并返回所有文件内容（UTF-8 解码）
+ */
+function extractEpub(epubData: Uint8Array): Record<string, string> {
+  const unzipped = unzipSync(epubData)
+  const result: Record<string, string> = {}
+  for (const [name, data] of Object.entries(unzipped)) {
+    if (data) result[name] = new TextDecoder("utf-8").decode(data as Uint8Array)
+  }
+  return result
+}
+
+/**
+ * 从 content.opf 中提取所有 <item> 的 href 列表
+ */
+function extractManifestHrefs(opf: string): string[] {
+  const hrefs: string[] = []
+  const regex = /<item\b[^>]*?\shref="([^"]+)"/g
+  for (let match = regex.exec(opf); match !== null; match = regex.exec(opf)) {
+    hrefs.push(match[1])
+  }
+  return hrefs
+}
+
+/**
+ * 从 content.opf 中提取 <spine> 中所有 <itemref> 的 idref 列表
+ */
+function extractSpineIdrefs(opf: string): string[] {
+  const idrefs: string[] = []
+  const regex = /<itemref\b[^>]*?\sidref="([^"]+)"/g
+  for (let match = regex.exec(opf); match !== null; match = regex.exec(opf)) {
+    idrefs.push(match[1])
+  }
+  return idrefs
+}
+
+/**
+ * 从 content.opf 的 manifest 中构建 id → href 映射
+ */
+function buildManifestIdMap(opf: string): Map<string, string> {
+  const map = new Map<string, string>()
+  const regex = /<item\b[^>]*?\sid="([^"]+)"[^>]*?\shref="([^"]+)"/g
+  for (let match = regex.exec(opf); match !== null; match = regex.exec(opf)) {
+    map.set(match[1], match[2])
+  }
+  return map
+}
+
+test("EPUB 集成：结构完整性（mimetype/container/opf/toc）", () => {
+  const epubData = generateEpub({ title: "集成测试书", author: "作者", lang: "zh" }, [
+    { title: "第一章", data: "<p>内容一</p>" },
+    { title: "第二章", data: "<p>内容二</p>" },
+  ])
+
+  const files = extractEpub(epubData)
+
+  // 1. mimetype 必须存在且为 "application/epub+zip"
+  assert.ok(files.mimetype, "mimetype 文件应存在")
+  assert.strictEqual(files.mimetype, "application/epub+zip")
+
+  // 2. META-INF/container.xml 必须存在且指向 OEBPS/content.opf
+  assert.ok(files["META-INF/container.xml"], "container.xml 应存在")
+  assert.ok(files["META-INF/container.xml"].includes('full-path="OEBPS/content.opf"'))
+
+  // 3. OEBPS/content.opf 和 OEBPS/toc.xhtml 必须存在
+  assert.ok(files["OEBPS/content.opf"], "content.opf 应存在")
+  assert.ok(files["OEBPS/toc.xhtml"], "toc.xhtml 应存在")
+
+  // 4. 必须是 EPUB 3（package version="3.0"）
+  assert.ok(files["OEBPS/content.opf"].includes('version="3.0"'), "应为 EPUB 3")
+})
+
+test("EPUB 集成：mimetype 位于 ZIP 首部且不压缩（STORE）", () => {
+  const epubData = generateEpub({ title: "Mimetype测试" }, [{ title: "章", data: "<p>内容</p>" }])
+
+  // mimetype 必须使用 STORE（level 0），内容以明文出现在 ZIP 文件头部
+  // EPUBCheck 规范：mimetype 文件必须是 ZIP 的第一个文件且不压缩
+  const mimetypeText = "application/epub+zip"
+  const textDecoder = new TextDecoder("latin1")
+  const rawStr = textDecoder.decode(epubData)
+  const mimetypeIndex = rawStr.indexOf(mimetypeText)
+  assert.ok(mimetypeIndex > 0, "mimetype 应以明文出现在 ZIP 中")
+
+  // mimetype 是 ZIP 的第一个文件：
+  // LHF = 30 字节固定头 + 文件名 "mimetype"（8 字节）
+  const lfhStart = mimetypeIndex - 30 - 8
+  assert.ok(lfhStart >= 0, "mimetype 前应有 Local File Header")
+  // LHF 签名：PK\x03\x04
+  assert.strictEqual(rawStr.charCodeAt(lfhStart), 0x50, "LHF 应以 P（PK 签名）开头")
+  assert.strictEqual(rawStr.charCodeAt(lfhStart + 1), 0x4b, "LHF 应以 K（PK 签名）开头")
+  // 压缩方法字段在 LHF 偏移 8-9（0x0000 = STORE）
+  const method = epubData[lfhStart + 8] | (epubData[lfhStart + 9] << 8)
+  assert.strictEqual(method, 0, "压缩方法应为 STORE（0）")
+  // 验证文件名是 "mimetype"
+  const nameOffset = lfhStart + 30
+  assert.strictEqual(rawStr.slice(nameOffset, nameOffset + 8), "mimetype", "第一个文件应为 mimetype")
+})
+
+test("EPUB 集成：manifest 条目全部对应实际文件", () => {
+  const epubData = generateEpub(
+    { title: "清单验证书", author: "作者", lang: "zh", license: "CC BY-NC-SA 4.0" },
+    [
+      { title: "第一章", data: "<p>内容一</p>" },
+      { title: "第二章", data: "<p>内容二</p>" },
+    ],
+    [{ name: "img1.png", data: new Uint8Array([1, 2, 3, 4]) }],
+    { name: "cover.jpg", data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]) },
+  )
+
+  const files = extractEpub(epubData)
+  const opf = files["OEBPS/content.opf"]
+
+  // manifest 中每个 href 引用的文件必须在 ZIP 中真实存在
+  const manifestHrefs = extractManifestHrefs(opf)
+  assert.ok(manifestHrefs.length >= 4, "manifest 应包含多个条目")
+
+  for (const href of manifestHrefs) {
+    // 解析为相对 OEBPS/ 的路径
+    const fullPath = `OEBPS/${href}`
+    assert.ok(files[fullPath], `manifest 引用的文件应存在于 ZIP 中: ${href}`)
+  }
+
+  // spine 中每个 idref 必须在 manifest 中找到对应 id
+  const spineIdrefs = extractSpineIdrefs(opf)
+  const manifestIdMap = buildManifestIdMap(opf)
+  assert.ok(spineIdrefs.length >= 2, "spine 应包含多个章节")
+  for (const idref of spineIdrefs) {
+    assert.ok(manifestIdMap.has(idref), `spine 引用的 idref 应在 manifest 中存在: ${idref}`)
+  }
+})
+
+test("EPUB 集成：章节索引命名正确且内容完整", () => {
+  const epubData = generateEpub({ title: "章节验证书" }, [
+    { title: "第一章", data: "<p>内容一</p>" },
+    { title: "第二章", data: "<p>内容二</p>" },
+    { title: "第三章", data: "<p>内容三</p>" },
+  ])
+
+  const files = extractEpub(epubData)
+
+  // 章节文件按 chapter001.xhtml、chapter002.xhtml 递增命名
+  const expectedTitles = ["第一章", "第二章", "第三章"]
+  const expectedContents = ["内容一", "内容二", "内容三"]
+  for (let i = 0; i < 3; i++) {
+    const num = String(i + 1).padStart(3, "0")
+    const fileName = `OEBPS/chapter${num}.xhtml`
+    assert.ok(files[fileName], `章节文件应存在: ${fileName}`)
+    // 章节文件内容应包含标题和正文 HTML
+    assert.ok(files[fileName].includes(expectedTitles[i]), `${fileName} 应包含章节标题 ${expectedTitles[i]}`)
+    assert.ok(files[fileName].includes(`<p>${expectedContents[i]}</p>`), `${fileName} 应包含正文内容`)
+  }
+})
+
+test("EPUB 集成：目录导航（toc.xhtml）包含所有章节链接", () => {
+  const epubData = generateEpub({ title: "目录导航书" }, [
+    { title: "第一章", data: "<p>内容一</p>" },
+    { title: "第二章", data: "<p>内容二</p>" },
+  ])
+
+  const files = extractEpub(epubData)
+  const toc = files["OEBPS/toc.xhtml"]
+
+  // toc.xhtml 应包含导航元素和章节链接
+  assert.ok(toc.includes('<nav epub:type="toc"'), "应包含 epub 类型为 toc 的导航")
+  assert.ok(toc.includes('<a href="chapter001.xhtml">第一章</a>'), "目录应链接到第一章")
+  assert.ok(toc.includes('<a href="chapter002.xhtml">第二章</a>'), "目录应链接到第二章")
+})
+
+test("EPUB 集成：图片引用与 manifest 一致", () => {
+  const epubData = generateEpub(
+    { title: "图片验证书" },
+    [{ title: "章一", data: '<p><img src="images/img1.png" alt="图1"/></p>' }],
+    [{ name: "img1.png", data: new Uint8Array([137, 80, 78, 71]) }],
+  )
+
+  const files = extractEpub(epubData)
+  const opf = files["OEBPS/content.opf"]
+
+  // 图片文件真实存在于 ZIP 中
+  assert.ok(files["OEBPS/images/img1.png"], "图片文件应存在于 ZIP 中")
+
+  // manifest 中应有对应图片条目，且 media-type 正确
+  assert.ok(opf.includes('<item id="image_1" href="images/img1.png" media-type="image/png"/>'), "manifest 应有图片条目")
+})

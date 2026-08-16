@@ -18,3 +18,5 @@ story-cli-*.tgz
 # 日志
 *.log
 npm-debug.log*
+
+story-template.md

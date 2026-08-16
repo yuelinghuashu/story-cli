@@ -16,12 +16,17 @@ export function detectCliLang(): string {
 
 /**
  * 将标题转换为安全的文件名（去除/替换非法字符）
+ *
+ * 统一使用 Windows 非法字符规则（\ / : * ? " < > |），
+ * 即使当前运行在 Linux/macOS 上也保持一致——保证同一 Git 仓库
+ * 在不同平台 clone 后生成的文件名完全相同（跨平台一致性优先于平台自由度）。
+ *
  * @param title 原始标题
  * @returns 安全文件名
  */
 export function sanitizeFileName(title: string): string {
   return title
-    .replace(/[\\/:*?"<>|]/g, "_") // Windows 非法字符
+    .replace(/[\\/:*?"<>|]/g, "_") // Windows 非法字符（跨平台统一规则）
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120) // 防止文件名过长

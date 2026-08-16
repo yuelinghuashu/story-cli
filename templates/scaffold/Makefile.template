@@ -1,0 +1,69 @@
+# ══════════════════════════════════════════════════════
+# story-cli 工作流入口
+# 使用 make help 查看所有可用命令
+# ══════════════════════════════════════════════════════
+
+TITLE ?=
+TYPE ?= original
+LANG ?= zh
+MESSAGE ?= "chore: update stories"
+FORMAT ?= epub
+
+.PHONY: help init new build commit push epub export import stats clean
+
+## 📖 显示所有可用命令
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+	  awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-8s\033[0m %s\n", $$1, $$2}'
+
+## 🚀 初始化故事仓库
+init:
+	story init
+
+## ✨ 新建故事并自动构建: make new TITLE="标题" [TYPE=fanfic] [LANG=en]
+new:
+	@if [ -z "$(TITLE)" ]; then \
+	  echo "❌ 请指定标题: make new TITLE=\"我的故事\""; \
+	  exit 1; \
+	fi
+	story new "$(TITLE)" --type=$(TYPE) --lang=$(LANG)
+	$(MAKE) build
+
+## 🔨 构建所有 README
+build:
+	story build
+
+## 📝 构建并提交: make commit [MESSAGE="提交信息"]
+commit:
+	$(MAKE) build
+	git add -A
+	git diff --cached --quiet || git commit -m "$(MESSAGE)"
+
+## 🚢 构建、提交并推送
+push:
+	$(MAKE) commit
+	git push
+
+## 📖 导出 EPUB: make epub [TITLE="书名"]（不指定 TITLE 时导出全部）
+epub:
+	@if [ -z "$(TITLE)" ]; then \
+	  story epub --all; \
+	else \
+	  story epub "$(TITLE)"; \
+	fi
+
+## 📤 导出: make export FORMAT=html|txt|json|md
+export:
+	story export $(FORMAT)
+
+## ↩️ 从 JSON 导入: make import FILE=path.json
+import:
+	story import json $(FILE)
+
+## 📊 查看创作统计
+stats:
+	story stats
+
+## 🧹 清理构建产物
+clean:
+	rm -rf dist/

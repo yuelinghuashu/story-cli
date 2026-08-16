@@ -47,14 +47,14 @@ Exports each story as a `.txt` plain text file (preserves original Markdown form
 ## 📚 EPUB Export
 
 ```bash
-# Export a single story
-story epub "Story Title"
-
-# Export all stories
-story epub --all
+story epub "Story Title"     # Export a single story
+story epub --all             # Export all stories
+story epub "Story Title" --split-by-volume  # Export split volumes by config.volume
 ```
 
 Generates standard EPUB 3 format (cover, copyright, TOC, image support). See [docs/epub.en.md](epub.en.md).
+
+> 💡 **Split-volume export**: `--split-by-volume` generates `Title-<volume>.epub` based on the `volume` field in `config.json`, ideal for long-form publishing (million-word scale).
 
 ---
 
@@ -87,6 +87,14 @@ story export json
 
 Exports all stories to a single structured JSON file: `dist/json/stories.json`.
 
+**Pipe-friendly (`--stdout`)**:
+
+```bash
+# Output to stdout (composable with jq and other tools)
+story export json --stdout
+story export json --stdout | jq '.stories[0].title'
+```
+
 ```json
 {
   "version": "1.0.0",
@@ -110,7 +118,7 @@ Exports all stories to a single structured JSON file: `dist/json/stories.json`.
 
 **Use cases**:
 
-- 🤖 **AI workflows**: feed stories to Claude / ChatGPT for rewriting, translation, analysis
+- 🤖 **AI workflows**: feed stories to Claude / ChatGPT for rewriting, translation, analysis (pipe directly with `--stdout`)
 - 📊 **Data analysis**: chapter counts, word count trends, character appearances
 - 📝 **Obsidian Dataview**: query and manage your story library
 

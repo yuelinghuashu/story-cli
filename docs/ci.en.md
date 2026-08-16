@@ -36,22 +36,26 @@ jobs:
         run: pnpm build
       - name: Run tests
         run: pnpm test
+
+      - name: Test coverage
+        run: pnpm test:coverage
 ```
 
 ---
 
 ## 📌 Step Breakdown
 
-| Step | Purpose |
-|------|---------|
-| `actions/checkout@v4` | Check out the repository code |
-| `pnpm/action-setup@v4` | Install pnpm (requires a `package.json` at the repository root) |
-| `actions/setup-node@v4` | Configure Node.js, set version, and enable pnpm cache |
-| `pnpm install` | Install dependencies |
-| `pnpm typecheck` | **Type checking**: verify TypeScript types are correct |
-| `pnpm lint` | **Code style**: Biome checks code style |
-| `pnpm build` | **Build phase**: compile TypeScript to `dist/` |
-| `pnpm test` | **Test phase**: run the full test suite |
+| Step                    | Purpose                                                         |
+| ----------------------- | --------------------------------------------------------------- |
+| `actions/checkout@v4`   | Check out the repository code                                   |
+| `pnpm/action-setup@v4`  | Install pnpm (requires a `package.json` at the repository root) |
+| `actions/setup-node@v4` | Configure Node.js, set version, and enable pnpm cache           |
+| `pnpm install`          | Install dependencies                                            |
+| `pnpm typecheck`        | **Type checking**: verify TypeScript types are correct          |
+| `pnpm lint`             | **Code style**: Biome checks code style                         |
+| `pnpm build`            | **Build phase**: compile TypeScript to `dist/`                  |
+| `pnpm test`             | **Test phase**: run the full test suite                         |
+| `pnpm test:coverage`    | **Coverage**: measure test coverage (~91% currently)            |
 
 ---
 
@@ -59,7 +63,7 @@ jobs:
 
 1. **Type safety** — `tsc --noEmit` ensures TypeScript types are correct
 2. **Code style** — Biome enforces consistent lint + format
-3. **Quality assurance** — 175 tests cover scanning, validation, rendering, EPUB, CLI, and more, preventing regressions
+3. **Quality assurance** — 237 tests cover scanning, validation, rendering, EPUB, CLI, and more, preventing regressions
 
 ---
 
@@ -91,5 +95,5 @@ on:
 
 ## ⚠️ Notes
 
-- Adjust the `node-version` in `actions/setup-node@v4` to match the `engines.node` in `package.json` (CI runs source tests directly, requiring Node 24+ for native .ts support; published runtime needs only Node >= 20)
+- Adjust the `node-version` in `actions/setup-node@v4` to match the `engines.node` in `package.json` (CI runs source tests directly, requiring Node 24+ for native .ts support; published runtime needs Node >= 22)
 - If you use npm instead of pnpm, change `cache: pnpm` to `cache: npm` and `pnpm install` to `npm install`

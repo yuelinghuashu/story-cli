@@ -2,7 +2,52 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [1.1.0] - 2026-08-15
+## [1.2.0] - 2026-08-15
+
+### 新增
+
+- **`story demo` 命令**：一键生成完整示例故事仓库
+- **`story stats` 命令**：创作数据统计（字数/系列进度/活跃度，支持 `--json`）
+- **Makefile 工作流**：`story init` 默认生成 `make new/build/commit/push` 与 Windows `story.ps1`
+- **`story export json --stdout`**：JSON 导出支持标准输出（管道友好）
+- **基准测试**：`bench/` 脚本可生成大规模仓库并测量性能
+- **Watch 增量重建**：单故事变更只重建该故事 README，不再全量重建
+- **分卷 EPUB 导出**：`story epub --split-by-volume` 按 `volume` 字段切分
+- **UTF-8 编码检测**：读取文件时检测 GBK/GB2312 等非 UTF-8 编码并输出警告（不阻断构建，零新依赖）
+- **README 对比场景区块**：「为什么用 story-cli？」与网文软件对比表
+
+### 修复
+
+- EPUB 封面警告国际化
+- 消除 `build.ts` 不安全类型断言
+- 消除 shell 注入风险（`execSync` → `execFileSync`）
+
+### 改进
+
+- 中文生僻字数统计支持（CJK 扩展 A/B 区）
+- 章节提取逻辑去重（抽取公共 `splitSections`）
+- Watch 模式增强（新增故事目录触发重建）
+- EPUB 标题匹配增强（`config.title` 优先，歧义报错）
+- 模板缓存失效：`renderTemplate` 增加 mtime 检查（适配 Watch 模式）
+- 跨平台文件名一致性：`sanitizeFileName` 统一 Windows 规则
+- SVG 安全检查增强：增加 CSS `expression()` 表达式注入防护
+- 消除同步/异步重复代码：`scanner.ts` 抽取 `decodeBuffer`/`selectStoryFolders`/`selectChapterFiles`/`resolveStoryText`，`config.ts` 抽取 `normalizeRepoConfig`/`parseConfigBuffer`，公开 API 不变
+- 异步扫描优化：`scanStoryFoldersAsync` 并行 stat 构建目录集合
+- **Node 24 新特性应用**：
+  - `import.meta.dirname` 替代 `fileURLToPath`（`paths.ts`、`bench.ts`）
+  - `crypto.randomUUID()` 替代手写 UUID（`epub-generator.ts`）
+  - `readdirSync withFileTypes` 避免额外 stat 系统调用（`scanner.ts`）
+  - `util.parseArgs` 替代手写参数解析（`args.ts`）
+- **最低支持版本提升至 Node 22**：`import.meta.dirname` 需 Node 21.2+，`engines.node` 更新为 `>=22`，相关文档同步更新
+- 文档更新：`docs/design.md` / `docs/design.en.md` 同步反映 Node 24 内置能力应用（移除已过时的"手写哲学"表述）
+
+### 测试
+
+- EPUB 集成测试：结构完整性（mimetype/container/opf/toc）、mimetype STORE 压缩验证、manifest/spine 引用一致性、章节索引命名、目录导航、图片引用一致性
+- 271 项测试运行，268 项通过（+6，新增 EPUB 集成测试；另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
+
+<details>
+<summary>## [1.1.0] - 2026-08-15</summary>
 
 ### 新增
 
@@ -28,6 +73,8 @@
 ### 测试
 
 - 228 项测试全部通过（+30），新增覆盖 `.storyignore`（8 项）、`import json`（10 项）及系列分组 / 分数索引 / 重命名检测集成测试
+
+</details>
 
 <details>
 <summary>## [1.0.0] - 2026-08-14</summary>

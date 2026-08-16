@@ -2,16 +2,17 @@ import fs from "node:fs"
 import path from "node:path"
 import { parseArgs } from "../args.ts"
 import { loadRepoConfig } from "../core/config.ts"
+import { scanStoryFolders } from "../core/scanner.ts"
 import type { Language } from "../core/types.ts"
 
 /**
  * 获取下一个序号
+ * 复用 scanner 的故事文件夹识别逻辑（排除基础设施目录 + 应用 .storyignore）
  * @param rootDir 项目根目录
  * @returns 两位数字序号
  */
 function getNextNumber(rootDir: string): string {
-  // 使用与 scanner.ts STORY_FOLDER_PATTERN 一致的模式（至少两位数字）
-  const folders = fs.readdirSync(rootDir).filter((item) => /^\d{2,}-/.test(item))
+  const folders = scanStoryFolders(rootDir)
   let max = 0
   for (const folder of folders) {
     const num = parseInt(folder.split("-")[0], 10)

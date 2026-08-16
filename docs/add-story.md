@@ -1,10 +1,12 @@
 # 📝 如何新增故事
 
+> 📐 完整的仓库数据规范（目录结构、字段定义、版本策略）请参阅 [docs/specification.md](specification.md)。
+
 只需 3 步即可完成：
 
 1. 创建目录 `NN-故事名/`
 2. 编写 `config.json`
-3. 运行 `story build`
+3. 运行 `story build`（或使用 Makefile 工作流：`make build`）
 
 ---
 
@@ -18,6 +20,7 @@ my-stories-repo/
 ├── config.fanfic.json        # 二创故事模板（由 story init 生成）
 ├── story-template.md         # 故事 README 的 Handlebars 模板
 ├── story.config.json         # 仓库级配置（自定义类型/状态，由 story init 生成）
+├── Makefile                  # 工作流入口（由 story init 生成，make help 查看全部命令）
 ├── README.md                 # 自动生成的根目录索引
 ├── assets/                   # 全局素材目录（封面等）
 │   └── sponsor/              # 赞助收款码专用目录（由 story init 创建）
@@ -96,28 +99,28 @@ assets/
   "originalAuthor": "原作者", // 二创必填
   "series": "三体", // 可选，系列名称
   "seriesOrder": 2, // 可选，系列内排序（支持小数）
-  "volume": "第二部·黑暗森林" // 可选，卷/册名称（仅展示）
+  "volume": "第二部·黑暗森林" // 可选，卷/册名称（展示 + 分卷导出）
 }
 ```
 
 ### 字段说明
 
-| 字段             | 必填     | 类型      | 说明                                                     |
-| ---------------- | -------- | --------- | -------------------------------------------------------- |
-| `title`          | ✅       | `string`  | 故事标题                                                 |
-| `type`           | ✅       | `string`  | `"original"`（原创）或 `"fanfic"`（二创）                |
-| `status`         | ✅       | `string`  | `"completed"`（已完结）或 `"ongoing"`（连载中）          |
-| `isMultiChapter` | 可选     | `boolean` | 是否为多章节故事（默认 `false`）                         |
-| `language`       | 可选     | `string`  | `"zh"` 或 `"en"`，决定 README 本地化                     |
-| `summary`        | ✅       | `string`  | 一句话概括故事核心冲突和结局                             |
-| `created`        | ✅       | `string`  | 创建日期，格式 `YYYY-MM-DD`                              |
-| `author`         | 可选     | `string`  | 作者名称（原创故事使用，EPUB 导出时显示）                |
-| `originalWork`   | 二创必填 | `string`  | 原作名称（fanfic 必填）                                  |
-| `originalAuthor` | 二创必填 | `string`  | 原作者（fanfic 必填）                                    |
-| `cover`          | 可选     | `string`  | 封面图片路径（EPUB 导出时使用）                          |
-| `series`         | 可选     | `string`  | 系列名称。有该字段的故事归入同一系列分组                 |
-| `seriesOrder`    | 可选     | `number`  | 系列内排序键（支持小数，如 `2.5`）。缺失时回退文件夹序号 |
-| `volume`         | 可选     | `string`  | 卷/册名称，仅用于展示                                    |
+| 字段             | 必填     | 类型      | 说明                                                        |
+| ---------------- | -------- | --------- | ----------------------------------------------------------- |
+| `title`          | ✅       | `string`  | 故事标题                                                    |
+| `type`           | ✅       | `string`  | `"original"`（原创）或 `"fanfic"`（二创）                   |
+| `status`         | ✅       | `string`  | `"completed"`（已完结）或 `"ongoing"`（连载中）             |
+| `isMultiChapter` | 可选     | `boolean` | 是否为多章节故事（默认 `false`）                            |
+| `language`       | 可选     | `string`  | `"zh"` 或 `"en"`，决定 README 本地化                        |
+| `summary`        | ✅       | `string`  | 一句话概括故事核心冲突和结局                                |
+| `created`        | ✅       | `string`  | 创建日期，格式 `YYYY-MM-DD`                                 |
+| `author`         | 可选     | `string`  | 作者名称（原创故事使用，EPUB 导出时显示）                   |
+| `originalWork`   | 二创必填 | `string`  | 原作名称（fanfic 必填）                                     |
+| `originalAuthor` | 二创必填 | `string`  | 原作者（fanfic 必填）                                       |
+| `cover`          | 可选     | `string`  | 封面图片路径（EPUB 导出时使用）                             |
+| `series`         | 可选     | `string`  | 系列名称。有该字段的故事归入同一系列分组                    |
+| `seriesOrder`    | 可选     | `number`  | 系列内排序键（支持小数，如 `2.5`）。缺失时回退文件夹序号    |
+| `volume`         | 可选     | `string`  | 卷/册名称（展示 + `story epub --split-by-volume` 分卷导出） |
 
 ### 校验规则
 
@@ -147,6 +150,19 @@ assets/
 - `typeLabels` / `statusLabels` 为可选字段
 - 内置枚举已内置中文标签，无需重复配置
 - 未配置标签的自定义枚举值在 README 中显示为原始代码字符串
+
+---
+
+## ⚠️ 文件编码要求
+
+**所有故事文件（`config.json`、`text.md`、`chapter-*.md`）必须使用 UTF-8 编码保存。**
+
+- **VS Code**：右下角点击编码按钮 → 「通过编码保存」→ 选择 `UTF-8`
+- **Windows 记事本**：另存为 → 编码选择 `UTF-8`
+- **macOS / Linux**：默认即 UTF-8，无需额外操作
+
+> Windows 用户的记事本默认可能保存为 GBK/GB2312 编码，导致 `story build` 输出的 README 和 EPUB 中出现乱码。
+> story-cli 会在检测到编码问题时输出警告提示，帮助定位问题文件。
 
 ---
 
@@ -214,6 +230,18 @@ story build
 ```
 
 会为每个故事生成 `README.md`，并在根目录生成索引 `README.md`。构建时如果 `text.md` 不存在但存在 `chapter-*.md`，会自动合并并生成 `text.md`。
+
+> 💡 **推荐使用 Makefile 工作流**：`story init` 会生成一个可编辑的 `Makefile`，封装了高频操作组合：
+>
+> ```bash
+> make build                     # 等价于 story build
+> make commit                    # 构建 + git add + git commit
+> make push                      # 构建 + 提交 + 推送
+> make stats                     # 查看创作统计
+> make new TITLE="新故事"         # 创建故事 + 自动构建
+> ```
+>
+> 更多命令请运行 `make help`。CLI（`story` 命令）是原子能力，Makefile 是工作流编排——两者互补。
 
 ---
 

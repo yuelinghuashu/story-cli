@@ -10,11 +10,19 @@ import {
   resolveWordCount,
   scanStoryFoldersAsync,
 } from "../core/scanner.ts"
-import type { BuildResult, StoryConfig, StoryData, StorySummary, ValidationIssue } from "../core/types.ts"
+import type {
+  BuildResult,
+  StoryConfig,
+  StoryData,
+  StoryLoadResult,
+  StorySummary,
+  ValidationIssue,
+} from "../core/types.ts"
 import { type ValidationOverrides, validateConfig } from "../core/validate.ts"
 import { formatStatus, formatType, getLocale, resolveLang } from "../i18n/index.ts"
 import { generateRootReadme, generateStoryReadme } from "../render/readme.ts"
 import { detectCliLang, detectRenames } from "../utils/cli-utils.ts"
+import { detectEncodingIssue, encodingWarning } from "../utils/encoding.ts"
 import { templatesDir } from "../utils/paths.ts"
 
 /** 类型/状态的本地化标签映射 */
@@ -25,28 +33,31 @@ type LabelMap = Record<string, Record<string, string>>
  * @param folderPath 故事文件夹路径
  * @param folder 故事文件夹名（用于错误提示）
  * @param overrides 仓库级校验覆盖
- * @returns 规范化后的故事配置 + 校验问题
+ * @returns 规范化后的故事配置（失败时为 null）+ 校验问题
  */
 async function loadStoryConfigAsync(
   folderPath: string,
   folder: string,
   overrides: ValidationOverrides,
-): Promise<{ config: StoryConfig; issues: ValidationIssue[] }> {
+): Promise<{ config: StoryConfig | null; issues: ValidationIssue[] }> {
   const configPath = path.join(folderPath, "config.json")
 
   let rawText: string
   try {
-    rawText = await fs.promises.readFile(configPath, "utf-8")
+    const buffer = await fs.promises.readFile(configPath)
+    const issue = detectEncodingIssue(configPath, buffer)
+    if (issue) console.warn(encodingWarning(issue, getLocale(detectCliLang())))
+    rawText = new TextDecoder("utf-8").decode(buffer)
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code
     if (code === "ENOENT") {
       return {
-        config: null as unknown as StoryConfig,
+        config: null,
         issues: [{ code: "missing", field: "config.json", message: `${folder}: missing config.json` }],
       }
     }
     return {
-      config: null as unknown as StoryConfig,
+      config: null,
       issues: [
         {
           code: "parse",
@@ -62,7 +73,7 @@ async function loadStoryConfigAsync(
     rawConfig = JSON.parse(rawText) as Record<string, unknown>
   } catch (e) {
     return {
-      config: null as unknown as StoryConfig,
+      config: null,
       issues: [
         {
           code: "parse",
@@ -182,13 +193,13 @@ async function loadStories(
 
   // 并行加载所有故事（每个故事内部顺序读取 config + 正文）
   const loadResults = await Promise.all(
-    folders.map(async (folder) => {
+    folders.map(async (folder): Promise<StoryLoadResult> => {
       const folderPath = path.join(rootDir, folder)
 
       // 读取 + 校验 config.json
       const { config, issues: configIssues } = await loadStoryConfigAsync(folderPath, folder, validationOverrides)
-      if (configIssues.length > 0) {
-        return { story: null as unknown as StoryData, issues: configIssues, contentWarnings: [] as string[] }
+      if (configIssues.length > 0 || config === null) {
+        return { story: null, issues: configIssues, contentWarnings: [] }
       }
 
       // 读取正文
@@ -211,7 +222,7 @@ async function loadStories(
         )
       }
 
-      return { story, issues: [] as ValidationIssue[], contentWarnings }
+      return { story, issues: [], contentWarnings }
     }),
   )
 
@@ -229,9 +240,10 @@ async function loadStories(
  * @param rootDir 项目根目录
  * @param stories 故事列表
  * @param cliLang CLI 输出语言
+ * @param onlyFolder 仅重建指定故事的 README（watch 增量模式），其余故事 README 保持不变
  * @returns 生成的故事 README 数量
  */
-function generateReadmes(rootDir: string, stories: StoryData[], cliLang = "zh"): number {
+function generateReadmes(rootDir: string, stories: StoryData[], cliLang = "zh", onlyFolder?: string): number {
   const locale = getLocale(cliLang)
   console.log(`\n${locale.generatingReadmes}`)
   const templatePath = path.join(templatesDir, "story-template.md")
@@ -239,6 +251,9 @@ function generateReadmes(rootDir: string, stories: StoryData[], cliLang = "zh"):
 
   for (const story of stories) {
     const { folder, config } = story
+    // 增量模式：跳过非目标故事（根 README 仍会全量重建以反映最新索引）
+    if (onlyFolder && folder !== onlyFolder) continue
+
     const folderPath = path.join(rootDir, folder)
     const lang = story.lang
     const storyLocale = getLocale(lang)
@@ -349,6 +364,7 @@ export async function runBuild(rootDir: string, args: string[]): Promise<number>
 
 /**
  * Watch 模式：监听仓库变更并自动重建
+ * 每次 rebuild 后重新扫描故事目录，捕获新增/删除的目录
  * @param rootDir 项目根目录
  * @param options watch 模式选项
  */
@@ -361,7 +377,60 @@ function runWatchMode(rootDir: string, options: { validateOnly: boolean; saveCou
   let timer: ReturnType<typeof setTimeout> | null = null
   let rebuilding = false
 
-  const doBuild = async (trigger: string) => {
+  // 监听根目录下的直接子目录和文件（不递归，避免 node_modules 等噪音）
+  const watchers: fs.FSWatcher[] = []
+  const watched = new Set<string>()
+
+  const watchDir = (dir: string, folderHint?: string) => {
+    if (watched.has(dir)) return
+    watched.add(dir)
+
+    try {
+      const watcher = fs.watch(dir, (_event, filename) => {
+        if (!filename) return
+
+        // 忽略常见噪音
+        const name = filename.toString()
+        if (name.startsWith(".")) return
+        if (name === "node_modules") return
+
+        debouncedBuild(name, folderHint)
+      })
+      watchers.push(watcher)
+
+      // 递归子目录（但排除基础设施目录）
+      if (fs.existsSync(dir)) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.isDirectory() && !EXCLUDE_DIRS.has(entry.name)) {
+            // 子目录继承父级故事归属（根目录 → 故事目录 → 故事子目录）
+            const childHint = folderHint ?? entry.name
+            watchDir(path.join(dir, entry.name), childHint)
+          }
+        }
+      }
+    } catch {
+      // 目录可能被删除，忽略
+    }
+  }
+
+  /**
+   * 重新扫描故事目录并监听新出现的故事子目录
+   * 解决"新增故事文件夹后其内部变更不触发 rebuild"的问题
+   */
+  const rescanStoryDirs = () => {
+    try {
+      // 新故事文件夹也是 NN- 前缀，需要监听其内部变更
+      for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+        if (entry.isDirectory() && !EXCLUDE_DIRS.has(entry.name)) {
+          watchDir(path.join(rootDir, entry.name), entry.name)
+        }
+      }
+    } catch {
+      // 扫描失败静默忽略
+    }
+  }
+
+  const doBuild = async (trigger: string, folderHint?: string) => {
     if (rebuilding) return
     rebuilding = true
     console.log(`\n🔨 ${locale.watchRebuild(trigger)}`)
@@ -373,13 +442,16 @@ function runWatchMode(rootDir: string, options: { validateOnly: boolean; saveCou
         console.log(w)
       }
 
+      // 每次 rebuild 后重新扫描，监听新增的故事目录
+      rescanStoryDirs()
+
       if (issues.length > 0) {
         console.error(`\n${locale.buildFail}`)
         for (const issue of issues) {
           console.error(`  ❌ ${issue.message}`)
         }
       } else if (!validateOnly) {
-        generateReadmes(rootDir, stories, cliLang)
+        generateReadmes(rootDir, stories, cliLang, folderHint)
         console.log(`${locale.watchDone(stories.length)}`)
       } else {
         console.log(`${locale.validateOnly(stories.length)}`)
@@ -389,52 +461,19 @@ function runWatchMode(rootDir: string, options: { validateOnly: boolean; saveCou
     }
   }
 
-  const debouncedBuild = (trigger: string) => {
+  const debouncedBuild = (trigger: string, folderHint?: string) => {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
-      void doBuild(trigger)
+      void doBuild(trigger, folderHint)
       timer = null
     }, debounceMs)
-  }
-
-  // 监听根目录下的直接子目录和文件（不递归，避免 node_modules 等噪音）
-  const watchers: fs.FSWatcher[] = []
-  const watched = new Set<string>()
-
-  const watchDir = (dir: string) => {
-    if (watched.has(dir)) return
-    watched.add(dir)
-
-    try {
-      const watcher = fs.watch(dir, (_event, filename) => {
-        if (!filename) return
-
-        // 忽略常见噪音
-        if (filename.toString().startsWith(".")) return
-        if (filename.toString() === "node_modules") return
-
-        debouncedBuild(filename.toString())
-      })
-      watchers.push(watcher)
-
-      // 递归子目录（但排除基础设施目录）
-      if (fs.existsSync(dir)) {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          if (entry.isDirectory() && !EXCLUDE_DIRS.has(entry.name)) {
-            watchDir(path.join(dir, entry.name))
-          }
-        }
-      }
-    } catch {
-      // 目录可能被删除，忽略
-    }
   }
 
   watchDir(rootDir)
 
   console.log(locale.watchHint)
 
-  // 初始构建
+  // 初始构建（包含首次 rescanStoryDirs）
   void doBuild("initial")
 
   // Ctrl+C 清理

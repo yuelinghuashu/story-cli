@@ -14,6 +14,18 @@ story epub "Story Title"
 story epub --all
 ```
 
+### Split-Volume Export (--split-by-volume)
+
+For long stories (million-word scale), you can split a single EPUB into multiple volumes:
+
+```bash
+story epub "My Story" --split-by-volume
+```
+
+- When a `volume` field exists in `config.json`, the output filename becomes `My Story-<volume>.epub`
+- Without a `volume` field, behavior is identical to normal export (single volume)
+- Combine with `--all` to batch-export all stories as split volumes
+
 Exported files go to `dist/epub/`:
 
 ```bash
