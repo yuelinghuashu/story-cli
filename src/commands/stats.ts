@@ -147,6 +147,8 @@ export function runStats(rootDir: string, args: string[]): number {
   const folders = scanStoryFolders(rootDir)
   const details: StoryDetail[] = []
   const inputs: StatsStoryInput[] = []
+  // 收集有问题的故事（JSON 模式随结果输出，避免管道消费方拿到不完整数据而不自知）
+  const errors: Array<{ folder: string; message: string }> = []
 
   for (const folder of folders) {
     const folderPath = path.join(rootDir, folder)
@@ -156,13 +158,13 @@ export function runStats(rootDir: string, args: string[]): number {
       if (!content.trim()) continue
 
       const rawWordCount = countWords(content, lang)
-      // 章节切分一次，同时产出格式化字数（展示）与原始字数（数值分析）
+      // 章节切分一次，逐章字数只统计一遍，同时产出格式化字数（展示）与原始字数（数值分析）
       const sections = splitSections(content)
-      const chapters: ChapterInfo[] = sections.map((s) => ({
-        title: s.title,
-        wordCount: formatWordCount(countWords(s.rawContent, lang), lang),
-      }))
       const chapterRawCounts: number[] = sections.map((s) => countWords(s.rawContent, lang))
+      const chapters: ChapterInfo[] = sections.map((s, i) => ({
+        title: s.title,
+        wordCount: formatWordCount(chapterRawCounts[i] ?? 0, lang),
+      }))
 
       details.push({
         folder,
@@ -181,7 +183,7 @@ export function runStats(rootDir: string, args: string[]): number {
         dialogueCount: countDialogues(content),
         avgChapterLen: avgChapterLength(chapterRawCounts),
         chapterLenStdDev: chapterLengthStdDev(chapterRawCounts),
-        dialogueRatio: dialogueRatio(content, lang),
+        dialogueRatio: dialogueRatio(content, lang, rawWordCount),
       })
       inputs.push({
         folder,
@@ -193,9 +195,11 @@ export function runStats(rootDir: string, args: string[]): number {
         content,
       })
     } catch (e) {
-      // 跳过有问题的故事（与 build 行为一致）
+      // 跳过有问题的故事（与 build 行为一致），但错误始终记录（JSON 模式随结果输出）
+      const message = formatError(e)
+      errors.push({ folder, message })
       if (!asJson) {
-        console.error(formatError(e))
+        console.error(message)
       }
     }
   }
@@ -253,6 +257,8 @@ export function runStats(rootDir: string, args: string[]): number {
       analysis: {
         repeated: aggregate.repeated,
       },
+      // 有问题的故事（管道消费方不应静默拿到不完整数据）
+      errors,
     }
     console.log(JSON.stringify(result, null, 2))
     return 0
@@ -320,10 +326,12 @@ export function countParagraphs(content: string): number {
 export function countDialogues(content: string): number {
   if (!content) return 0
 
-  // 中文引号「」/“​” 或 弯引号“”
+  // 中文引号「」/“” 或 弯引号“”
   const zhMatches = content.match(/[「“][^」”]*[」”]/g) ?? []
-  // 英文双引号 "..."（嵌套在中英文引号内的不重复计数）
-  const enMatches = content.match(/"[^"\n]*"/g) ?? []
+  // 英文双引号 "..."：先剥离中文引号区域再匹配，
+  // 避免嵌套在中文引号内的英文引号被重复计数（与注释声称的行为一致）
+  const withoutZh = content.replace(/[「“][^」”]*[」”]/g, "")
+  const enMatches = withoutZh.match(/"[^"\n]*"/g) ?? []
   return zhMatches.length + enMatches.length
 }
 
@@ -356,13 +364,14 @@ export function chapterLengthStdDev(rawCounts: number[]): number {
  * 提取中文「」/“”与英文 "..." 引号内的字符数，除以按故事语言统计的总字数
  * @param content 正文内容
  * @param lang 故事语言（zh / en）
+ * @param totalWords 已算好的总字数（可选；传入可避免对同一文本重复扫描）
  * @returns 对话字数占比（0~1，保留 2 位小数）；内容为空时返回 0
  */
-export function dialogueRatio(content: string, lang: Language): number {
+export function dialogueRatio(content: string, lang: Language, totalWords?: number): number {
   if (!content.trim()) return 0
   const dialogues = content.match(/[「“][^」”]*[」”]|"[^"\n]*"/g) ?? []
   const dialogueChars = dialogues.reduce((sum, d) => sum + countWords(d, lang), 0)
-  const total = countWords(content, lang)
+  const total = totalWords ?? countWords(content, lang)
   if (total === 0) return 0
   return Number((dialogueChars / total).toFixed(2))
 }

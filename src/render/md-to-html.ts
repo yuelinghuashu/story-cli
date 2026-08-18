@@ -96,17 +96,14 @@ function renderInline(text: string): string {
   // 4. 转义剩余纯文本（HTML 片段由占位符保护，不被转义）
   protectedText = escapeHtml(protectedText)
 
-  // 5. 恢复 HTML 片段（循环直到没有更多占位符，支持嵌套占位符恢复）
+  // 5. 恢复 HTML 片段（单遍即可）
+  //    片段按「内层先创建、外层后创建」的顺序入数组（processInline 递归先处理子内容再 protect），
+  //    即外层片段的 html 可能包含内层片段的 token；反向遍历保证外层先展开、内层 token 随后被替换，
+  //    无需 while 循环重扫。若未来破坏「父片段 index > 子片段 index」的不变式，嵌套测试会立即失败。
   let finalText = protectedText
-  let hadReplacements = true
-  while (hadReplacements) {
-    hadReplacements = false
-    for (const { token, html } of htmlFragments) {
-      if (finalText.includes(token)) {
-        finalText = finalText.split(token).join(html)
-        hadReplacements = true
-      }
-    }
+  for (let i = htmlFragments.length - 1; i >= 0; i--) {
+    const { token, html } = htmlFragments[i]
+    finalText = finalText.split(token).join(html)
   }
   protectedText = finalText
 

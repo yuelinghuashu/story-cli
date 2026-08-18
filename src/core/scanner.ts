@@ -175,11 +175,15 @@ function selectStoryFolders(
 
 /**
  * 共享：从目录项名称列表筛选出 chapter-*.md 文件并排序（纯逻辑，不涉及 IO）
+ * 使用自然排序（numeric: true）：chapter-2.md 排在 chapter-10.md 之前，
+ * 兼容未按两位补零的章节文件（chapter-1.md / chapter-2.md / chapter-10.md）
  * @param items 目录项名称列表
  * @returns 排序后的 chapter 文件名列表
  */
 function selectChapterFiles(items: string[]): string[] {
-  return items.filter((f) => /^chapter-.*\.md$/i.test(f)).sort()
+  return items
+    .filter((f) => /^chapter-.*\.md$/i.test(f))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 }
 
 /**

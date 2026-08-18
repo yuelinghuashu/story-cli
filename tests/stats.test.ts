@@ -5,7 +5,7 @@ import os from "node:os"
 import path from "node:path"
 import { after, test } from "node:test"
 import { fileURLToPath } from "node:url"
-import { avgChapterLength, chapterLengthStdDev, dialogueRatio } from "../src/commands/stats.ts"
+import { avgChapterLength, chapterLengthStdDev, countDialogues, dialogueRatio } from "../src/commands/stats.ts"
 
 const binPath = fileURLToPath(new URL("../bin/index.ts", import.meta.url))
 
@@ -304,4 +304,50 @@ test("dialogueRatio 计算对话字数占比（英文）", () => {
   const r = dialogueRatio(enDialogue, "en")
   assert.ok(r > 0 && r <= 1, "英文对话占比应在 (0,1]")
   assert.strictEqual(dialogueRatio("pure narration no quotes", "en"), 0)
+})
+
+test("countDialogues 中文引号计数", () => {
+  assert.strictEqual(countDialogues("“你好吗？”“我很好。”"), 2)
+  assert.strictEqual(countDialogues("他说「明天见」。"), 1)
+  assert.strictEqual(countDialogues("没有引号的叙述。"), 0)
+  assert.strictEqual(countDialogues(""), 0)
+})
+
+test("countDialogues 英文引号计数", () => {
+  assert.strictEqual(countDialogues('"Hello," she said. "Hi," he replied.'), 2)
+  assert.strictEqual(countDialogues('He said "just one" here.'), 1)
+})
+
+test("countDialogues 中文引号内嵌英文引号不重复计数", () => {
+  // 英文引号嵌套在中文引号内：只应计 1 段对话（中文引号），内嵌的英文引号不应被重复计数
+  assert.strictEqual(countDialogues('他说：“我听到了"hello"这个词。”'), 1)
+  assert.strictEqual(countDialogues('「他问"你好吗"之后离开。」之后他小声说"还行"。'), 2)
+})
+
+test("story stats --json 包含 errors 字段（坏故事不静默吞掉）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stats-"))
+  createStory(dir, "01-好故事", createStoryConfig("好故事"))
+  // 坏故事：config.json 是非法 JSON → 加载时报 CONFIG_PARSE
+  const badDir = path.join(dir, "02-坏故事")
+  fs.mkdirSync(badDir, { recursive: true })
+  fs.writeFileSync(path.join(badDir, "config.json"), "{ invalid json", "utf-8")
+
+  const stdout = runCli(["stats", "--json"], dir)
+  const data = JSON.parse(stdout) as {
+    storyCount: number
+    stories: unknown[]
+    errors: Array<{ folder: string; message: string }>
+  }
+
+  assert.strictEqual(data.storyCount, 1, "坏故事不应计入统计")
+  assert.strictEqual(data.stories.length, 1, "只应包含好故事")
+  assert.ok(Array.isArray(data.errors), "JSON 输出应包含 errors 数组")
+  assert.ok(
+    data.errors.some((e) => e.folder === "02-坏故事"),
+    "errors 应包含坏故事文件夹",
+  )
+  assert.ok(
+    data.errors.some((e) => e.message.length > 0),
+    "errors 应包含错误消息",
+  )
 })
