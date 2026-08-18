@@ -33,6 +33,7 @@ export const zh: Locale = {
   // 故事 README
   backToStoryList: "← 返回故事列表",
   seriesLabel: "系列",
+  relatedStoriesTitle: "🔗 关联故事",
   basicInfoTitle: "📝 基本信息",
   typeLabel: "类型",
   wordCountLabel: "字数",
@@ -89,6 +90,29 @@ export const zh: Locale = {
   mergedWarning: (folder) => `⚠️ ${folder}: 未找到 text.md，已从 chapter-*.md 合并`,
   storyReadmeDone: (folder) => `  ✅ ${folder}/README.md`,
   noSummary: "无简介",
+  skippedExport: (n) => `  ⚠️ ${n} 个故事已跳过`,
+
+  // story new 命令
+  newMissingTitle: `请指定故事标题！
+  用法：story new "标题" [--type=original|fanfic] [--author="原作名"] [--creator="原作者"] [--lang=zh|en]
+
+  示例：
+    story new "我的第一个故事"
+    story new "二创故事" --type=fanfic --author="原作名" --creator="原作者" --lang=en`,
+  newTypeInvalid: (choices, got) => `--type 必须是 ${choices.map((v) => `"${v}"`).join(" 或 ")}，当前为 "${got}"`,
+  newFanficRequiresAuthor: `二创故事必须指定 --author="原作名"`,
+  newFanficRequiresCreator: `二创故事必须指定 --creator="原作者"`,
+  newFolderExists: (folder) => `目录已存在：${folder}`,
+  newConfigInvalid: (issues) => `配置校验失败：${issues}`,
+  newCreated: (folderName, type) => `✅ 已创建故事：${folderName}/
+   ├── config.json (type: ${type})
+   └── text.md`,
+  newNextSteps: (folderName) => `
+后续步骤：
+  1. 编辑 ${folderName}/config.json
+  2. 在 ${folderName}/text.md 中写作
+  3. 运行：story build
+`,
 
   // Watch 模式
   watchStart: "监听模式已启动，文件变更自动重建...",
@@ -114,6 +138,9 @@ export const zh: Locale = {
   epubCoverMissing: (p) => `⚠️ 封面图片不存在: ${p}`,
   epubSvgUnsafe: (p) => `⚠️ 封面 SVG 包含危险内容（脚本/事件属性），已跳过: ${p}`,
   epubCoverReadFailed: (p, msg) => `⚠️ 读取封面图片失败: ${p} - ${msg}`,
+  epubLicenseOriginal: "本作品采用 CC BY-NC-SA 4.0 许可证。你可以署名共享、非商业使用，修改后的作品需沿用相同许可。",
+  epubLicenseFanfic: (work, author) =>
+    `本作品是基于${work}（原作：${author}）的同人创作。原作角色、世界观等元素的版权归原作者及版权方所有。禁止将本故事用于任何商业用途。`,
 
   // HTML 导出
   htmlExporting: "🌐 正在导出 HTML 站点...",
@@ -137,6 +164,11 @@ export const zh: Locale = {
   mdExportSuccess: (count, output) => `✅ Markdown 导出完成：${count} 个故事 → ${output}/`,
   mdEmptyContent: (folder) => `⚠️ ${folder}: 正文为空，已跳过`,
 
+  // Embeddings 导出
+  embeddingsExporting: "🧠 正在导出文本块（embeddings）...",
+  embeddingsExportSuccess: (chunks, output) => `✅ Embeddings 导出完成：${chunks} 个文本块 → ${output}`,
+  embeddingsEmptyContent: (folder) => `⚠️ ${folder}: 正文为空，已跳过`,
+
   // Demo 模式
   demoGenerating: "🎬 正在生成示例故事仓库...",
   demoDone: "✅ 示例故事仓库已生成！",
@@ -159,7 +191,6 @@ export const zh: Locale = {
   statsNoGit: "⚠️ 非 Git 仓库，无法统计写作活跃度",
   statsHealthTitle: (count) => `⚠️ 健康度检查: ${count} 项警告`,
   statsStaleWordCount: (folder, config, actual) => `    [过期字数] ${folder}: config=${config}, 实际=${actual}`,
-  statsMissingSummary: (folder) => `    [缺 summary] ${folder}`,
   statsHealthy: "✅ 健康度检查: 全部正常",
   statsThisMonth: "本月",
   statsLastMonth: "上月",
@@ -179,9 +210,41 @@ story import json --file=stories.json --output=my-stories/  # 指定输出目录
   importJsonDone: (success, failed) => `📥 导入完成：${success} 成功, ${failed} 失败`,
   importJsonOutputDir: (dir) => `输出目录: ${dir}`,
   importJsonNextStep: "运行 `story build` 生成 README",
+  importJsonValidationFailed: (title, issues) => `  ⚠️ ${title}: ${issues}`,
+  importJsonTitleExists: (title) => `  ⚠️ ${title}: 相同标题的故事已存在，已跳过`,
+  importJsonDirExists: (folder) => `  ⚠️ ${folder}: 目录已存在，已跳过`,
 
   // 编码检测
   encodingGbkWarning: (filePath) =>
     `⚠️ ${filePath} 可能使用 GBK/GB2312 编码，请用 VS Code 或记事本「另存为 UTF-8」后重新运行`,
   encodingUnknownWarning: (filePath) => `⚠️ ${filePath} 不是有效的 UTF-8 编码，请将文件转换为 UTF-8 后重新运行`,
+
+  // 合规检查（story validate）
+  complianceTitle: "📐 正在检查仓库合规性...",
+  compliancePass: (count) => `✅ 合规检查通过：${count} 个故事均符合 Story-Repo 规范`,
+  complianceFail: (errorCount, warningCount) => `❌ 合规检查未通过：${errorCount} 个错误，${warningCount} 个警告`,
+  complianceInvalidFolderName: (folder) => `目录名不符合规范 "NN-名称"（至少两位数字）: ${folder}`,
+  complianceDuplicateNumber: (num, existing, folder) => `重复序号 "${num}"：${existing} 与 ${folder}`,
+  complianceMissingConfig: (folder) => `${folder}: 缺少 config.json`,
+  complianceInvalidConfig: (folder) => `${folder}: config.json 无效（无法解析或不符合 schema）`,
+  complianceMissingContent: (folder) => `${folder}: 缺少正文（需 text.md 或 chapter-*.md）`,
+  complianceEncoding: (folder, file) => `${folder}/${file} 可能是非 UTF-8 编码`,
+
+  // story link 关联故事
+  linkUsage: `用法：story link <sourceFolder> <targetFolder>  |  story link --remove=<target> <source>  |  story link --list [source]`,
+  linkNotFound: (folder) => `找不到故事目录：${folder}`,
+  linkMissingConfig: (folder) => `${folder}: 缺少 config.json`,
+  linkParseError: (folder) => `${folder}: config.json 解析失败`,
+  linkList: (source, links) => `${source}: ${links}`,
+  linkNone: "无关联",
+  linkNotPresent: (source, target) => `${source} 未关联 ${target}`,
+  linkRemoved: (source, target) => `已移除 ${source} → ${target}`,
+  linkSelf: (source) => `不能将 ${source} 关联到自身`,
+  linkAlreadyPresent: (source, target) => `${source} 已关联 ${target}（幂等）`,
+  linkAdded: (source, target) => `已添加 ${source} → ${target}`,
+
+  // build 关联建议
+  linkSuggestionTitle: "🔗 检测到可能的关联故事（未自动写入，可手动确认）：",
+  linkSuggestionLine: (source, target, shared) => `  - ${source} ↔ ${target}（共享 ${shared} 个关键词）`,
+  linkSuggestionHint: () => `    如需确认关联，请运行：story link "${"<源>"}" "${"<目标>"}"`,
 }

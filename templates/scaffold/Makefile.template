@@ -9,7 +9,7 @@ LANG ?= zh
 MESSAGE ?= "chore: update stories"
 FORMAT ?= epub
 
-.PHONY: help init new build commit push epub export import stats clean verify
+.PHONY: help init new build commit push epub export import stats link validate analyze clean verify
 
 ## 📖 显示所有可用命令
 help:
@@ -52,7 +52,7 @@ epub:
 	  story epub "$(TITLE)"; \
 	fi
 
-## 📤 导出: make export FORMAT=html|txt|json|md
+## 📤 导出: make export FORMAT=html|txt|json|md|embeddings
 export:
 	story export $(FORMAT)
 
@@ -63,6 +63,22 @@ import:
 ## 📊 查看创作统计
 stats:
 	story stats
+
+## 🔗 管理关联故事: make link A=源故事 B=目标故事（A/B 为文件夹名或标题）
+link:
+	@if [ -z "$(A)" ] || [ -z "$(B)" ]; then \
+	  echo "❌ 请指定关联: make link A=\"源故事\" B=\"目标故事\""; \
+	  exit 1; \
+	fi
+	story link "$(A)" "$(B)"
+
+## ✅ 合规检查（Story-Repo 规范）
+validate:
+	story validate
+
+## 📈 写作质量分析（依赖 jq；重复短语 / 章节趋势）
+analyze:
+	story stats --json | jq '{overview: {storyCount, totalWords}, repeated_phrases: .analysis.repeated, chapter_trends: [.stories[] | {title, chapterCount, chapters: [.chapters[].rawWordCount]}]}'
 
 ## 🧹 清理构建产物
 clean:

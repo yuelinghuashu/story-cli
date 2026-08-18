@@ -31,7 +31,7 @@ export const EXCLUDE_DIRS = new Set([".git", "node_modules", "dist", "assets"])
 const STORY_IGNORE_FILE = ".storyignore"
 
 /** 故事文件夹命名模式：NN-名称（至少两位数字，保证数值序排序稳定） */
-const STORY_FOLDER_PATTERN = /^\d{2,}-.+/
+export const STORY_FOLDER_PATTERN = /^\d{2,}-.+/
 
 /** 赞助图片约定目录（相对于项目根目录） */
 const SPONSOR_DIR = "assets/sponsor"
@@ -350,10 +350,14 @@ export function readStoryText(folderPath: string): { content: string; merged: bo
     return { content: "", merged: false }
   }
 
-  const files: Array<{ name: string; content: string }> = chapterNames.map((file) => ({
-    name: file,
-    content: readTextFileChecked(path.join(folderPath, file)),
-  }))
+  const files: Array<{ name: string; content: string }> = []
+  for (const file of chapterNames) {
+    try {
+      files.push({ name: file, content: readTextFileChecked(path.join(folderPath, file)) })
+    } catch {
+      // 单个文件读取失败时跳过（与异步版本行为一致，避免一个坏文件拖垮整个故事）
+    }
+  }
 
   return resolveStoryText(null, files)
 }

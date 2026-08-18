@@ -73,7 +73,17 @@ export function validateConfig(
     if (value === undefined) continue
 
     // 类型检查
-    if (rules.type && typeof value !== rules.type) {
+    if (rules.type === "string[]") {
+      if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
+        issues.push({
+          code: "type",
+          field,
+          message: `${folder}: "${field}" must be an array of strings, got "${String(value)}"`,
+          value,
+        })
+        continue
+      }
+    } else if (rules.type && typeof value !== rules.type) {
       issues.push({
         code: "type",
         field,

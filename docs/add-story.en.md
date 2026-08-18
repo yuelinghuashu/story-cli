@@ -1,6 +1,6 @@
 # 📝 How to Add a Story
 
-> 📐 The complete repository data specification (directory structure, field definitions, versioning) is at [docs/specification.en.md](specification.en.md).
+> 📐 The complete repository data specification (directory structure, field definitions, versioning) is at [specification.en.md](specification.en.md). 📋 Full command list: see [commands.en.md](commands.en.md).
 
 Just 3 steps:
 
@@ -117,17 +117,55 @@ When `story build` detects images in `assets/sponsor/`, it automatically generat
 | `author`         | Optional    | `string`  | Author name (used for original stories, shown in EPUB)             |
 | `originalWork`   | Fanfic only | `string`  | Original work name (required if fanfic)                            |
 | `originalAuthor` | Fanfic only | `string`  | Original author (required if fanfic)                               |
+| `cover`          | Optional    | `string`  | Cover image path (used in EPUB export)                             |
 | `series`         | Optional    | `string`  | Series name. Stories with this field are grouped                   |
 | `seriesOrder`    | Optional    | `number`  | Order key within series (supports decimals like `2.5`)             |
 | `volume`         | Optional    | `string`  | Volume/part name (display + `story epub --split-by-volume` export) |
+| `links`          | Optional    | `string[]`| Related story folder names (weak relation, see "Related Stories")  |
+
+### Related Stories (`links`, optional)
+
+`links` declares manual associations with other stories (e.g. shared characters, follow-up reading) — an array of story folder names in the same repo:
+
+```json
+{ "links": ["02-星海守望", "03-Starlight"] }
+```
+
+- **Weak relation, zero dependency**: uses folder names only, no graph/vector database
+- **Write**: edit `config.json` manually, or `story link A B` to add (`--remove` to remove / `--list` to list)
+- **Auto-suggest**: `story build` detects candidate relations among stories with the same `series` + shared keywords and suggests them (without writing); confirm with `story link` to persist
+- **Display**: the story README auto-renders a "Related Stories" section
+
+> 📐 For the full field spec, see [specification.en.md](specification.en.md#22-optional-fields).
 
 ### Validation Rules
 
 - `title`, `type`, `status`, `summary`, `created` are required; missing fields cause a build error
-- `type` must be `original` or `fanfic`
-- `status` must be `completed` or `ongoing`
+- `type` must be `original`, `fanfic`, or a custom type defined in the repo config
+- `status` must be `completed`, `ongoing`, or a custom status defined in the repo config
 - `created` must match the `YYYY-MM-DD` format
 - When `type` is `fanfic`, both `originalWork` and `originalAuthor` are required
+
+### Custom Enums & Localization
+
+Through the root `story.config.json`, you can not only extend the `type` and `status` enums, but also configure Chinese/English labels for custom enums:
+
+```json
+{
+  "types": ["original", "fanfic", "translation"],
+  "statuses": ["completed", "ongoing", "planned"],
+  "typeLabels": {
+    "translation": { "zh": "翻译", "en": "Translation" }
+  },
+  "statusLabels": {
+    "planned": { "zh": "计划中", "en": "Planned" }
+  }
+}
+```
+
+- `typeLabels` / `statusLabels` are optional fields
+- Built-in enums already have built-in Chinese labels; no need to re-declare
+- Custom enum values without labels display as raw code strings in the README
 
 ---
 
@@ -209,6 +247,18 @@ story build
 
 This generates a `README.md` for each story and a root index `README.md`. If `text.md` is missing but `chapter-*.md` files exist, they will be merged and a `text.md` will be generated automatically.
 
+> 💡 **Recommended Makefile workflow**: `story init` generates an editable `Makefile` that wraps common operations:
+>
+> ```bash
+> make build                     # equivalent to story build
+> make commit                    # build + git add + git commit
+> make push                      # build + commit + push
+> make stats                     # writing statistics
+> make new TITLE="New Story"     # create a story + auto-build
+> ```
+>
+> Run `make help` for all commands. The CLI (`story` command) provides atomic abilities; the Makefile provides workflow orchestration — the two complement each other.
+
 ---
 
 ## 🔄 Series & Sorting
@@ -229,7 +279,24 @@ my-stories-repo/
 └── 05-truth-chaser/      # No series → standalone story
 ```
 
-The root README shows all series stories grouped under their series name, followed by a **📌 Standalone Stories** section.
+The root README shows all series stories grouped under their series name, followed by a **📌 Standalone Stories** section:
+
+```markdown
+## Three-Body
+
+| #   | Story       | Type     | Words  | Status    | Summary |
+| --- | ----------- | -------- | ------ | --------- | ------- |
+| 01  | The Past    | Original | 100K   | Completed | ...     |
+| 02  | Dark Forest | Original | 120K   | Completed | ...     |
+| 03  | Death's End | Original | 140K   | Ongoing   | ...     |
+
+## 📌 Standalone Stories
+
+| #   | Story          | Type     | Words | Status    | Summary |
+| --- | -------------- | -------- | ----- | --------- | ------- |
+| 04  | Ball Lightning | Original | 30K   | Completed | ...     |
+| 05  | Truth Chaser   | Original | 80K   | Completed | ...     |
+```
 
 ### `seriesOrder` Supports Decimals (Fractional Indexing)
 

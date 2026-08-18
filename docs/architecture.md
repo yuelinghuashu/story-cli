@@ -17,16 +17,20 @@ src/
 │
 ├── commands/            # 独立 CLI 命令实现
 │   ├── build.ts         # build 命令（含 watch 模式，异步并行加载）
+│   ├── demo.ts          # demo 命令（生成示例仓库）
 │   ├── epub.ts          # EPUB 导出命令
 │   ├── export-html.ts   # export html 命令（i18n + 校验 + 错误处理）
 │   ├── export-json.ts   # export json 命令（结构化 JSON 导出）
 │   ├── export-md.ts     # export md 命令（合并 Markdown）
 │   ├── export-txt.ts    # export txt 命令（纯文本导出）
+│   ├── export-embeddings.ts # export embeddings 命令（文本块 JSONL）
 │   ├── import-json.ts   # import json 命令（批量导入）
 │   ├── init.ts          # 仓库初始化命令（三种模板）
+│   ├── link.ts          # story link 命令（关联故事管理）
 │   ├── mcp.ts           # MCP Server 启动命令
 │   ├── new-story.ts     # story new 脚手架命令
-│   └── stats.ts         # story stats 创作统计命令
+│   ├── stats.ts         # story stats 创作统计命令
+│   └── validate.ts      # story validate 合规检查命令
 │
 ├── core/                # 故事管理的领域核心
 │   ├── scanner.ts       # 扫描故事文件夹、读取正文、提取章节（含异步版本）
@@ -36,8 +40,12 @@ src/
 │   ├── config.ts        # 仓库级配置（story.config.json 自定义枚举 + 本地化标签）
 │   ├── loader.ts        # 故事加载器（loadStories，build 与 MCP 共享）
 │   ├── sequence.ts      # 序号管理（getNextNumber）
-│   ├── exporter.ts      # 导出共享工具
+│   ├── exporter.ts      # 导出共享工具（forEachExportStory 等）
 │   ├── story-loader.ts  # 单故事配置加载与校验
+│   ├── compliance.ts    # 合规检查（story validate / MCP 共用）
+│   ├── stats-shared.ts  # 统计计算（CLI stats / MCP 共用）
+│   ├── watch-scheduler.ts # Watch 防抖/串行/排队调度器
+│   ├── link-suggestion.ts # build 关联建议层（零写入）
 │   └── types.ts         # 全局 TypeScript 类型定义
 │
 ├── mcp/                 # MCP Server 适配层（AI 客户端连接）
@@ -59,12 +67,15 @@ src/
     ├── json-utils.ts    # JSON 读取统一流程
     ├── errors.ts        # 结构化错误
     ├── paths.ts         # 路径解析
-    └── word-count.ts    # 语言感知的字数统计
+    ├── word-count.ts    # 语言感知的字数统计
+    └── phrase-frequency.ts # 零依赖重复短语词频（中文 bigram / 英文单词）
 
 tests/                   # node:test 测试（零额外测试依赖）
 bench/                   # 基准测试（generate.ts 生成仓库 + bench.ts 测量性能）
 templates/               # 脚手架模板（config + story README 模板）
 ```
+
+> 💡 `src/i18n/`（`index.ts` / `zh.ts` / `en.ts`）是顶层目录，存放中英文案与 `getLocale` 等 i18n 工具。
 
 `templates/` 目录结构：
 
@@ -77,7 +88,7 @@ templates/
 ├── story.config.json       # 仓库级配置模板
 └── scaffold/               # story init 脚手架模板
     ├── .gitignore.template # 忽略规则（npm 排除 .gitignore，故用此名称）
-    ├── Makefile.template   # 工作流入口（make new/commit/push/stats）
+    ├── Makefile.template   # 工作流入口（make new/commit/push/stats/analyze）
     ├── story.ps1.template  # Windows PowerShell 工作流入口（.\story.ps1）
     ├── README.md           # 初始说明
     ├── LICENSE             # --full 模式：CC BY-NC-SA 4.0
@@ -232,13 +243,13 @@ export const FIELD_RULES: Record<string, FieldRule> = {
 
 ### 2. 系列分组与排序（sort.ts）
 
-`sort.ts` 实现了「物理坐标永不更改，逻辑坐标自由调整」的排序设计：
+> 设计理念（「物理坐标 vs 逻辑坐标」的动机与获益）详见 [design.md](../docs/design.md#🧮-分数索引物理坐标与逻辑坐标的分离)。此处只说明实现细节。
 
-- **物理坐标**：文件夹名 `NN-` 前缀，一旦创建永不修改（保证 Git 链接稳定）
-- **逻辑坐标**：`config.json` 中的 `series` / `seriesOrder` 控制 README 展示顺序
-- `seriesOrder` 支持小数（分数索引），任意位置插入无需重排其他故事
-- 组内排序：`seriesOrder` 数值升序，缺失时回退文件夹序号
-- 组间排序：按组内最小文件夹序号，组名作为二级键保证确定性
+`sort.ts` 实现了 `series` / `seriesOrder` 逻辑坐标排序：
+
+- **逻辑坐标**：`config.json` 中的 `series` / `seriesOrder` 控制 README 展示顺序，`seriesOrder` 支持小数（分数索引）
+- **组内排序**：`seriesOrder` 数值升序，缺失时回退文件夹序号
+- **组间排序**：按组内最小文件夹序号，组名作为二级键保证确定性
 - 未配置 `series` 的故事归入「独立故事」，按文件夹序号排序
 
 ### 3. 语言感知（i18n.ts + word-count.ts）
@@ -256,7 +267,7 @@ export const FIELD_RULES: Record<string, FieldRule> = {
 - `escapeHtml` — HTML 特殊字符转义（export-html / epub-generator 共享）
 - `sanitizeUrl` — 危险 URL 协议过滤（XSS 防护：`javascript:`、`vbscript:`、`data:text/html` 被拦截）
 - `PAGE_STYLE` — 通用页面样式常量（export-html 使用）
-- `readStoryTitle` — 读取故事标题（export-html 使用）
+- `readConfigTitle` — 读取故事 config 的标题（epub 命令定位目标时使用）
 
 ### 5. 零构建运行时（bin/index.ts）
 
@@ -274,8 +285,9 @@ run(process.argv)
 
 - **故事统计**：故事总数、完成/连载状态分布、总字数、章节数
 - **系列进度**：每个系列的部数 + 完成率（按 `status` 字段）
-- **健康度检查**：config 中 `wordCount` 与实际差距 >20% 警告、缺少 `summary` 警告
-- **写作活跃度**：通过 `git log --numstat` 统计本月/上月新增行数（近似字数）
+- **健康度检查**：config 中 `wordCount` 与实际差距 >20% 警告（`stale-word-count`）
+- **重复短语**：`analysis.repeated` 输出全局 top 10 重复短语（中文 bigram / 英文单词）
+- **写作活跃度**：通过 `git log --numstat` 统计本月/上月新增行数（近似字数），仅统计故事文件夹内文件
 - **`--json` 输出**：结构化数据，支持管道消费
 
 ### 7. EPUB 最小合规生成（epub-generator.ts）

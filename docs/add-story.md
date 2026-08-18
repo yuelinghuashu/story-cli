@@ -1,6 +1,6 @@
 # 📝 如何新增故事
 
-> 📐 完整的仓库数据规范（目录结构、字段定义、版本策略）请参阅 [docs/specification.md](specification.md)。
+> 📐 完整的仓库数据规范（目录结构、字段定义、版本策略）请参阅 [specification.md](specification.md)。📋 完整命令清单见 [commands.md](commands.md)。
 
 只需 3 步即可完成：
 
@@ -121,6 +121,22 @@ assets/
 | `series`         | 可选     | `string`  | 系列名称。有该字段的故事归入同一系列分组                    |
 | `seriesOrder`    | 可选     | `number`  | 系列内排序键（支持小数，如 `2.5`）。缺失时回退文件夹序号    |
 | `volume`         | 可选     | `string`  | 卷/册名称（展示 + `story epub --split-by-volume` 分卷导出） |
+| `links`          | 可选     | `string[]`| 关联故事文件夹列表（弱关联，见下文「关联故事」）            |
+
+### 关联故事（links，可选）
+
+`links` 声明本故事与其他故事的人工关联（如共享角色、引申阅读），是一组指向同仓库内其他故事文件夹名的数组：
+
+```json
+{ "links": ["02-星海守望", "03-Starlight"] }
+```
+
+- **弱关联、零依赖**：只用文件夹名，不依赖图数据库/向量库
+- **写入**：手动编辑 `config.json`，或运行 `story link A B` 添加（`--remove` 移除 / `--list` 列出）
+- **自动建议**：`story build` 会检测同 `series` + 共享关键词的候选关联并提示（不写盘），用 `story link` 确认后落盘
+- **展示**：故事 README 会自动渲染「关联故事」区块
+
+> 📐 字段的完整规范见 [specification.md](specification.md#22-可选字段)。
 
 ### 校验规则
 

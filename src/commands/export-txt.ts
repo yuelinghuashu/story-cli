@@ -1,11 +1,13 @@
 import fs from "node:fs"
 import path from "node:path"
-import { loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
-import { readStoryText, scanStoryFolders } from "../core/scanner.ts"
-import { loadStoryConfig } from "../core/story-loader.ts"
+import {
+  forEachExportStory,
+  loadExportOverrides,
+  resolveExportOptions,
+  resolveOutputDir,
+  storyFileName,
+} from "../core/exporter.ts"
 import { getLocale } from "../i18n/index.ts"
-import { sanitizeFileName } from "../utils/cli-utils.ts"
-import { formatError } from "../utils/errors.ts"
 
 /**
  * 导出全部故事为纯文本文件（.txt）
@@ -30,56 +32,32 @@ export function exportTxt(rootDir: string, args: string[]): number {
     fs.mkdirSync(outputDir, { recursive: true })
   }
 
-  const folders = scanStoryFolders(rootDir)
-  let success = 0
-  let failed = 0
   const sections: string[] = []
+  const { success, failed } = forEachExportStory(rootDir, validationOverrides, locale.txtEmptyContent, (ctx) => {
+    if (toStdout) {
+      // stdout 模式：每个故事加标题行 + 收集到数组
+      const titleLine = `================\n${String(ctx.config.title)}\n================`
+      sections.push(`${titleLine}\n\n${ctx.content.trim()}`)
+    } else {
+      // 安全文件名 + 输出路径
+      const safeTitle = storyFileName(ctx.config, ctx.folder)
+      const outputPath = path.join(outputDir, `${safeTitle}.txt`)
 
-  for (const folder of folders) {
-    const folderPath = path.join(rootDir, folder)
-
-    try {
-      // 读取 + 校验故事配置
-      const { config } = loadStoryConfig(folderPath, folder, validationOverrides)
-
-      // 读取正文
-      const { content } = readStoryText(folderPath)
-      if (!content.trim()) {
-        console.warn(locale.txtEmptyContent(folder))
-        failed++
-        continue
-      }
-
-      if (toStdout) {
-        // stdout 模式：每个故事加标题行 + 收集到数组
-        const titleLine = `================\n${String(config.title)}\n================`
-        sections.push(`${titleLine}\n\n${content.trim()}`)
-        success++
-      } else {
-        // 安全文件名 + 输出路径
-        const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
-        const outputPath = path.join(outputDir, `${safeTitle}.txt`)
-
-        // 写入纯文本（保留 Markdown 原始格式，作为纯文字稿）
-        fs.writeFileSync(outputPath, content, "utf-8")
-        success++
-      }
-    } catch (e) {
-      console.error(formatError(e))
-      failed++
+      // 写入纯文本（保留 Markdown 原始格式，作为纯文字稿）
+      fs.writeFileSync(outputPath, ctx.content, "utf-8")
     }
-  }
+  })
 
-  // stdout 模式：按分隔符拼接输出（管道友好）
+  // stdout 模式：按分隔符拼接输出（管道友好；纯文本使用 = 号而非 HTML 注释）
   if (toStdout) {
-    process.stdout.write(`${sections.join("\n\n<!-- story-separator -->\n\n")}\n`)
+    process.stdout.write(`${sections.join("\n\n====\n\n")}\n`)
     return failed > 0 ? 1 : 0
   }
 
   const relativeOutput = path.relative(rootDir, outputDir) || "."
   console.log(locale.txtExportSuccess(success, relativeOutput))
   if (failed > 0) {
-    console.error(`  ⚠️ ${cliLang === "en" ? `${failed} stories skipped` : `${failed} 个故事已跳过`}`)
+    console.error(locale.skippedExport(failed))
   }
   return failed > 0 ? 1 : 0
 }

@@ -139,6 +139,30 @@ test("generateRootReadme 空故事列表仍生成 README", () => {
   assert.ok(content.includes("README"))
 })
 
+test("generateRootReadme 内容未变化时不重写文件（mtime 不变）", () => {
+  const dir = setupTempDir()
+  generateRootReadme(dir, sampleStories)
+  const readmePath = path.join(dir, "README.md")
+  const mtime1 = fs.statSync(readmePath).mtimeMs
+
+  // 相同输入再次生成：不应重写文件（否则 watch 模式会自触发重建循环）
+  generateRootReadme(dir, sampleStories)
+  assert.strictEqual(fs.statSync(readmePath).mtimeMs, mtime1, "内容未变时不应重写文件")
+})
+
+test("generateRootReadme 内容变化时重写文件", () => {
+  const dir = setupTempDir()
+  generateRootReadme(dir, sampleStories)
+  const readmePath = path.join(dir, "README.md")
+  const mtime1 = fs.statSync(readmePath).mtimeMs
+
+  // 故事列表变化 → 应重写
+  generateRootReadme(dir, [sampleStories[0]])
+  const content = fs.readFileSync(readmePath, "utf-8")
+  assert.ok(!content.includes("故事二"), "移除的故事不应再出现在 README 中")
+  assert.ok(fs.statSync(readmePath).mtimeMs >= mtime1, "内容变化时应重写文件")
+})
+
 test("generateStoryReadme 生成故事 README", () => {
   const dir = setupTempDir()
   fs.mkdirSync(path.join(dir, "01-故事一"), { recursive: true })
@@ -150,6 +174,38 @@ test("generateStoryReadme 生成故事 README", () => {
   const content = fs.readFileSync(path.join(dir, "01-故事一", "README.md"), "utf-8")
   assert.ok(content.includes("《测试》"))
   assert.ok(content.includes("故事简介"))
+})
+
+test("generateStoryReadme 内容未变化时不重写文件（mtime 不变）", () => {
+  const dir = setupTempDir()
+  fs.mkdirSync(path.join(dir, "01-故事一"), { recursive: true })
+  const templatePath = path.join(dir, "template.md")
+  fs.writeFileSync(templatePath, "# 《{{title}}》\n\n{{summary}}", "utf-8")
+  const readmePath = path.join(dir, "01-故事一", "README.md")
+
+  generateStoryReadme(path.join(dir, "01-故事一"), templatePath, { title: "测试", summary: "故事简介" })
+  const mtime1 = fs.statSync(readmePath).mtimeMs
+
+  // 相同输入再次生成：不应重写文件（否则 watch 模式会自触发重建循环）
+  generateStoryReadme(path.join(dir, "01-故事一"), templatePath, { title: "测试", summary: "故事简介" })
+  assert.strictEqual(fs.statSync(readmePath).mtimeMs, mtime1, "内容未变时不应重写文件")
+})
+
+test("generateStoryReadme 内容变化时重写文件", () => {
+  const dir = setupTempDir()
+  fs.mkdirSync(path.join(dir, "01-故事一"), { recursive: true })
+  const templatePath = path.join(dir, "template.md")
+  fs.writeFileSync(templatePath, "# 《{{title}}》\n\n{{summary}}", "utf-8")
+  const readmePath = path.join(dir, "01-故事一", "README.md")
+
+  generateStoryReadme(path.join(dir, "01-故事一"), templatePath, { title: "测试", summary: "故事简介" })
+  const mtime1 = fs.statSync(readmePath).mtimeMs
+
+  // 简介变化 → 应重写
+  generateStoryReadme(path.join(dir, "01-故事一"), templatePath, { title: "测试", summary: "更新后的简介" })
+  const content = fs.readFileSync(readmePath, "utf-8")
+  assert.ok(content.includes("更新后的简介"))
+  assert.ok(fs.statSync(readmePath).mtimeMs >= mtime1, "内容变化时应重写文件")
 })
 
 test("generateRootReadme 多行简介折叠为单行", () => {

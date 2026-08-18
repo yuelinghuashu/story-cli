@@ -16,12 +16,21 @@ src/
 ├── args.ts              # CLI argument parsing (--key=value / --flag / positional + command splitting)
 │
 ├── commands/            # Standalone CLI command implementations
-│   ├── build.ts         # build command (including watch mode)
+│   ├── build.ts         # build command (including watch mode, async parallel loading)
+│   ├── demo.ts          # demo command (generates an example repo)
 │   ├── epub.ts          # EPUB export command
 │   ├── export-html.ts   # export html command
+│   ├── export-json.ts   # export json command
+│   ├── export-md.ts     # export md command
+│   ├── export-txt.ts    # export txt command
+│   ├── export-embeddings.ts # export embeddings command (text chunks JSONL)
+│   ├── import-json.ts   # import json command
 │   ├── init.ts          # Repository initialization command
+│   ├── link.ts          # story link command (related-story management)
+│   ├── mcp.ts           # MCP Server startup command
 │   ├── new-story.ts     # story new scaffolding command
-│   └── stats.ts         # story stats command
+│   ├── stats.ts         # story stats command
+│   └── validate.ts      # story validate compliance-check command
 │
 ├── core/                # Story management domain core
 │   ├── scanner.ts       # Scan story folders, read content, extract chapters
@@ -29,23 +38,44 @@ src/
 │   ├── schema.ts        # Declarative validation rules (required / enum / format)
 │   ├── validate.ts      # Generic validation engine based on schema (supports repo-level overrides)
 │   ├── config.ts        # Repo-level config (story.config.json custom enums + localized labels)
+│   ├── loader.ts        # Story loader (loadStories, shared by build & MCP)
+│   ├── sequence.ts      # Sequence number management (getNextNumber)
+│   ├── exporter.ts      # Shared export utilities (forEachExportStory etc.)
+│   ├── story-loader.ts  # Single-story config loading & validation
+│   ├── compliance.ts    # Compliance check (shared by story validate / MCP)
+│   ├── stats-shared.ts  # Shared statistics computation (CLI stats / MCP)
+│   ├── watch-scheduler.ts # Watch debounce / serialize / queue scheduler
+│   ├── link-suggestion.ts # build suggestion layer (zero-write)
 │   └── types.ts         # Global TypeScript type definitions
+│
+├── mcp/                 # MCP Server adapter layer (AI client connection)
+│   ├── protocol.ts      # JSON-RPC 2.0 protocol
+│   ├── server.ts        # stdio server
+│   └── tools.ts         # MCP tool registration
 │
 ├── render/              # Rendering / output
 │   ├── readme.ts        # Generate story READMEs and root README (template-driven)
 │   ├── template.ts      # Handlebars template rendering (with compile cache)
-│   ├── epub-generator.ts # Minimal EPUB 3 generator + Markdown → HTML
-│   └── html-utils.ts    # Shared HTML utilities (escapeHtml / sanitizeUrl / PAGE_STYLE / readStoryTitle)
+│   ├── epub-generator.ts # Minimal-compliant EPUB 3 generator
+│   ├── epub-assets.ts   # Cover image loading & safety validation
+│   ├── md-to-html.ts    # Markdown → HTML converter
+│   └── html-utils.ts    # Shared HTML utilities (escapeHtml / sanitizeUrl / PAGE_STYLE / readConfigTitle)
 │
 └── utils/               # Side-effect-free pure utilities
-    ├── i18n.ts          # Chinese/English locale strings
+    ├── cli-utils.ts     # CLI shared utilities
+    ├── encoding.ts      # UTF-8 / GBK encoding detection
+    ├── json-utils.ts    # Unified JSON reading flow
     ├── errors.ts        # Structured errors (with error codes + context)
-    └── word-count.ts    # Language-aware word counting
+    ├── paths.ts         # Path resolution
+    ├── word-count.ts    # Language-aware word counting
+    └── phrase-frequency.ts # Zero-dependency repeated-phrase frequency (zh bigram / en words)
 
 tests/                   # node:test tests (zero additional test dependencies)
 bench/                   # Benchmark suite (generate.ts creates repos + bench.ts measures timings)
 templates/               # Scaffolding templates (config + story README template)
 ```
+
+> 💡 `src/i18n/`（`index.ts` / `zh.ts` / `en.ts`）是顶层目录，存放中英文案与 `getLocale` 等 i18n 工具。
 
 `templates/` directory structure:
 
@@ -58,7 +88,7 @@ templates/
 ├── story.config.json       # Repo config template
 └── scaffold/               # story init scaffolding templates
     ├── .gitignore.template # Ignore rules (npm excludes .gitignore)
-    ├── Makefile.template   # Workflow entry (make new/commit/push/stats)
+    ├── Makefile.template   # Workflow entry (make new/commit/push/stats/analyze)
     ├── story.ps1.template  # Windows PowerShell workflow entry (.\story.ps1)
     ├── README.md           # Initial README
     ├── LICENSE             # --full mode: CC BY-NC-SA 4.0
@@ -213,11 +243,11 @@ export const FIELD_RULES: Record<string, FieldRule> = {
 
 ### 2. Series Grouping & Sorting (sort.ts)
 
-`sort.ts` implements the "physical coordinates never change, logical coordinates freely adjustable" sorting design:
+> Design rationale (the "physical vs logical coordinates" motivation and benefits) is in [design.en.md](../docs/design.en.md#🧮-fractional-indexing-physical-vs-logical-coordinates). This section only covers implementation details.
 
-- **Physical coordinates**: folder name `NN-` prefix — set once and never modified (keeping Git links stable)
-- **Logical coordinates**: `series` / `seriesOrder` in `config.json` control README display order
-- `seriesOrder` supports decimals (fractional indexing) — insert anywhere without renumbering other stories
+`sort.ts` implements the `series` / `seriesOrder` logical-coordinate sorting:
+
+- **Logical coordinates**: `series` / `seriesOrder` in `config.json` control README display order; `seriesOrder` supports decimals (fractional indexing)
 - In-group sorting: `seriesOrder` numeric ascending, falls back to folder number when missing
 - Between-group sorting: by group's min folder number, series name as tiebreaker
 - Stories without `series` are grouped under "Standalone Stories", sorted by folder number
@@ -237,7 +267,7 @@ export const FIELD_RULES: Record<string, FieldRule> = {
 - `escapeHtml` — HTML special character escaping (shared by export-html / epub-generator)
 - `sanitizeUrl` — dangerous URL protocol filtering (XSS protection: `javascript:`, `vbscript:`, `data:text/html` are blocked)
 - `PAGE_STYLE` — page style constant (used by export-html)
-- `readStoryTitle` — read story title from config (used by export-html)
+- `readConfigTitle` — read story title from config (used by the epub command to locate targets)
 
 ### 5. Zero-Build Runtime (bin/index.ts)
 
@@ -255,8 +285,9 @@ The published package ships compiled `dist/` output (compatible with Node 22+). 
 
 - **Story statistics**: total stories, completed/ongoing status distribution, total word count, chapter count
 - **Series progress**: stories per series + completion rate (by `status` field)
-- **Health checks**: config `wordCount` vs actual divergence >20% warning, missing `summary` warning
-- **Writing activity**: monthly/last-month added lines (approximate word count) via `git log --numstat`
+- **Health checks**: config `wordCount` vs actual divergence >20% warning (`stale-word-count`)
+- **Repeated phrases**: `analysis.repeated` global top-10 repeated phrases (Chinese bigrams / English words)
+- **Writing activity**: monthly/last-month added lines (approximate word count) via `git log --numstat`, counting only files inside story folders
 - **`--json` output**: structured data, pipe-friendly
 
 ### 7. Minimal-Compliant EPUB Generation (epub-generator.ts)
@@ -333,7 +364,7 @@ class StoryError extends Error {
 - Uses `node:test` + `node:assert` (zero additional dependencies)
 - Each core module has an independent test file
 - CLI entry points are integration-tested via `execFileSync` running real commands
-- Key behavior coverage: scanning, validation, rendering, word counting, i18n, README generation, EPUB export, CLI commands
+- Key behavior coverage: scanning, sorting, validation, rendering, word counting, i18n, README generation, EPUB export, repo config, CLI commands
 
 ### 📊 Performance Benchmark
 

@@ -273,6 +273,24 @@ test("story export html 导出静态站点", () => {
   assert.ok(fs.existsSync(path.join(dir, "dist", "html", "01-测试故事.html")))
 })
 
+test("story export 无子命令时报错并给出用法", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  // 本地 runCli 对非零状态会抛异常，这里直接用 spawnSync 捕获退出码
+  const result = spawnSync(process.execPath, [binPath, "export"], { cwd: dir, encoding: "utf-8" })
+  const output = `${result.stdout || ""}${result.stderr || ""}`
+  assert.notStrictEqual(result.status, 0, "无子命令的 export 应返回非零退出码")
+  assert.ok(output.includes("Unknown export subcommand"), "应提示未知子命令")
+  assert.ok(output.includes("html"), "应列出可用的子命令")
+})
+
+test("story export 未知子命令时报错", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const result = spawnSync(process.execPath, [binPath, "export", "pdf"], { cwd: dir, encoding: "utf-8" })
+  const output = `${result.stdout || ""}${result.stderr || ""}`
+  assert.notStrictEqual(result.status, 0, "未知子命令应返回非零退出码")
+  assert.ok(output.includes("Unknown export subcommand"), "应提示未知子命令")
+})
+
 test("story export txt 导出纯文本", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
   const storyDir = path.join(dir, "01-测试故事")
@@ -567,8 +585,8 @@ test("story export txt --stdout 输出带标题行的纯文本", () => {
   assert.ok(stdout.includes("================\n故事B\n================"), "应包含故事B的标题行")
   assert.ok(stdout.includes("故事A正文内容"), "应包含故事A正文")
   assert.ok(stdout.includes("故事B正文内容"), "应包含故事B正文")
-  // 应包含分隔符
-  assert.ok(stdout.includes("<!-- story-separator -->"), "多故事应使用分隔符连接")
+  // 应包含分隔符（纯文本使用 = 号分隔，而非 HTML 注释）
+  assert.ok(stdout.includes("\n\n====\n\n"), "多故事应使用 = 号分隔符连接")
   // 不应创建输出目录
   assert.ok(!fs.existsSync(path.join(dir, "dist", "txt")), "--stdout 模式不应创建 dist/txt 目录")
 })
@@ -1082,4 +1100,77 @@ test("story init --template=invalid 回退默认并警告", () => {
   assert.ok(fs.existsSync(path.join(dir, "config.original.json")), "应生成 config.original.json")
   assert.ok(fs.existsSync(path.join(dir, "config.fanfic.json")), "应生成 config.fanfic.json")
   assert.ok(stdout.includes("未知模板类型"), "应输出未知模板警告")
+})
+
+// ─── 全局标志 --help/--version 测试 ─────────────────────────
+
+function runCliRaw(args: string[], cwd: string): { status: number; output: string } {
+  const result = spawnSync(process.execPath, [binPath, ...args], { cwd, encoding: "utf-8" })
+  return { status: result.status ?? -1, output: `${result.stdout || ""}${result.stderr || ""}` }
+}
+
+test("story build --help 显示帮助且不执行构建（无副作用）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  // 创建空仓库（无故事）
+  const { status, output } = runCliRaw(["build", "--help"], dir)
+  assert.strictEqual(status, 0, "--help 应返回退出码 0")
+  assert.ok(output.includes("Usage:"), "--help 应显示帮助")
+  assert.ok(!output.includes("构建完成"), "--help 不应执行构建")
+  assert.ok(!fs.existsSync(path.join(dir, "README.md")), "空仓库 --help 后不应生成根 README（无故事可生成）")
+})
+
+test("story stats --help 显示帮助", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const { status, output } = runCliRaw(["stats", "--help"], dir)
+  assert.strictEqual(status, 0)
+  assert.ok(output.includes("Usage:"), "stats --help 应显示帮助")
+  assert.ok(!output.includes("📚"), "stats --help 不应执行统计命令（不应输出统计图标）")
+})
+
+test("story new --help 显示帮助", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const { status, output } = runCliRaw(["new", "--help"], dir)
+  assert.strictEqual(status, 0)
+  assert.ok(output.includes("Usage:"), "new --help 应显示帮助")
+  assert.ok(!output.includes("请指定故事标题"), "new --help 不应执行创建命令")
+})
+
+test("story export --help 显示帮助", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const { status, output } = runCliRaw(["export", "--help"], dir)
+  assert.strictEqual(status, 0)
+  assert.ok(output.includes("Usage:"), "export --help 应显示帮助")
+  assert.ok(!output.includes("Unknown export subcommand"), "export --help 不应报错")
+})
+
+test("story validate --help 显示帮助", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const { status, output } = runCliRaw(["validate", "--help"], dir)
+  assert.strictEqual(status, 0)
+  assert.ok(output.includes("Usage:"), "validate --help 应显示帮助")
+})
+
+test("story --version 显示版本号", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const { status, output } = runCliRaw(["--version"], dir)
+  assert.strictEqual(status, 0)
+  assert.ok(output.includes("story-cli"), "--version 应输出版本")
+  assert.ok(!output.includes("Usage:"), "--version 不应显示帮助")
+})
+
+test("story export json --help 显示帮助（子命令级也生效）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const { status, output } = runCliRaw(["export", "json", "--help"], dir)
+  assert.strictEqual(status, 0)
+  assert.ok(output.includes("Usage:"), "export json --help 应显示帮助")
+})
+
+test('story new "标题" --help 标题不被误判为全局标志', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-test-"))
+  const { status, output } = runCliRaw(["new", "测试标题", "--help"], dir)
+  assert.strictEqual(status, 0)
+  assert.ok(
+    output.includes("Usage:"),
+    "new 标题 --help 应显示帮助（-h 在 -- 之后才安全，但 --help 在 parseArgs 里是 options.help=true，全局拦截器会先命中）",
+  )
 })

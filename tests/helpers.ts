@@ -19,12 +19,13 @@ export interface CliResult {
   ok: boolean
 }
 
-/** 运行 CLI（支持 stdin 输入） */
-export function runCli(args: string[], cwd: string, input?: string): CliResult {
+/** 运行 CLI（支持 stdin 输入与自定义环境变量） */
+export function runCli(args: string[], cwd: string, input?: string, env?: NodeJS.ProcessEnv): CliResult {
   const result = spawnSync(process.execPath, [binPath, ...args], {
     cwd,
     encoding: "utf-8",
     input,
+    env: env ? { ...process.env, ...env } : undefined,
   })
   const output = `${result.stdout || ""}${result.stderr || ""}`
   return { status: result.status ?? -1, output, ok: result.status === 0 }

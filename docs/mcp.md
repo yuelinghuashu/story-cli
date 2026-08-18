@@ -1,5 +1,7 @@
 # 🤖 MCP Server 指南
 
+> 📋 完整命令清单见 [commands.md](commands.md)。
+
 story-cli 内置 **MCP（Model Context Protocol）Server**，让 AI 客户端（如 Claude Desktop、Cursor、VSCode Copilot Chat）能直接读写你的故事仓库。
 
 **核心理念**：AI 只负责思考，CLI 负责以最低成本提供思考所需的上下文。AI 通过 MCP 读写普通 Markdown 文件，版本控制（Git）与 README 生成（`story build`）仍由你来掌控。
@@ -116,16 +118,16 @@ MCP Inspector 启动后在浏览器中打开，可以：
 
 ## 🛠️ 暴露的 MCP 工具
 
-| 工具名          | 说明                                             | 参数                                                           | Token 节省               |
-| --------------- | ------------------------------------------------ | -------------------------------------------------------------- | ------------------------ |
-| `scan_stories`  | 列出所有故事及元数据（默认精简版）               | `verbose`（可选，true 返回完整元数据）                         | ✅ 默认精简输出 ~80-95%  |
-| `read_chapter`  | 读取指定故事的章节内容（支持按需加载与末尾截断） | `folder`（必填）+ `chapterIndex`（可选）+ `tailLength`（可选） | ✅ 按需/tailLength ~95%+ |
-| `write_chapter` | 将正文原子写入指定故事                           | `folder` + `content`                                           | —                        |
-| `validate`      | 校验所有故事的 config.json                       | —                                                              | —                        |
-| `build`         | **真正执行** README 重建（等效 `story build`）   | —                                                              | ✅ 结构化结果免解析      |
-| `stats`         | 获取写作统计（总字数/章节数/系列/健康度）        | —                                                              | ✅ 一次调用拿全数据 ~99% |
-| `import_json`   | 从结构化 JSON 批量导入故事                       | `stories`（数组）                                              | —                        |
-| `create_story`  | 创建新故事（文件夹 + config.json + text.md）     | `title`（必填）+ 可选字段                                      | —                        |
+| 工具名          | 说明                                                      | 参数                                                           | Token 节省               |
+| --------------- | --------------------------------------------------------- | -------------------------------------------------------------- | ------------------------ |
+| `scan_stories`  | 列出所有故事及元数据（默认精简版）                        | `verbose`（可选，true 返回完整元数据）                         | ✅ 默认精简输出 ~80-95%  |
+| `read_chapter`  | 读取指定故事的章节内容（支持按需加载与末尾截断）          | `folder`（必填）+ `chapterIndex`（可选）+ `tailLength`（可选） | ✅ 按需/tailLength ~95%+ |
+| `write_chapter` | 将正文原子写入指定故事                                    | `folder` + `content`                                           | —                        |
+| `validate`      | 检查仓库合规性（目录命名/必需文件/UTF-8/重复序号/schema） | —                                                              | —                        |
+| `build`         | **真正执行** README 重建（等效 `story build`）            | —                                                              | ✅ 结构化结果免解析      |
+| `stats`         | 获取写作统计（总字数/章节数/系列/健康度）                 | —                                                              | ✅ 一次调用拿全数据 ~99% |
+| `import_json`   | 从结构化 JSON 批量导入故事                                | `stories`（数组，可含 `links`）                                | —                        |
+| `create_story`  | 创建新故事（文件夹 + config.json + text.md）              | `title`（必填）+ 可选字段（含 `links`）                        | —                        |
 
 ---
 

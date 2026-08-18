@@ -1,5 +1,7 @@
 # 🔄 GitHub Actions CI
 
+> 📋 完整命令清单见 [commands.md](commands.md)。
+
 story-cli 设计为「CI 友好」，可以无缝集成到 GitHub Actions 中。
 
 本仓库自带完整的 CI 工作流：[`.github/workflows/build.yml`](../.github/workflows/build.yml)。
@@ -55,7 +57,7 @@ jobs:
 | `pnpm lint`             | **代码规范**：Biome 检查代码风格                 |
 | `pnpm build`            | **编译阶段**：TypeScript 编译为 `dist/`          |
 | `pnpm test`             | **测试阶段**：运行完整测试套件                   |
-| `pnpm test:coverage`    | **覆盖率**：统计测试覆盖率（当前约 91%）         |
+| `pnpm test:coverage`    | **覆盖率**：统计测试覆盖率（当前约 95%）         |
 
 ---
 
@@ -63,7 +65,7 @@ jobs:
 
 1. **类型安全** — `tsc --noEmit` 确保 TypeScript 类型正确
 2. **代码规范** — Biome 统一 lint + format，保证代码风格一致
-3. **质量保障** — 418 项测试覆盖扫描、校验、渲染、EPUB、CLI、MCP 协议、GitHub Action 结构等，防止回归
+3. **质量保障** — 519 项测试覆盖扫描、校验、渲染、EPUB、CLI、MCP 协议、GitHub Action 结构等，防止回归
 
 ---
 

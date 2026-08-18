@@ -6,8 +6,25 @@ import { groupAndSortStories } from "../core/sort.ts"
 import type { Language, StorySummary } from "../core/types.ts"
 import { getLocale } from "../i18n/index.ts"
 import { templatesDir } from "../utils/paths.ts"
+import { safeTruncate } from "../utils/unicode.ts"
 import { formatTotalWordCount } from "../utils/word-count.ts"
 import { renderTemplate } from "./template.ts"
+
+/**
+ * 仅在内容变化时写入文件
+ * 修复 watch 模式的「自触发重建循环」：生成 README 时无条件写盘 → 文件监听触发重建 → 再次写盘 → 无限循环
+ * 内容比对后跳过无变化写入，循环自然终止；对非 watch 构建也是净收益（减少无谓磁盘 I/O）
+ * @param filePath 目标文件路径
+ * @param content 新内容
+ */
+function writeIfChanged(filePath: string, content: string): void {
+  try {
+    if (fs.readFileSync(filePath, "utf-8") === content) return
+  } catch {
+    // 文件不存在或读取失败 → 直接写入
+  }
+  fs.writeFileSync(filePath, content, "utf-8")
+}
 
 /**
  * 生成单个故事的 README.md
@@ -17,7 +34,7 @@ import { renderTemplate } from "./template.ts"
  */
 export function generateStoryReadme(folderPath: string, templatePath: string, config: Record<string, unknown>): void {
   const content = renderTemplate(templatePath, config)
-  fs.writeFileSync(path.join(folderPath, "README.md"), content, "utf-8")
+  writeIfChanged(path.join(folderPath, "README.md"), content)
 }
 
 /**
@@ -31,7 +48,7 @@ function truncateSummary(summary: string, maxLength = 120): string {
   // 1. 折叠换行/多余空白为单个空格，避免破坏 Markdown 表格
   // 2. 转义管道符，避免作为表格分隔符被解析
   const singleLine = summary.replace(/\s+/g, " ").replace(/\|/g, "\\|").trim()
-  return singleLine.length > maxLength ? `${singleLine.slice(0, maxLength)}...` : singleLine
+  return singleLine.length > maxLength ? `${safeTruncate(singleLine, maxLength)}...` : singleLine
 }
 
 /** git 日期查询结果缓存（避免 watch 模式重复执行） */
@@ -154,5 +171,5 @@ export function generateRootReadme(
 
   const effectiveTemplatePath = templatePath || path.join(templatesDir, "root-template.md")
   const content = renderTemplate(effectiveTemplatePath, renderData)
-  fs.writeFileSync(path.join(rootDir, "README.md"), content, "utf-8")
+  writeIfChanged(path.join(rootDir, "README.md"), content)
 }

@@ -35,6 +35,8 @@ export interface ImportStory {
   volume?: string
   /** 封面路径（可选） */
   cover?: string
+  /** 关联故事文件夹列表（可选弱关联） */
+  links?: string[]
   /** 章节列表 */
   chapters: Array<{ title: string; content: string }>
 }
@@ -59,6 +61,8 @@ export function createStoryFromJson(
   number: string,
   overrides: ValidationOverrides,
 ): string | null {
+  const locale = getLocale(detectCliLang())
+
   // 基础校验
   if (!story.title || typeof story.title !== "string" || !story.title.trim()) {
     return null
@@ -83,12 +87,13 @@ export function createStoryFromJson(
   if (story.seriesOrder !== undefined) config.seriesOrder = story.seriesOrder
   if (story.volume) config.volume = story.volume
   if (story.cover) config.cover = story.cover
+  if (story.links) config.links = story.links
 
   // 使用现有校验逻辑验证配置（含仓库级自定义枚举）
   const validation = validateConfig(config, story.title, overrides)
   if (!validation.valid) {
     const issues = validation.issues.map((i) => i.message).join("; ")
-    console.warn(`  ⚠️ ${story.title}: ${issues}`)
+    console.warn(locale.importJsonValidationFailed(story.title, issues))
     return null
   }
 
@@ -105,13 +110,13 @@ export function createStoryFromJson(
     .filter((f) => /^\d{2,}-/.test(f))
     .some((f) => f.replace(/^\d{2,}-/, "") === storyTitle)
   if (existingTitle) {
-    console.warn(`  ⚠️ ${story.title}: 相同标题的故事已存在，已跳过`)
+    console.warn(locale.importJsonTitleExists(story.title))
     return null
   }
 
   // 目录已存在时跳过（防御性检查）
   if (fs.existsSync(folderPath)) {
-    console.warn(`  ⚠️ ${safeFolder}: 目录已存在，已跳过（使用 --overwrite 覆盖）`)
+    console.warn(locale.importJsonDirExists(safeFolder))
     return null
   }
 
@@ -143,7 +148,7 @@ export function createStoryFromJson(
  * 导入结构化 JSON 为故事仓库
  * 与 export json 对称：export json 的输出可以直接作为 import 的输入
  * @param rootDir 目标根目录
- * @param args CLI 参数（--file=stories.json / --output=my-stories/ / --overwrite）
+ * @param args CLI 参数（--file=stories.json / --output=my-stories/）
  * @returns 退出码（0 成功，1 失败）
  */
 export function importJson(rootDir: string, args: string[]): number {

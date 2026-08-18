@@ -6,10 +6,14 @@ import fs from "node:fs"
 import path from "node:path"
 import { generateReadmes } from "../commands/build.ts"
 import { createStoryFromJson, type ImportStory } from "../commands/import-json.ts"
+import { checkRepoCompliance } from "../core/compliance.ts"
 import { loadExportOverrides } from "../core/exporter.ts"
 import { loadStories } from "../core/loader.ts"
 import { readStoryTextAsync, scanStoryFolders, splitContentByChapters } from "../core/scanner.ts"
 import { getNextNumber } from "../core/sequence.ts"
+import { computeStoryStats, type StatsStoryInput } from "../core/stats-shared.ts"
+import { getLocale } from "../i18n/index.ts"
+import { safeTail } from "../utils/unicode.ts"
 import type { McpToolResult, RegisteredTool } from "./protocol.ts"
 
 /** 构造文本结果 */
@@ -102,7 +106,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
                     chapterTitle: chapter.title,
                     truncated: true,
                     totalLength,
-                    content: chapter.content.slice(-tailLength),
+                    content: safeTail(chapter.content, tailLength),
                   },
                   null,
                   2,
@@ -150,13 +154,12 @@ export function registerTools(rootDir: string): RegisteredTool[] {
     {
       tool: {
         name: "validate",
-        description: "校验所有故事的 config.json 合法性",
+        description: "检查仓库合规性（目录命名/必需文件/config schema/编码），等效 CLI `story validate`",
         inputSchema: { type: "object", properties: {} },
       },
       handler: async () => {
-        const { stories, issues } = await loadStories(rootDir, false, "zh", true)
-        if (issues.length > 0) return textResult(JSON.stringify({ valid: false, issues }, null, 2))
-        return textResult(JSON.stringify({ valid: true, storyCount: stories.length }, null, 2))
+        const result = checkRepoCompliance(rootDir, getLocale("zh"))
+        return textResult(JSON.stringify(result, null, 2))
       },
     },
     {
@@ -180,50 +183,28 @@ export function registerTools(rootDir: string): RegisteredTool[] {
     {
       tool: {
         name: "stats",
-        description: "获取故事库写作统计（总字数/章节数/系列分组/健康度）",
+        description: "获取故事库写作统计（总字数/章节数/系列分组/健康度/重复短语）",
         inputSchema: { type: "object", properties: {} },
       },
       handler: async () => {
         const { stories, issues } = await loadStories(rootDir, false, "zh", true)
-        const totalWords = stories.reduce((sum, s) => sum + s.rawWordCount, 0)
-        const totalChapters = stories.reduce((sum, s) => sum + s.chapters.length, 0)
-        const completedCount = stories.filter((s) => s.config.status === "completed").length
-        const ongoingCount = stories.filter((s) => s.config.status === "ongoing").length
-
-        // 系列分组统计
-        const seriesMap = new Map<string, { count: number; totalWords: number }>()
-        let standaloneCount = 0
-        for (const s of stories) {
-          const seriesName = s.config.series?.trim()
-          if (seriesName) {
-            const existing = seriesMap.get(seriesName) ?? { count: 0, totalWords: 0 }
-            existing.count++
-            existing.totalWords += s.rawWordCount
-            seriesMap.set(seriesName, existing)
-          } else {
-            standaloneCount++
-          }
-        }
-
-        // 健康度检查
-        const healthWarnings: string[] = []
-        for (const s of stories) {
-          if (!s.config.summary || s.config.summary.trim() === "") {
-            healthWarnings.push(`${s.folder}: 缺少 summary`)
-          }
-        }
+        // 与 CLI `stats --json` 共用同一计算，保证两端口径一致
+        const inputs: StatsStoryInput[] = stories.map((s) => ({
+          folder: s.folder,
+          status: s.config.status,
+          series: s.config.series,
+          configWordCount: s.config.wordCount,
+          rawWordCount: s.rawWordCount,
+          lang: s.lang,
+          content: s.content,
+        }))
+        const aggregate = computeStoryStats(inputs, getLocale("zh"))
 
         return textResult(
           JSON.stringify(
             {
-              storyCount: stories.length,
-              totalWords,
-              totalChapters,
-              completedCount,
-              ongoingCount,
-              standaloneCount,
-              series: [...seriesMap.entries()].map(([name, stat]) => ({ name, ...stat })),
-              health: { warnings: healthWarnings.length, items: healthWarnings },
+              ...aggregate,
+              health: { warnings: aggregate.health.length, items: aggregate.health },
               issues,
             },
             null,
@@ -314,6 +295,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
           language: typeof args.language === "string" ? args.language : undefined,
           summary: typeof args.summary === "string" ? args.summary : undefined,
           series: typeof args.series === "string" ? args.series : undefined,
+          links: Array.isArray(args.links) ? args.links.filter((l): l is string => typeof l === "string") : undefined,
           chapters,
         }
 

@@ -1,5 +1,7 @@
 # 🤖 MCP Server Guide
 
+> 📋 Full command list with aliases and subcommands: see [commands.en.md](commands.en.md).
+
 story-cli includes a built-in **MCP (Model Context Protocol)** server that lets AI clients (Claude Desktop, Cursor, VSCode Copilot Chat) read and write your story repository directly.
 
 **Core philosophy**: AI thinks; the CLI provides the context it needs at the lowest possible cost. The AI reads/writes plain Markdown files via MCP; version control (Git) and README generation (`story build`) remain yours to control.
@@ -121,11 +123,11 @@ MCP Inspector opens in your browser and lets you:
 | `scan_stories`  | List all stories with metadata (compact by default)                              | `verbose` (optional, true for full metadata)                              | ✅ Compact default ~80-95%       |
 | `read_chapter`  | Read chapter content of a story (supports on-demand loading and tail truncation) | `folder` (required) + `chapterIndex` (optional) + `tailLength` (optional) | ✅ On-demand/tailLength ~95%+    |
 | `write_chapter` | Atomically write content to a story                                              | `folder` + `content`                                                      | —                                |
-| `validate`      | Validate all stories' config.json                                                | —                                                                         | —                                |
+| `validate`      | Check repository compliance (folder naming / required files / UTF-8 / duplicate numbers / schema) | — | — |
 | `build`         | **Actually executes** README rebuild (equivalent to `story build`)               | —                                                                         | ✅ Structured result, no parsing |
 | `stats`         | Get writing statistics (total words/chapters/series/health)                      | —                                                                         | ✅ All data in one call ~99%     |
-| `import_json`   | Batch import stories from structured JSON                                        | `stories` (array)                                                         | —                                |
-| `create_story`  | Create a new story (folder + config.json + text.md)                              | `title` (required) + optional fields                                      | —                                |
+| `import_json`   | Batch import stories from structured JSON                                        | `stories` (array, may include `links`)                                    | —                                |
+| `create_story`  | Create a new story (folder + config.json + text.md)                              | `title` (required) + optional fields (incl. `links`)                      | —                                |
 
 ---
 
@@ -141,6 +143,7 @@ MCP Inspector opens in your browser and lets you:
 > 📖 3 stories:
 > 01-星河入梦 (Original · Ongoing · ~3K chars)
 > 02-星海守望 (Original · Completed)
+> 03-Starlight Dreams (Original · Ongoing)
 > ```
 
 **2. AI reads a chapter**
@@ -151,7 +154,8 @@ MCP Inspector opens in your browser and lets you:
 >
 > ```
 > 📖 星河入梦
-> ## Chapter 1 ...
+> ## 第一章 梦的开始
+> 深夜里，我推开了一扇从未见过的门...
 > ```
 
 **3. AI writes a chapter**

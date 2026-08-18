@@ -1,17 +1,9 @@
 import fs from "node:fs"
 import path from "node:path"
-import { loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
-import {
-  readStoryText,
-  resolveRawWordCount,
-  resolveWordCount,
-  scanStoryFolders,
-  splitContentByChapters,
-} from "../core/scanner.ts"
-import { loadStoryConfig } from "../core/story-loader.ts"
+import { forEachExportStory, loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
+import { resolveRawWordCount, resolveWordCount, splitContentByChapters } from "../core/scanner.ts"
 import type { StoryConfig } from "../core/types.ts"
 import { getLocale, resolveLang } from "../i18n/index.ts"
-import { formatError } from "../utils/errors.ts"
 
 /** 单个章节的 JSON 结构 */
 interface ExportChapter {
@@ -110,32 +102,10 @@ export function exportJson(rootDir: string, args: string[]): number {
   const validationOverrides = loadExportOverrides(rootDir)
 
   // 收集所有故事
-  const folders = scanStoryFolders(rootDir)
   const stories: ExportStory[] = []
-  let failed = 0
-
-  for (const folder of folders) {
-    const folderPath = path.join(rootDir, folder)
-
-    try {
-      // 读取 + 校验故事配置
-      const { config } = loadStoryConfig(folderPath, folder, validationOverrides)
-
-      // 读取正文
-      const { content } = readStoryText(folderPath)
-      if (!content.trim()) {
-        console.warn(locale.jsonEmptyContent(folder))
-        failed++
-        continue
-      }
-
-      // 转换为 JSON 结构
-      stories.push(buildExportStory(folder, config, content))
-    } catch (e) {
-      console.error(formatError(e))
-      failed++
-    }
-  }
+  const { failed } = forEachExportStory(rootDir, validationOverrides, locale.jsonEmptyContent, (ctx) => {
+    stories.push(buildExportStory(ctx.folder, ctx.config, ctx.content))
+  })
 
   // 组装根结构
   const result: ExportResult = {
@@ -159,7 +129,7 @@ export function exportJson(rootDir: string, args: string[]): number {
   const relativeOutput = path.relative(rootDir, outputPath) || outputPath
   console.log(locale.jsonExportSuccess(stories.length, relativeOutput))
   if (failed > 0) {
-    console.error(`  ⚠️ ${failed} ${cliLang === "en" ? "stories skipped" : "个故事已跳过"}`)
+    console.error(locale.skippedExport(failed))
   }
   return failed > 0 ? 1 : 0
 }

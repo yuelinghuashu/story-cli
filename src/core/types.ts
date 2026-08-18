@@ -41,6 +41,8 @@ export interface StoryConfig {
   seriesOrder?: number
   /** 卷/册名称（可选，仅用于展示） */
   volume?: string
+  /** 关联故事文件夹列表（可选弱关联，Story-Repo v2.0 新增） */
+  links?: string[]
 }
 
 /**

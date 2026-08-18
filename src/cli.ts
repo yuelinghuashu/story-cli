@@ -1,16 +1,20 @@
-import { parseCommand } from "./args.ts"
+import { parseArgs, parseCommand } from "./args.ts"
 import { runBuild } from "./commands/build.ts"
 import { runDemo } from "./commands/demo.ts"
 import { exportEpub } from "./commands/epub.ts"
+import { exportEmbeddings } from "./commands/export-embeddings.ts"
 import { exportHtml } from "./commands/export-html.ts"
 import { exportJson } from "./commands/export-json.ts"
 import { exportMd } from "./commands/export-md.ts"
 import { exportTxt } from "./commands/export-txt.ts"
 import { importJson } from "./commands/import-json.ts"
 import { initProject } from "./commands/init.ts"
+import { runLink } from "./commands/link.ts"
 import { runMcpServer } from "./commands/mcp.ts"
 import { createNewStory } from "./commands/new-story.ts"
 import { runStats } from "./commands/stats.ts"
+import { runValidate } from "./commands/validate.ts"
+import { CATEGORIES, getCommandsByCategory } from "./core/command-registry.ts"
 import { formatError } from "./utils/errors.ts"
 import { getPackageVersion } from "./utils/paths.ts"
 
@@ -18,47 +22,56 @@ import { getPackageVersion } from "./utils/paths.ts"
 const VERSION: string = getPackageVersion()
 
 /**
- * 打印帮助信息
+ * 打印帮助信息（从命令注册表驱动，保持与 docs/commands.md 同步）
  */
 function printHelp(): void {
-  console.log(`
-story-cli v${VERSION} - Zero-deploy, Git-native content management for Markdown stories
+  const lines: string[] = []
 
-Usage:
-  story init                Initialize a story repository
-  story new "Title"         Create a new story (with config)
-  story build               Generate all READMEs
-  story build --save-counts Save auto-calculated word counts to config.json
-  story build --watch       Watch for changes and auto-rebuild
-  story epub "Title"        Export a story to epub
-  story epub --all          Export all stories to epub
-  story export html         Export as static HTML site
-  story export txt          Export all stories as plain text
-  story export txt --stdout Export all stories as text stream (pipe-friendly)
-  story export json         Export all stories as structured JSON
-  story export json --stdout Export all stories as JSON stream (pipe-friendly)
-  story export md           Export all stories as merged Markdown
-  story export md --stdout  Export all stories as Markdown stream (pipe-friendly)
-  story stats               Show writing statistics
-  story demo                Generate a demo story repository
-  story mcp-server          Start MCP stdio server (AI client connection entry)
-  story help                Show this help
-  story version             Show version
+  lines.push(`story-cli v${VERSION} - Zero-deploy, Git-native content management for Markdown stories`)
+  lines.push("")
+  lines.push("Usage:")
+  lines.push("  story <command> [options]   Run a command")
+  lines.push("")
 
-Options:
-  story new "Title" --type=original|fanfic --author="Work" --creator="Author" --lang=zh|en
-  story init --template=story|knowledge|tech
+  for (const cat of CATEGORIES) {
+    const cmds = getCommandsByCategory(cat.id)
+    if (cmds.length === 0) continue
 
-Examples:
-  story init
-  story init --template=knowledge    # 知识库模式（论文/访谈/博客/笔记）
-  story init --template=tech         # 技术文档模式（教程/API 文档/变更日志）
-  story new "My First Story"
-  story new "Fan Work" --type=fanfic --author="Original Work" --creator="Author" --lang=en
-  story build
-  story build --watch
-  story epub "My First Story"
-`)
+    lines.push(`── ${cat.labelZh} ──`)
+    for (const cmd of cmds) {
+      lines.push(`  ${cmd.usage}`)
+      lines.push(`      ${cmd.descriptionZh}`)
+    }
+    lines.push("")
+  }
+
+  lines.push("Options:")
+  lines.push('  story new "Title" --type=original|fanfic --author="Work" --creator="Author" --lang=zh|en')
+  lines.push("  story init --template=story|knowledge|tech")
+  lines.push("")
+  lines.push("Global flags (work after any command):")
+  lines.push("  --help, -h          显示帮助信息")
+  lines.push("  --version, -v       显示版本号")
+  lines.push("")
+  lines.push("Examples:")
+  lines.push("  story init")
+  lines.push("  story init --template=knowledge    # 知识库模式（论文/访谈/博客/笔记）")
+  lines.push("  story init --template=tech         # 技术文档模式（教程/API 文档/变更日志）")
+  lines.push('  story new "My First Story"')
+  lines.push('  story new "Fan Work" --type=fanfic --author="Original Work" --creator="Author" --lang=en')
+  lines.push("  story build")
+  lines.push("  story build --watch")
+  lines.push('  story epub "My First Story"')
+  lines.push("")
+
+  console.log(lines.join("\n"))
+}
+
+/**
+ * 打印版本号
+ */
+function printVersion(): void {
+  console.log(`story-cli ${VERSION}`)
 }
 
 /**
@@ -69,6 +82,18 @@ Examples:
 export async function run(argv: string[]): Promise<number> {
   const { command, args } = parseCommand(argv)
   const rootDir = process.cwd()
+
+  // 全局标志：在任何命令后都生效（GNU CLI 惯例）
+  // parseArgs 处理子命令级标志（如 story build --help）；command 检查处理第一参数为标志的情况（如 story --version）
+  const { options } = parseArgs(args)
+  if (options.help || command === "--help" || command === "-h") {
+    printHelp()
+    return 0
+  }
+  if (options.version || command === "--version" || command === "-v") {
+    printVersion()
+    return 0
+  }
 
   try {
     switch (command) {
@@ -86,22 +111,38 @@ export async function run(argv: string[]): Promise<number> {
       case "e":
         return exportEpub(rootDir, args)
 
-      case "export":
-        // export 命令支持子命令：html / txt / json / md
-        if (args[0] === "txt") {
-          return exportTxt(rootDir, args.slice(1))
+      case "export": // export 命令支持子命令：html / txt / json / md
+        {
+          const subcommand = args[0]
+          if (subcommand === "txt") {
+            return exportTxt(rootDir, args.slice(1))
+          }
+          if (subcommand === "json") {
+            return exportJson(rootDir, args.slice(1))
+          }
+          if (subcommand === "md") {
+            return exportMd(rootDir, args.slice(1))
+          }
+          if (subcommand === "html") {
+            return exportHtml(rootDir, args.slice(1))
+          }
+          if (subcommand === "embeddings") {
+            return exportEmbeddings(rootDir, args.slice(1))
+          }
+          console.log("❌ Unknown export subcommand. Use: story export html | txt | json | md | embeddings")
+          return 1
         }
-        if (args[0] === "json") {
-          return exportJson(rootDir, args.slice(1))
-        }
-        if (args[0] === "md") {
-          return exportMd(rootDir, args.slice(1))
-        }
-        return exportHtml(rootDir, args)
 
       case "stats":
       case "s":
         return runStats(rootDir, args)
+
+      case "validate":
+      case "check":
+        return runValidate(rootDir, args)
+
+      case "link":
+        return runLink(rootDir, args)
 
       case "import":
         // import 命令支持子命令：json
@@ -133,9 +174,8 @@ export async function run(argv: string[]): Promise<number> {
         return 0
 
       case "version":
-      case "--version":
       case "-v":
-        console.log(`story-cli ${VERSION}`)
+        printVersion()
         return 0
 
       default:

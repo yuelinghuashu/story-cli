@@ -18,9 +18,11 @@
 - **自动生成 README** — 每个条目和根目录索引自动生成（模板驱动，可自定义）
 - **系列分组排序** — `series` / `seriesOrder` 控制展示顺序，任意插入无需重排
 - **运行时校验** — 构建前检查配置（必填字段、枚举、格式）
+- **合规检查** — `story validate` 按 Story-Repo 规范校验（目录命名 / UTF-8 / 重复序号 / schema）
+- **关联故事** — `story link` 管理弱关联；`story build` 自动建议同系列候选关联
 - **双语支持** — 中英内容 + 自动生成本地化 README
 - **章节 + 字数** — 自动提取章节标题与语言感知的字数统计
-- **多格式导出** — EPUB / HTML / TXT / JSON / Markdown，支持 `--stdout` 管道
+- **多格式导出** — EPUB / HTML / TXT / JSON / Markdown / embeddings，支持 `--stdout` 管道
 - **通用内容中台** — 知识库模式（论文/访谈/笔记）、技术文档模式（教程/API）
 - **MCP Server** — AI 客户端（Claude / Cursor）可直接读写内容库
 - **GitHub Action** — 零配置 CI 入口（`yuelinghuashu/story-cli@v1`），一键实现「Push → Build → 发布」
@@ -57,6 +59,8 @@ make new TITLE="我的故事"  # 新建并自动构建
 make commit               # 构建 + 提交
 make push                 # 构建 + 提交 + 推送
 make stats                # 查看创作统计
+make analyze              # 写作质量分析（重复短语 / 字数过期 / 章节趋势，需 jq）
+
 ```
 
 Windows 用户也可使用 `story init` 生成的 `story.ps1`（PowerShell 版工作流）：`.\story.ps1 init` / `.\story.ps1 new -Title '我的故事'` / `.\story.ps1 build`。
@@ -100,7 +104,7 @@ story-cli 内置 **MCP Server** —— AI 客户端（Claude Desktop / Cursor / 
 story mcp-server
 ```
 
-> 💡 详细配置与示例见 [docs/mcp.md](docs/mcp.md)
+> 💡 详细配置与示例见 [docs/mcp.md](docs/mcp.md)。**MCP Server 会读写当前工作目录下的所有文件，请仅在信任的仓库中运行。**
 
 ---
 
@@ -117,32 +121,23 @@ npm install -g @yuelinghuashu/story-cli
 
 ## 🛠️ 常用命令
 
-| 命令                                                        | 描述                                       |
-| ----------------------------------------------------------- | ------------------------------------------ |
-| `story init [--template=story\|knowledge\|tech]`            | 初始化仓库（默认故事/知识库/技术文档模式） |
-| `story new "标题" [--type] [--lang] [--author] [--creator]` | 创建新条目                                 |
-| `story build [--validate-only] [--save-counts] [--watch]`   | 构建 README                                |
-| `story epub "标题" [--all] [--split-by-volume]`             | 导出 EPUB                                  |
-| `story export html / txt / json / md [--stdout]`            | 导出多种格式                               |
-| `story import json --file=xxx.json`                         | 从 JSON 批量导入                           |
-| `story stats [--json]`                                      | 创作统计                                   |
-| `story mcp-server`                                          | 启动 MCP Server（AI 连接入口）             |
+| 命令                                                          | 描述                                       |
+| ------------------------------------------------------------- | ------------------------------------------ |
+| `story init [--template=story\|knowledge\|tech]`              | 初始化仓库（默认故事/知识库/技术文档模式） |
+| `story new "标题" [--type] [--lang] [--author] [--creator]`   | 创建新条目                                 |
+| `story build [--validate-only] [--save-counts] [--watch]`     | 构建 README                                |
+| `story epub "标题" [--all] [--split-by-volume]`               | 导出 EPUB                                  |
+| `story export html / txt / json / md / embeddings [--stdout]` | 导出多种格式（embeddings 为文本块 JSONL）  |
+| `story import json --file=xxx.json`                           | 从 JSON 批量导入                           |
+| `story stats [--json]`                                        | 创作统计                                   |
+| `story validate [--json]`                                     | 合规检查（Story-Repo 规范）                |
+| `story link "A" "B" [--remove=...] [--list]`                  | 管理故事关联（弱关联）                     |
+| `story mcp-server`                                            | 启动 MCP Server（AI 连接入口）             |
 
 <details>
 <summary>完整命令参考</summary>
 
-| 命令                                  | 描述                                |
-| ------------------------------------- | ----------------------------------- |
-| `story init --full`                   | 额外生成 LICENSE / docs / CHANGELOG |
-| `story build --save-counts`           | 将自动字数写入 config.json          |
-| `story build --watch`                 | 监听文件变更自动重建                |
-| `story epub "标题" --split-by-volume` | 按 volume 分卷导出                  |
-| `story export txt --stdout`           | 纯文本流输出                        |
-| `story export json --stdout`          | JSON 流输出                         |
-| `story export md --stdout`            | Markdown 流输出                     |
-| `story help` / `story version`        | 帮助 / 版本                         |
-
-**`story new` 选项**：`--type=original|fanfic`（默认 original）、`--author="原作名"`（二创必填）、`--creator="原作者"`（二创必填）、`--lang=zh|en`（默认 zh）。
+全部命令的别名、子命令、参数、分类说明见 [docs/commands.md](docs/commands.md)（中英双语）。
 
 </details>
 
@@ -177,6 +172,7 @@ npm install -g @yuelinghuashu/story-cli
 | CI           | [ci.md](docs/ci.md)                       | [ci.en.md](docs/ci.en.md)                       | GitHub Actions |
 | MCP Server   | [mcp.md](docs/mcp.md)                     | [mcp.en.md](docs/mcp.en.md)                     | AI 连接指南    |
 | 架构         | [architecture.md](docs/architecture.md)   | [architecture.en.md](docs/architecture.en.md)   | 模块设计       |
+| **命令参考** | [commands.md](docs/commands.md)           | [commands.en.md](docs/commands.en.md)           | 全部命令清单   |
 | 更新日志     | [CHANGELOG.md](CHANGELOG.md)              | [CHANGELOG.en.md](CHANGELOG.en.md)              | 变更记录       |
 
 ---
@@ -193,7 +189,7 @@ npm install -g @yuelinghuashu/story-cli
 make test         # 或 pnpm test
 ```
 
-**421 项测试运行，418 项通过**。覆盖：扫描器、系列分组、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出、CLI 端到端（冒烟测试覆盖全部命令）、`.storyignore`、MCP 协议、JSON 导入、GitHub Action 结构等。
+**500+ 项测试全部通过**。覆盖：扫描器、系列分组、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出、CLI 端到端（冒烟测试覆盖全部命令）、`.storyignore`、MCP 协议、JSON 导入、GitHub Action 结构、合规检查、关联建议、embeddings 导出等。
 
 ---
 

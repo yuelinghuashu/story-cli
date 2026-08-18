@@ -1,5 +1,7 @@
 # 🔄 GitHub Actions CI
 
+> 📋 Full command list with aliases and subcommands: see [commands.en.md](commands.en.md).
+
 story-cli is designed to be **CI-friendly** and integrates seamlessly with GitHub Actions.
 
 This repository ships a complete CI workflow: [`.github/workflows/build.yml`](../.github/workflows/build.yml).
@@ -55,7 +57,7 @@ jobs:
 | `pnpm lint`             | **Code style**: Biome checks code style                         |
 | `pnpm build`            | **Build phase**: compile TypeScript to `dist/`                  |
 | `pnpm test`             | **Test phase**: run the full test suite                         |
-| `pnpm test:coverage`    | **Coverage**: measure test coverage (~91% currently)            |
+| `pnpm test:coverage`    | **Coverage**: measure test coverage (~95% currently)            |
 
 ---
 
@@ -63,7 +65,7 @@ jobs:
 
 1. **Type safety** — `tsc --noEmit` ensures TypeScript types are correct
 2. **Code style** — Biome enforces consistent lint + format
-3. **Quality assurance** — 418 tests cover scanning, validation, rendering, EPUB, CLI, MCP protocol, GitHub Action structure, and more, preventing regressions
+3. **Quality assurance** — 519 tests cover scanning, validation, rendering, EPUB, CLI, MCP protocol, GitHub Action structure, and more, preventing regressions
 
 ---
 

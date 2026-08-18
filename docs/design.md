@@ -37,6 +37,8 @@ story-cli 不只是工具，更是一套写作工作流哲学。
 
 细节由**边界测试兜底**（见 `tests/md-to-html.test.ts`），而不是通过引入依赖解决。
 
+**已知边界：重复短语检测**。`stats --json` 的 `analysis.repeated` 基于字符级 n-gram（bigram）词频，不做分词。这意味着中文专有名词（如 4 字人名"乔尔乔斯"）会被拆成多个 2-gram 碎片（"乔尔""尔乔""乔斯"）分别计数，top 列表中可能出现碎片而非完整词。这是**刻意的定位权衡**——n-gram 是确定性统计（无需分词依赖），足以充当"写作重复提醒"；如需精确中文分词（jieba 等），需有意引入第三方依赖（见 ROADMAP P1）。
+
 ---
 
 ## 🚀 零部署
@@ -214,6 +216,7 @@ make new TITLE="我的新故事"     # 创建故事 + 自动构建
 make commit                    # 构建 + git add + git commit
 make push                      # 构建 + 提交 + 推送
 make stats                     # 创作统计
+make analyze                   # 写作质量分析（重复短语 / 字数过期 / 章节趋势，需 jq）
 make epub                      # 导出全部 EPUB
 ```
 
@@ -266,7 +269,7 @@ AI 浏览目录时通常只需要知道"有哪些故事、大概什么状态"。
 
 AI 续写长篇小说的核心诉求是"知道上一章结尾在讲什么"，而不是加载数万字全文。`tailLength=2000` 让 AI 只读取末尾 2000 字符就能精准衔接：
 
-```
+```text
 ❌ 加载整个 text.md（假设 5 万字 → ~50K Token）
 ✅ 只读末尾 2000 字符 → ~2K Token
 ```
@@ -279,7 +282,7 @@ AI 想修改第二章时，不需要加载全部章节。精准定位单个章�
 
 传统方式让 AI 自己用 `cat` / `find` 探索文件系统，每一步都在消耗 Token 理解目录结构。story-cli 直接输出结构化数据：
 
-```
+```text
 story stats --json     → AI 直接拿到总字数/章节数/系列进度
 story export json      → AI 直接拿到完整结构化的故事库
 story export md        → AI 直接拿到合并后的 Markdown

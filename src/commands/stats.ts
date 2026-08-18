@@ -2,22 +2,23 @@ import { execFileSync } from "node:child_process"
 import path from "node:path"
 import { parseArgs } from "../args.ts"
 import { loadRepoConfig } from "../core/config.ts"
-import { extractChaptersLocalized, readStoryText, resolveRawWordCount, scanStoryFolders } from "../core/scanner.ts"
+import { readStoryText, scanStoryFolders, splitSections } from "../core/scanner.ts"
+import { computeStoryStats, type StatsStoryInput } from "../core/stats-shared.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
-import type { ChapterInfo } from "../core/types.ts"
+import type { ChapterInfo, Language } from "../core/types.ts"
 import type { ValidationOverrides } from "../core/validate.ts"
 import { getLocale } from "../i18n/index.ts"
 import { detectCliLang } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
-import { formatTotalWordCount } from "../utils/word-count.ts"
+import { countWords, formatTotalWordCount, formatWordCount } from "../utils/word-count.ts"
 
 /**
- * 故事统计结果结构
+ * 单个故事的统计明细（供 CLI 的 per-story JSON 输出与人类展示使用）
  */
-interface StoryStats {
+interface StoryDetail {
   folder: string
   title: string
-  lang: string
+  lang: Language
   rawWordCount: number
   status: string
   series?: string
@@ -25,17 +26,26 @@ interface StoryStats {
   summary?: string
   configWordCount?: string
   chapterCount: number
-  /** 章节明细（标题 + 字数） */
+  /** 章节明细（标题 + 格式化字数） */
   chapters: ChapterInfo[]
+  /** 每章原始字数（与 chapters 对齐，供 make analyze 数值分析） */
+  chapterRawCounts: number[]
   /** 段落数（按空行分割） */
   paragraphCount: number
   /** 对话数（中文引号 / 英文引号内的对话片段） */
   dialogueCount: number
+  /** 平均章节字数（节奏指标） */
+  avgChapterLen: number
+  /** 章节字数标准差（节奏波动，越大越不均衡） */
+  chapterLenStdDev: number
+  /** 对话字数占比（0~1，对话/叙述结构指标） */
+  dialogueRatio: number
 }
 
 /**
  * 从 git log 获取各月份新增字数
  * 通过 `git log --numstat --format=%ad --date=short` 解析
+ * 仅统计故事文件夹内的文件（路径以 NN- 前缀开头），排除 dist/ 等非正文改动
  * 无 git 仓库或 git 不可用时返回空对象
  */
 function getGitMonthStats(rootDir: string): Map<string, number> {
@@ -58,6 +68,9 @@ function getGitMonthStats(rootDir: string): Map<string, number> {
       // numstat 格式：added  deleted  file
       const match = line.match(/^(\d+)\s+(\d+)\s+(.+)$/)
       if (match && currentMonth) {
+        const filePath = match[3]
+        // 只统计故事文件夹内的文件（NN- 前缀），排除 README/dist/ 等非正文文件
+        if (!/^\d{2,}-/.test(filePath)) continue
         const added = Number.parseInt(match[1], 10)
         if (!Number.isNaN(added)) {
           monthStats.set(currentMonth, (monthStats.get(currentMonth) ?? 0) + added)
@@ -107,6 +120,7 @@ function isGitRepo(rootDir: string): boolean {
  * 执行 story stats 命令
  * 输出创作数据统计（故事数、字数、系列进度、活跃度、健康度）
  * 支持 --json 输出结构化数据
+ * 汇总计算（总量/系列/健康度/重复短语）由 computeStoryStats 统一提供，与 MCP stats 口径一致
  *
  * @param rootDir 项目根目录
  * @param args 命令行参数（--json 可选）
@@ -131,7 +145,8 @@ export function runStats(rootDir: string, args: string[]): number {
 
   // 扫描并加载所有故事
   const folders = scanStoryFolders(rootDir)
-  const stories: StoryStats[] = []
+  const details: StoryDetail[] = []
+  const inputs: StatsStoryInput[] = []
 
   for (const folder of folders) {
     const folderPath = path.join(rootDir, folder)
@@ -140,10 +155,16 @@ export function runStats(rootDir: string, args: string[]): number {
       const { content } = readStoryText(folderPath)
       if (!content.trim()) continue
 
-      const rawWordCount = resolveRawWordCount(content, lang)
-      const chapters = extractChaptersLocalized(content, lang)
+      const rawWordCount = countWords(content, lang)
+      // 章节切分一次，同时产出格式化字数（展示）与原始字数（数值分析）
+      const sections = splitSections(content)
+      const chapters: ChapterInfo[] = sections.map((s) => ({
+        title: s.title,
+        wordCount: formatWordCount(countWords(s.rawContent, lang), lang),
+      }))
+      const chapterRawCounts: number[] = sections.map((s) => countWords(s.rawContent, lang))
 
-      stories.push({
+      details.push({
         folder,
         title: config.title,
         lang,
@@ -155,8 +176,21 @@ export function runStats(rootDir: string, args: string[]): number {
         configWordCount: config.wordCount,
         chapterCount: chapters.length,
         chapters,
+        chapterRawCounts,
         paragraphCount: countParagraphs(content),
         dialogueCount: countDialogues(content),
+        avgChapterLen: avgChapterLength(chapterRawCounts),
+        chapterLenStdDev: chapterLengthStdDev(chapterRawCounts),
+        dialogueRatio: dialogueRatio(content, lang),
+      })
+      inputs.push({
+        folder,
+        status: config.status,
+        series: config.series,
+        configWordCount: config.wordCount,
+        rawWordCount,
+        lang,
+        content,
       })
     } catch (e) {
       // 跳过有问题的故事（与 build 行为一致）
@@ -166,49 +200,8 @@ export function runStats(rootDir: string, args: string[]): number {
     }
   }
 
-  // 汇总统计
-  const totalWords = stories.reduce((sum, s) => sum + s.rawWordCount, 0)
-  const completedCount = stories.filter((s) => s.status === "completed").length
-  const ongoingCount = stories.filter((s) => s.status === "ongoing").length
-  const totalChapters = stories.reduce((sum, s) => sum + s.chapterCount, 0)
-
-  // 系列分组统计
-  const seriesMap = new Map<string, StoryStats[]>()
-  let standaloneCount = 0
-  for (const story of stories) {
-    const seriesName = story.series?.trim()
-    if (seriesName) {
-      if (!seriesMap.has(seriesName)) seriesMap.set(seriesName, [])
-      seriesMap.get(seriesName)?.push(story)
-    } else {
-      standaloneCount++
-    }
-  }
-
-  // 健康度检查
-  const healthWarnings: string[] = []
-  for (const story of stories) {
-    // 缺少 summary
-    if (!story.summary || story.summary.trim() === "") {
-      healthWarnings.push(locale.statsMissingSummary(story.folder))
-    }
-    // 字数过期（config 中声明的 wordCount 与实际差距 >20%）
-    if (story.configWordCount) {
-      const configNum = extractNumericWordCount(story.configWordCount, story.lang)
-      if (configNum !== null && story.rawWordCount > 0) {
-        const diffRatio = Math.abs(configNum - story.rawWordCount) / story.rawWordCount
-        if (diffRatio > 0.2) {
-          healthWarnings.push(
-            locale.statsStaleWordCount(
-              story.folder,
-              story.configWordCount,
-              formatTotalWordCount(story.rawWordCount, story.lang as "zh" | "en"),
-            ),
-          )
-        }
-      }
-    }
-  }
+  // 统一汇总计算（CLI 与 MCP 共用同一实现）
+  const aggregate = computeStoryStats(inputs, locale)
 
   // 写作活跃度（git 统计）
   // 先独立检查是否为 Git 仓库，再获取提交统计数据
@@ -221,24 +214,19 @@ export function runStats(rootDir: string, args: string[]): number {
   // JSON 输出
   if (asJson) {
     const result = {
-      storyCount: stories.length,
-      completedCount,
-      ongoingCount,
-      totalWords,
-      totalChapters,
-      standaloneCount,
-      series: [...seriesMap.entries()].map(([name, items]) => ({
-        name,
-        count: items.length,
-        completed: items.filter((s) => s.status === "completed").length,
-        totalWords: items.reduce((sum, s) => sum + s.rawWordCount, 0),
-      })),
+      storyCount: aggregate.storyCount,
+      completedCount: aggregate.completedCount,
+      ongoingCount: aggregate.ongoingCount,
+      totalWords: aggregate.totalWords,
+      totalChapters: aggregate.totalChapters,
+      standaloneCount: aggregate.standaloneCount,
+      series: aggregate.series,
       health: {
-        warnings: healthWarnings.length,
-        items: healthWarnings,
+        warnings: aggregate.health.length,
+        items: aggregate.health,
       },
       activity: isRepo ? { thisMonth: thisMonthWords, lastMonth: lastMonthWords } : null,
-      stories: stories.map((s) => ({
+      stories: details.map((s) => ({
         folder: s.folder,
         title: s.title,
         lang: s.lang,
@@ -247,35 +235,45 @@ export function runStats(rootDir: string, args: string[]): number {
         series: s.series,
         seriesOrder: s.seriesOrder,
         chapterCount: s.chapterCount,
-        // 章节级明细（为 make analyze 提供原料）
-        chapters: s.chapters.map((c) => ({
+        // 章节级明细（为 make analyze 提供原料：格式化 + 原始字数）
+        chapters: s.chapters.map((c, i) => ({
           title: c.title,
           wordCount: c.wordCount,
+          rawWordCount: s.chapterRawCounts[i] ?? 0,
         })),
         // 结构与节奏指标
         paragraphs: s.paragraphCount,
         dialogues: s.dialogueCount,
+        // 创作健康看板（供 AI 审视创作节奏/结构）
+        avgChapterLen: s.avgChapterLen,
+        chapterLenStdDev: s.chapterLenStdDev,
+        dialogueRatio: s.dialogueRatio,
       })),
+      // 分析原料：全局重复短语（供 make analyze / 人工检查）
+      analysis: {
+        repeated: aggregate.repeated,
+      },
     }
     console.log(JSON.stringify(result, null, 2))
     return 0
   }
 
   // 人类可读输出
-  const langForFormat = (stories.length > 0 && stories.every((s) => s.lang === "en") ? "en" : "zh") as "zh" | "en"
+  const langForFormat = (details.length > 0 && details.every((s) => s.lang === "en") ? "en" : "zh") as "zh" | "en"
   console.log("")
-  console.log(locale.statsStoryCount(stories.length, completedCount, ongoingCount))
-  console.log(locale.statsTotalWords(formatTotalWordCount(totalWords, langForFormat), totalChapters))
+  console.log(locale.statsStoryCount(aggregate.storyCount, aggregate.completedCount, aggregate.ongoingCount))
+  console.log(
+    locale.statsTotalWords(formatTotalWordCount(aggregate.totalWords, langForFormat), aggregate.totalChapters),
+  )
 
   // 系列
-  for (const [name, items] of seriesMap) {
-    const seriesCompleted = items.filter((s) => s.status === "completed").length
+  for (const series of aggregate.series) {
     const completion =
-      seriesCompleted === items.length ? "100%" : `${Math.round((seriesCompleted / items.length) * 100)}%`
-    console.log(locale.statsSeries(name, items.length, completion))
+      series.completed === series.count ? "100%" : `${Math.round((series.completed / series.count) * 100)}%`
+    console.log(locale.statsSeries(series.name, series.count, completion))
   }
-  if (standaloneCount > 0) {
-    console.log(locale.statsStandalone(standaloneCount))
+  if (aggregate.standaloneCount > 0) {
+    console.log(locale.statsStandalone(aggregate.standaloneCount))
   }
 
   // 写作活跃度（是 Git 仓库但最近无提交时显示 0 字，而不是误报非 Git）
@@ -291,10 +289,10 @@ export function runStats(rootDir: string, args: string[]): number {
   }
 
   // 健康度
-  if (healthWarnings.length > 0) {
-    console.log(locale.statsHealthTitle(healthWarnings.length))
-    for (const warning of healthWarnings) {
-      console.log(warning)
+  if (aggregate.health.length > 0) {
+    console.log(locale.statsHealthTitle(aggregate.health.length))
+    for (const warning of aggregate.health) {
+      console.log(warning.message)
     }
   } else {
     console.log(locale.statsHealthy)
@@ -329,22 +327,42 @@ export function countDialogues(content: string): number {
   return zhMatches.length + enMatches.length
 }
 
-export function extractNumericWordCount(formatted: string, lang: string): number | null {
-  const match = formatted.match(/(\d+(?:\.\d+)?)/)
-  if (!match) return null
-  const num = Number.parseFloat(match[1])
-  if (Number.isNaN(num)) return null
+/**
+ * 计算章节平均字数（节奏指标）
+ * @param rawCounts 每章原始字数数组
+ * @returns 平均值；空数组时返回 0
+ */
+export function avgChapterLength(rawCounts: number[]): number {
+  if (rawCounts.length === 0) return 0
+  const total = rawCounts.reduce((sum, n) => sum + n, 0)
+  return Math.round(total / rawCounts.length)
+}
 
-  // 防御性：语言与格式应为互斥（formatWordCount 按语言输出），
-  // 显式忽略以下互斥情况：若英文格式中混入「万」或中文格式中混入「K」
-  if (lang === "en") {
-    // "~5K words" → 5000
-    if (/k/i.test(formatted)) return Math.round(num * 1000)
-    return Math.round(num)
-  }
+/**
+ * 计算章节字数标准差（节奏波动指标）
+ * 衡量各章节字数偏离平均值的程度，越大说明节奏越不均衡
+ * @param rawCounts 每章原始字数数组
+ * @returns 标准差（四舍五入）；少于 2 章时返回 0（无意义）
+ */
+export function chapterLengthStdDev(rawCounts: number[]): number {
+  if (rawCounts.length < 2) return 0
+  const mean = rawCounts.reduce((sum, n) => sum + n, 0) / rawCounts.length
+  const variance = rawCounts.reduce((sum, n) => sum + (n - mean) ** 2, 0) / rawCounts.length
+  return Math.round(Math.sqrt(variance))
+}
 
-  // 中文格式
-  if (formatted.includes("万字")) return Math.round(num * 10000)
-  if (formatted.includes("千字")) return Math.round(num * 1000)
-  return Math.round(num)
+/**
+ * 计算对话字数占比（对话/叙述结构指标）
+ * 提取中文「」/“”与英文 "..." 引号内的字符数，除以按故事语言统计的总字数
+ * @param content 正文内容
+ * @param lang 故事语言（zh / en）
+ * @returns 对话字数占比（0~1，保留 2 位小数）；内容为空时返回 0
+ */
+export function dialogueRatio(content: string, lang: Language): number {
+  if (!content.trim()) return 0
+  const dialogues = content.match(/[「“][^」”]*[」”]|"[^"\n]*"/g) ?? []
+  const dialogueChars = dialogues.reduce((sum, d) => sum + countWords(d, lang), 0)
+  const total = countWords(content, lang)
+  if (total === 0) return 0
+  return Number((dialogueChars / total).toFixed(2))
 }

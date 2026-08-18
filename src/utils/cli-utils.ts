@@ -4,6 +4,7 @@
  */
 
 import { execSync } from "node:child_process"
+import { safeTruncate } from "./unicode.ts"
 
 /**
  * 检测 CLI 输出语言：根据系统环境变量 LANG 检测，默认中文
@@ -25,11 +26,13 @@ export function detectCliLang(): string {
  * @returns 安全文件名
  */
 export function sanitizeFileName(title: string): string {
-  return title
-    .replace(/[\\/:*?"<>|]/g, "_") // Windows 非法字符（跨平台统一规则）
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120) // 防止文件名过长
+  return safeTruncate(
+    title
+      .replace(/[\\/:*?"<>|]/g, "_") // Windows 非法字符（跨平台统一规则）
+      .replace(/\s+/g, " ")
+      .trim(),
+    120, // 防止文件名过长（按码点截断，不切断 emoji/生僻字）
+  )
 }
 
 /**

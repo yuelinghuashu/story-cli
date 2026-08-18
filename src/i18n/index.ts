@@ -50,6 +50,8 @@ export interface Locale {
   backToStoryList: string
   /** 系列标签（故事 README 显示用） */
   seriesLabel: string
+  /** 关联故事标题 */
+  relatedStoriesTitle: string
   basicInfoTitle: string
   typeLabel: string
   wordCountLabel: string
@@ -97,6 +99,26 @@ export interface Locale {
   mergedWarning: (folder: string) => string
   storyReadmeDone: (folder: string) => string
   noSummary: string
+  /** 导出时被跳过的故事数（export 系列命令共用） */
+  skippedExport: (n: number) => string
+
+  // story new 命令
+  /** 未指定标题的用法提示 */
+  newMissingTitle: string
+  /** 非法类型错误（列出合法类型） */
+  newTypeInvalid: (choices: string[], got: string) => string
+  /** fanfic 缺少 --author */
+  newFanficRequiresAuthor: string
+  /** fanfic 缺少 --creator */
+  newFanficRequiresCreator: string
+  /** 目录已存在 */
+  newFolderExists: (folder: string) => string
+  /** 配置校验失败 */
+  newConfigInvalid: (issues: string) => string
+  /** 创建成功（文件夹名 + 类型 + 文件树） */
+  newCreated: (folderName: string, type: string) => string
+  /** 后续步骤提示 */
+  newNextSteps: (folderName: string) => string
 
   // Watch 模式
   watchStart: string
@@ -125,6 +147,10 @@ export interface Locale {
   epubSvgUnsafe: (path: string) => string
   /** 封面图片读取失败 */
   epubCoverReadFailed: (path: string, msg: string) => string
+  /** 原创故事许可证文本（EPUB 版权页） */
+  epubLicenseOriginal: string
+  /** 二创故事许可证文本（EPUB 版权页） */
+  epubLicenseFanfic: (work: string, author: string) => string
 
   // HTML 导出
   htmlExporting: string
@@ -147,6 +173,14 @@ export interface Locale {
   mdExporting: string
   mdExportSuccess: (count: number, output: string) => string
   mdEmptyContent: (folder: string) => string
+
+  // Embeddings 导出
+  /** 正在导出文本块 */
+  embeddingsExporting: string
+  /** 导出完成（块数 + 路径） */
+  embeddingsExportSuccess: (chunks: number, output: string) => string
+  /** 空内容跳过 */
+  embeddingsEmptyContent: (folder: string) => string
 
   // Demo 模式
   /** 正在生成示例仓库 */
@@ -175,8 +209,6 @@ export interface Locale {
   statsHealthTitle: (count: number) => string
   /** 字数过期警告 */
   statsStaleWordCount: (folder: string, config: string, actual: string) => string
-  /** 缺少 summary 警告 */
-  statsMissingSummary: (folder: string) => string
   /** 无警告 */
   statsHealthy: string
   /** 本月 */
@@ -207,12 +239,70 @@ export interface Locale {
   importJsonOutputDir: (dir: string) => string
   /** 下一步提示 */
   importJsonNextStep: string
+  /** 单条导入校验失败（createStoryFromJson 内部警告） */
+  importJsonValidationFailed: (title: string, issues: string) => string
+  /** 相同标题已存在，已跳过 */
+  importJsonTitleExists: (title: string) => string
+  /** 目录已存在，已跳过 */
+  importJsonDirExists: (folder: string) => string
 
   // 编码检测
   /** 检测到 GBK/GB2312 编码警告 */
   encodingGbkWarning: (filePath: string) => string
   /** 检测到未知非 UTF-8 编码警告 */
   encodingUnknownWarning: (filePath: string) => string
+
+  // 合规检查（story validate）
+  /** 校验标题 */
+  complianceTitle: string
+  /** 完全合规 */
+  compliancePass: (count: number) => string
+  /** 存在错误 */
+  complianceFail: (errorCount: number, warningCount: number) => string
+  /** 目录命名不符合规范 */
+  complianceInvalidFolderName: (folder: string) => string
+  /** 重复序号 */
+  complianceDuplicateNumber: (num: string, existing: string, folder: string) => string
+  /** 缺少 config.json */
+  complianceMissingConfig: (folder: string) => string
+  /** config.json 无效 */
+  complianceInvalidConfig: (folder: string) => string
+  /** 缺少正文 */
+  complianceMissingContent: (folder: string) => string
+  /** 编码警告 */
+  complianceEncoding: (folder: string, file: string) => string
+
+  // story link 关联故事
+  /** link 命令用法 */
+  linkUsage: string
+  /** 找不到故事 */
+  linkNotFound: (folder: string) => string
+  /** 缺少 config.json */
+  linkMissingConfig: (folder: string) => string
+  /** config.json 解析失败 */
+  linkParseError: (folder: string) => string
+  /** 列出关联 */
+  linkList: (source: string, links: string) => string
+  /** 无关联 */
+  linkNone: string
+  /** 关联不存在，无法移除 */
+  linkNotPresent: (source: string, target: string) => string
+  /** 已移除关联 */
+  linkRemoved: (source: string, target: string) => string
+  /** 不能关联自身 */
+  linkSelf: (source: string) => string
+  /** 已存在关联 */
+  linkAlreadyPresent: (source: string, target: string) => string
+  /** 已添加关联 */
+  linkAdded: (source: string, target: string) => string
+
+  // build 关联建议
+  /** 关联建议标题 */
+  linkSuggestionTitle: string
+  /** 单条关联建议 */
+  linkSuggestionLine: (source: string, target: string, shared: number) => string
+  /** 关联建议提示（如何落盘） */
+  linkSuggestionHint: () => string
 }
 
 import { en } from "./en.ts"

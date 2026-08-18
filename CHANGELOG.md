@@ -2,6 +2,44 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.4.0] - 2026-08-17
+
+### 新增
+
+- **`story validate`**：Story-Repo 规范合规检查器（目录命名 / 必需文件 / UTF-8 / schema），支持 `--json`，退出码 0/1
+- **`story link`**：管理 `config.json` 的 `links` 弱关联字段（添加 / `--remove` / `--list`），幂等去重
+- **`export embeddings`**：将故事清洗为纯文本块（JSONL），支持 `--stdout`，供外部向量检索使用
+- **build 关联建议**：构建时检测同 `series` + 共享关键词的候选关联，仅提示不写盘
+- **`stats --json` 增强**：章节新增 `rawWordCount` 数值字段；新增 `analysis.repeated` 重复短语 top 10；health 结构化为 `{ code, folder, message }`
+- **Story-Repo 规范升级 v2.0**：声明「独立开放标准，不绑定 story-cli」，写入 `links` 字段约定
+- 故事 README「关联故事」区块（config 含 `links` 时自动渲染）
+
+### 修复
+
+- **Watch 模式**：修复无限重建循环（README 内容比对）；修复重建中丢失变更（排队补跑）；修复 `.storyignore` 不触发重建
+- **`story export` 无子命令报错**（此前静默执行 HTML）
+- **`story new` 标题规则统一**为净化方案（与 `import json` / MCP 行为一致），空白标题创建前拦截
+- **`export txt --stdout` 分隔符**：HTML 注释改为 `====`
+- **同步/异步章节读取**：同步版遇不可读文件时跳过（与异步版对齐）
+- **写作活跃度**：`git log --numstat` 只统计故事文件夹内文件，不再计入 dist/ 等
+- **`import json`**：移除不存在的 `--overwrite` 误导提示
+- **命令注册表**：`--help` / `-h` / `--version` / `-v` 从「命令别名」剥离为「全局标志」，修复子命令级 `story build --help` 等静默执行命令而非显示帮助的缺陷；help 输出新增「全局标志」区
+- **Unicode 截断**：`sanitizeFileName` / `truncateSummary` / MCP `tailLength` 的 `.slice()` 截断会切断 surrogate pair（emoji/扩展B区生僻字），产生孤立代理（显示为 `�`）；改为按 Unicode 码点安全截断
+
+### 改进
+
+- **export 去重**：`json / md / txt / html` 重复骨架抽为共享 `forEachExportStory` 迭代器（净减 ~80 行）
+- **i18n 收口**：`story new` / `import json` / EPUB 许可证文案迁移至中英文案
+- **统计口径统一**：CLI `stats` 与 MCP `stats` 共用 `computeStoryStats`，消除 ~40 行重复与行为漂移
+- **MCP**：`validate` 复用合规检查；`create_story` / `import_json` 支持 `links`
+- 创作健康看板：`stats --json` 每个故事新增 `avgChapterLen`（平均章节字数）、`chapterLenStdDev`（章节节奏波动）、`dialogueRatio`（对话/叙述占比）三个派生指标，供 AI / 脚本审视创作节奏与结构
+- **Windows CI**：CI 增加 OS 矩阵（ubuntu + windows），`build` 脚本 `chmod` 改为跨平台的 `fs.chmodSync`（Windows 无损执行）
+
+### 测试
+
+- 新增 Watch 调度器单元测试、Watch 集成测试、合规检查 / story link / 关联建议 / embeddings / 统计口径一致性 等 45+ 项测试
+- 554 项测试运行，551 项通过（另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
+
 ## [1.3.0] - 2026-08-16
 
 ### 新增

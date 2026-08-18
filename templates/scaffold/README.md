@@ -35,4 +35,15 @@ story build
 - `seriesOrder` 支持小数（如 `2.5`），任意位置插入无需重排其他故事
 - 未配置系列的故事自动归入「独立故事」，按文件夹序号排序
 
+## 关联故事（links，可选）
+
+在故事的 `config.json` 中添加 `links` 字段，可声明与其他故事的弱关联（共享角色 / 引申阅读），故事 README 会自动渲染「关联故事」区块：
+
+```json
+{ "links": ["02-其他故事"] }
+```
+
+- 手动编辑 `config.json`，或运行 `make link A="源故事" B="目标故事"`
+- 运行 `make validate` 可检查仓库合规性
+
 > 本文档由 `story init` 生成，运行 `story build` 后会自动更新。

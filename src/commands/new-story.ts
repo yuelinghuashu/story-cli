@@ -5,6 +5,8 @@ import { loadRepoConfig } from "../core/config.ts"
 import { getNextNumber } from "../core/sequence.ts"
 import type { Language } from "../core/types.ts"
 import { validateConfig } from "../core/validate.ts"
+import { getLocale } from "../i18n/index.ts"
+import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
 
 /**
  * 创建新故事
@@ -14,20 +16,11 @@ import { validateConfig } from "../core/validate.ts"
 export async function createNewStory(rootDir: string, args: string[]): Promise<void> {
   const { positional, options } = parseArgs(args)
   const title = positional[0]
+  const locale = getLocale(detectCliLang())
 
-  if (!title) {
-    throw new Error(`Please specify a story title!
-  Usage: story new "Title" [--type=original|fanfic] [--author="Work"] [--creator="Author"] [--lang=zh|en]
-
-  Examples:
-    story new "My First Story"
-    story new "Fan Work" --type=fanfic --author="Original Work" --creator="Author" --lang=en
-`)
-  }
-
-  // 正则：标题可以包含空格，但目录名不能有空格（用连字符替换）
-  if (!/^[\w\u4e00-\u9fa5\s-]+$/.test(title)) {
-    throw new Error(`Title can only contain letters, numbers, Chinese, spaces, underscores, and hyphens: ${title}`)
+  // 空标题（含纯空白）视为缺失：在创建目录前拦截，避免留下孤儿目录
+  if (!title?.trim()) {
+    throw new Error(locale.newMissingTitle)
   }
 
   // 读取仓库级自定义类型（story.config.json），默认 original/fanfic
@@ -37,20 +30,19 @@ export async function createNewStory(rootDir: string, args: string[]): Promise<v
   const type = typeof options.type === "string" ? options.type : defaultType
 
   if (!validTypes.includes(type)) {
-    const choices = validTypes.map((v) => `"${v}"`).join(" or ")
-    throw new Error(`--type must be ${choices}, got "${type}"`)
+    throw new Error(locale.newTypeInvalid(validTypes as string[], type))
   }
 
   // 校验语言参数
   const lang: Language = typeof options.lang === "string" && options.lang === "en" ? "en" : "zh"
 
   const number = getNextNumber(rootDir)
-  // 目录名将空格替换为连字符
-  const folderName = `${number}-${title.replace(/\s+/g, "-")}`
+  // 目录名：空格转连字符 + 非法字符净化（与 import json / MCP create_story 行为一致）
+  const folderName = sanitizeFileName(`${number}-${title.trim().replace(/\s+/g, "-")}`) || `story-${number}`
   const folderPath = path.join(rootDir, folderName)
 
   if (fs.existsSync(folderPath)) {
-    throw new Error(`Folder already exists: ${folderName}`)
+    throw new Error(locale.newFolderExists(folderName))
   }
 
   fs.mkdirSync(folderPath, { recursive: true })
@@ -72,10 +64,10 @@ export async function createNewStory(rootDir: string, args: string[]): Promise<v
 
   if (type === "fanfic") {
     if (typeof options.author !== "string" || !options.author) {
-      throw new Error(`Fan fiction requires --author="Original Work Name"`)
+      throw new Error(locale.newFanficRequiresAuthor)
     }
     if (typeof options.creator !== "string" || !options.creator) {
-      throw new Error(`Fan fiction requires --creator="Original Author"`)
+      throw new Error(locale.newFanficRequiresCreator)
     }
     config.originalWork = options.author
     config.originalAuthor = options.creator
@@ -85,7 +77,7 @@ export async function createNewStory(rootDir: string, args: string[]): Promise<v
   const validation = validateConfig(config, title, { types: validTypes })
   if (!validation.valid) {
     const issues = validation.issues.map((i) => i.message).join("; ")
-    throw new Error(`Config validation failed: ${issues}`)
+    throw new Error(locale.newConfigInvalid(issues))
   }
 
   fs.writeFileSync(path.join(folderPath, "config.json"), `${JSON.stringify(config, null, 2)}\n`, "utf-8")
@@ -96,13 +88,6 @@ ${lang === "zh" ? "（在这里开始你的故事...）" : "(Start writing your 
 `
   fs.writeFileSync(path.join(folderPath, "text.md"), textContent, "utf-8")
 
-  console.log(`✅ Created story: ${folderName}/`)
-  console.log(`   ├── config.json (type: ${type})`)
-  console.log(`   └── text.md`)
-  console.log(`
-Next steps:
-  1. Edit ${folderName}/config.json
-  2. Write in ${folderName}/text.md
-  3. Run: story build
-`)
+  console.log(locale.newCreated(folderName, type))
+  console.log(locale.newNextSteps(folderName))
 }

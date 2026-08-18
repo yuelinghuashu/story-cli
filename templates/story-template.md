@@ -28,6 +28,14 @@
 {{/each}}
 
 {{/if}}
+{{#if hasRelatedStories}}
+## {{relatedStoriesTitle}}
+
+{{#each relatedStories}}
+- [{{title}}](../{{folder}})
+{{/each}}
+
+{{/if}}
 ## {{licenseTitle}}
 
 {{licenseText}}

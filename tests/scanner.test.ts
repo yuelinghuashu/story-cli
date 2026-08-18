@@ -130,6 +130,32 @@ test("readStoryText 无任何正文文件", () => {
   assert.strictEqual(merged, false)
 })
 
+test("readStoryText 单个章节文件不可读时跳过（与异步版本一致）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "scanner-test-"))
+  tempDirs.push(dir)
+  fs.writeFileSync(path.join(dir, "chapter-1.md"), "# 第一章\n\n可读内容。", "utf-8")
+  // 坏链接：指向不存在目标，读取会抛 ENOENT
+  fs.symlinkSync(path.join(dir, "nonexistent-target.md"), path.join(dir, "chapter-2.md"))
+
+  const { content, merged } = readStoryText(dir)
+  assert.strictEqual(merged, true, "仍有可读章节，应合并")
+  assert.ok(content.includes("第一章"), "可读章节内容应保留")
+  assert.ok(content.includes("可读内容"))
+  assert.ok(!content.includes("chapter-2"), "不可读章节应被跳过而非导致整个合并失败")
+})
+
+test("readStoryText 全部章节不可读时返回空内容而非抛错", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "scanner-test-"))
+  tempDirs.push(dir)
+  // 坏链接目录：指向不存在目标
+  fs.symlinkSync(path.join(dir, "nonexistent.md"), path.join(dir, "chapter-1.md"))
+
+  // 不应抛错（修复前同步版本会因 readFileSync 失败而抛异常终止）
+  const { content, merged } = readStoryText(dir)
+  assert.strictEqual(content, "")
+  assert.strictEqual(merged, false)
+})
+
 test("resolveWordCount 优先使用配置中的字数", () => {
   const result = resolveWordCount({ wordCount: "约 10 千字" }, "一些内容内容")
   assert.strictEqual(result, "约 10 千字")

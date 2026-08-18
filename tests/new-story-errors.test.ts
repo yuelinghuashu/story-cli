@@ -17,46 +17,59 @@ function initRepo(): string {
 
 // ─── story new 错误路径测试 ─────────────────────────────────
 
-test("story new 无标题时提示用法并报错", () => {
+test("story new 无标题时提示用法并报错（中文）", () => {
   const dir = initRepo()
   const { ok, output } = runCli(["new"], dir)
   assert.ok(!ok, "无标题的 new 命令应返回非零退出码")
-  assert.ok(output.includes("Please specify a story title!"), `应提示标题缺失，实际输出: ${output}`)
-  assert.ok(output.includes('story new "Title"'), "应提示用法")
+  assert.ok(output.includes("请指定故事标题"), `应提示标题缺失，实际输出: ${output}`)
+  assert.ok(output.includes('story new "标题"'), "应提示用法")
 })
 
-test("story new 标题含非法字符时拒绝", () => {
+test("story new 无标题时提示用法并报错（英文环境）", () => {
   const dir = initRepo()
-  const { ok, output } = runCli(["new", "非法/标题"], dir)
-  assert.ok(!ok, "非法标题应返回非零退出码")
-  assert.ok(output.includes("Title can only contain"), `应提示标题字符限制，实际输出: ${output}`)
+  const { ok, output } = runCli(["new"], dir, undefined, { LANG: "en_US.UTF-8" })
+  assert.ok(!ok, "无标题的 new 命令应返回非零退出码")
+  assert.ok(output.includes("Please specify a story title!"), `英文环境应提示英文，实际输出: ${output}`)
+  assert.ok(output.includes('story new "Title"'), "应提示英文用法")
+})
+
+test("story new 标题含特殊字符时净化创建（与 import json 行为一致）", () => {
+  const dir = initRepo()
+  const { ok, output } = runCli(["new", "非法/标题:测试"], dir)
+  assert.ok(ok, `特殊字符标题应被净化创建（不再拒绝），实际输出: ${output}`)
+  // `/` → `_`，`:` → `_`
+  assert.ok(fs.existsSync(path.join(dir, "01-非法_标题_测试")), "净化后的目录应存在")
+})
+
+test("story new 标题只含空白字符时视为缺失并报错", () => {
+  const dir = initRepo()
+  const { ok, output } = runCli(["new", "   "], dir)
+  assert.ok(!ok, "空白标题应视为缺失并报错")
+  assert.ok(output.includes("请指定故事标题"), `应提示标题缺失，实际输出: ${output}`)
+  // 不应留下孤儿目录（无 NN- 前缀的故事目录）
+  const storyDirs = fs.readdirSync(dir).filter((f) => /^\d{2,}-/.test(f))
+  assert.deepStrictEqual(storyDirs, [], "报错前不应创建任何故事目录")
 })
 
 test("story new --type=fanfic 缺少 --author 时报错", () => {
   const dir = initRepo()
   const { ok, output } = runCli(["new", "二创故事", "--type=fanfic"], dir)
   assert.ok(!ok, "缺少 --author 的 fanfic 应返回非零退出码")
-  assert.ok(
-    output.includes('Fan fiction requires --author="Original Work Name"'),
-    `应提示需要 --author，实际输出: ${output}`,
-  )
+  assert.ok(output.includes('--author="原作名"'), `应提示需要 --author，实际输出: ${output}`)
 })
 
 test("story new --type=fanfic 缺少 --creator 时报错", () => {
   const dir = initRepo()
   const { ok, output } = runCli(["new", "二创故事", "--type=fanfic", "--author=原作名"], dir)
   assert.ok(!ok, "缺少 --creator 的 fanfic 应返回非零退出码")
-  assert.ok(
-    output.includes('Fan fiction requires --creator="Original Author"'),
-    `应提示需要 --creator，实际输出: ${output}`,
-  )
+  assert.ok(output.includes('--creator="原作者"'), `应提示需要 --creator，实际输出: ${output}`)
 })
 
 test("story new --type=invalid 非法类型时报错", () => {
   const dir = initRepo()
   const { ok, output } = runCli(["new", "非法类型故事", "--type=invalid"], dir)
   assert.ok(!ok, "非法类型应返回非零退出码")
-  assert.ok(output.includes('--type must be "original" or "fanfic"'), `应列出合法类型，实际输出: ${output}`)
+  assert.ok(output.includes('--type 必须是 "original" 或 "fanfic"'), `应列出合法类型，实际输出: ${output}`)
 })
 
 test("story new 使用仓库级自定义类型", () => {

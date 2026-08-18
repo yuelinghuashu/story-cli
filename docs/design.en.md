@@ -37,6 +37,8 @@ No database. No cloud sync. No proprietary format. **Your stories are always pla
 
 Edge cases are covered by **boundary tests** (see `tests/md-to-html.test.ts`) rather than adopting dependencies.
 
+**Known limitation: repeated phrase detection**. `analysis.repeated` in `stats --json` uses character-level n-grams (bigram), not tokenization. This means multi-character Chinese proper nouns (e.g. the 4-character name 乔尔乔斯) get split into overlapping bigram fragments ("乔尔" "尔乔" "乔斯"), each counted separately. This is a **deliberate trade-off** — n-grams are deterministic statistics (no tokenizer dependency) and sufficient as a "writing repetition reminder"; accurate Chinese tokenization (jieba etc.) requires intentionally adopting a third-party dependency (see ROADMAP P1).
+
 ---
 
 ## 🚀 Zero Deployment
@@ -214,6 +216,7 @@ make new TITLE="My Story"       # Create story + auto-build
 make commit                    # Build + git add + git commit
 make push                      # Build + commit + push
 make stats                     # Writing statistics
+make analyze                   # Writing quality analysis (repeated phrases / stale counts / chapter trends, needs jq)
 make epub                      # Export all EPUBs
 ```
 
@@ -266,7 +269,7 @@ Instead of full metadata + full content. In a library of 1,000 stories, this can
 
 The core need for AI continuation is "know what the end of the last chapter was about," not loading tens of thousands of words. `tailLength=2000` lets AI read only the last 2,000 characters to resume precisely:
 
-```
+```text
 ❌ Load entire text.md (assume 50K words → ~50K Tokens)
 ✅ Read only last 2,000 chars → ~2K Tokens
 ```
@@ -279,7 +282,7 @@ When AI wants to modify chapter 2, it doesn't need to load all chapters. Precise
 
 Traditional approaches make AI explore the file system with `cat` / `find`, burning Tokens on every step to understand directory structure. story-cli outputs structured data directly:
 
-```
+```text
 story stats --json     → AI directly gets total words/chapters/series progress
 story export json      → AI directly gets the complete structured story library
 story export md        → AI directly gets merged Markdown

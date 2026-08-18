@@ -26,7 +26,7 @@ const REQUIRED_FIELDS: (keyof StoryConfig)[] = ["title", "type", "status", "summ
 /** 字段级校验规则配置 */
 interface FieldRule {
   /** 期望的 JS 类型 */
-  type?: "string" | "boolean" | "number"
+  type?: "string" | "boolean" | "number" | "string[]"
   /** 合法的枚举值列表 */
   enum?: readonly string[]
   /** 正则表达式 */
@@ -54,6 +54,7 @@ export const FIELD_RULES: Record<string, FieldRule> = {
   series: { type: "string" },
   seriesOrder: { type: "number" },
   volume: { type: "string" },
+  links: { type: "string[]" },
 }
 
 /**

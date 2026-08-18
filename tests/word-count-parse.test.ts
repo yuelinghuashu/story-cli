@@ -1,6 +1,6 @@
 import assert from "node:assert"
 import { test } from "node:test"
-import { extractNumericWordCount } from "../src/commands/stats.ts"
+import { extractNumericWordCount } from "../src/core/stats-shared.ts"
 
 test("extractNumericWordCount 中文千字", () => {
   assert.strictEqual(extractNumericWordCount("约 3 千字", "zh"), 3000)

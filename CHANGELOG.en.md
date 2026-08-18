@@ -2,6 +2,44 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-08-17
+
+### Added
+
+- **`story validate`**: Story-Repo spec compliance checker (folder naming / required files / UTF-8 / schema), supports `--json`, exit code 0/1
+- **`story link`**: manages the weak `links` field in config.json (add / `--remove` / `--list`), idempotent dedup
+- **`export embeddings`**: cleans stories into plain text chunks (JSONL), supports `--stdout`, for external vector retrieval
+- **build suggestion layer**: detects candidate relations among stories with same `series` + shared keywords, suggests only without writing to disk
+- **`stats --json` enhancements**: chapter `rawWordCount` numeric field; `analysis.repeated` top-10 repeated phrases; structured health `{ code, folder, message }`
+- **Story-Repo spec upgraded to v2.0**: declares itself an independent open standard "not bound to story-cli", documents the `links` field
+- Story README "Related Stories" section (auto-rendered when config has `links`)
+
+### Fixed
+
+- **Watch mode**: infinite rebuild loop (README content diff); lost changes during rebuild (queue + replay); `.storyignore` changes now trigger rebuild
+- **`story export` no subcommand now errors** (previously silently ran HTML export)
+- **`story new` title rules unified** to the sanitize approach (consistent with `import json` / MCP); whitespace-only titles rejected before folder creation
+- **`export txt --stdout` separator**: HTML comment replaced with `====`
+- **Sync/async chapter reading**: sync version now skips unreadable files (matching async behavior)
+- **Writing activity stats**: `git log --numstat` now only counts files inside story folders (NN- prefix), no longer counting dist/ and other non-content changes
+- **`import json`**: removed the nonexistent `--overwrite` misleading hint
+- **Command registry**: `--help` / `-h` / `--version` / `-v` reclassified from "command aliases" to "global flags", fixing the defect where subcommand-level `story build --help` silently executed the command instead of showing help; help output now includes a "Global flags" section
+- **Unicode truncation**: `.slice()` in `sanitizeFileName` / `truncateSummary` / MCP `tailLength` could split surrogate pairs (emoji / CJK Extension-B characters), producing broken surrogates (displayed as `�`); now safely truncates by Unicode code point
+
+### Improved
+
+- **Export dedup**: `json / md / txt / html` shared skeleton extracted into `forEachExportStory` iterator (~80 lines removed); unified `storyFileName` safe naming; skipped-count text moved to i18n
+- **i18n consolidation**: `story new` / `import json` / EPUB license text migrated to bilingual locale
+- **Unified statistics**: CLI `stats` and MCP `stats` share `computeStoryStats`, eliminating ~40 lines of duplication and behavioral drift
+- **MCP**: `validate` reuses compliance checker; `create_story` / `import_json` support `links`
+- **Writing health dashboard**: `stats --json` per story now adds three derived metrics — `avgChapterLen` (avg chapter length), `chapterLenStdDev` (pacing variance), `dialogueRatio` (dialogue/narration share) — for AI / scripts to assess pacing and structure
+- **Windows CI**: CI adds an OS matrix (ubuntu + windows); the `build` script's `chmod` is replaced with cross-platform `fs.chmodSync` (no-op on Windows)
+
+### Tests
+
+- New WatchScheduler unit tests (debounce / queue / dispose), Watch integration tests (loop regression / new dir / invalid config recovery / `.storyignore`); compliance / story link / link suggestions / embeddings / stats parity — 45+ new tests
+- 554 tests run, 551 pass (3 GBK tests skipped on small-ICU Node builds)
+
 ## [1.3.0] - 2026-08-16
 
 ### Added

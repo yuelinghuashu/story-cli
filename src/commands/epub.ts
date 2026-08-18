@@ -1,7 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { parseArgs } from "../args.ts"
-import { loadRepoConfig } from "../core/config.ts"
+import { loadExportOverrides, storyFileName } from "../core/exporter.ts"
 import { readStoryText, scanStoryFolders, splitContentByChapters } from "../core/scanner.ts"
 import { loadStoryConfig } from "../core/story-loader.ts"
 import type { EpubChapter, EpubImage, Language, StoryConfig } from "../core/types.ts"
@@ -253,14 +253,11 @@ function buildEpubMetadata(
   lang: Language
   license: string
 } {
+  const locale = getLocale(lang)
   const license =
     config.type === "original"
-      ? lang === "en"
-        ? "This work is licensed under CC BY-NC-SA 4.0. You are free to share, non-commercially; derivatives must use the same license."
-        : "本作品采用 CC BY-NC-SA 4.0 许可证。你可以署名共享、非商业使用，修改后的作品需沿用相同许可。"
-      : lang === "en"
-        ? `This is a fan work based on ${config.originalWork || ""} (by ${config.originalAuthor || ""}). Original characters and world rights belong to the original creators. Commercial use is strictly prohibited.`
-        : `本作品是基于${config.originalWork || ""}（原作：${config.originalAuthor || ""}）的同人创作。原作角色、世界观等元素的版权归原作者及版权方所有。禁止将本故事用于任何商业用途。`
+      ? locale.epubLicenseOriginal
+      : locale.epubLicenseFanfic(config.originalWork || "", config.originalAuthor || "")
 
   return {
     title: String(config.title),
@@ -303,11 +300,7 @@ export function exportEpub(rootDir: string, args: string[]): number {
   const targets = resolveTargets(rootDir, title, all, locale)
 
   // 仓库级配置只需读取一次（循环外调用，避免重复 I/O）
-  const repoConfig = loadRepoConfig(rootDir)
-  const validationOverrides: ValidationOverrides = {
-    types: repoConfig.types,
-    statuses: repoConfig.statuses,
-  }
+  const validationOverrides = loadExportOverrides(rootDir)
 
   let success = 0
   let failed = 0
@@ -332,7 +325,7 @@ export function exportEpub(rootDir: string, args: string[]): number {
 
       // 安全文件名 + 输出路径
       // 分卷模式：config.volume 有值时输出 `标题-卷名.epub`，无值则回退单卷
-      const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
+      const safeTitle = storyFileName(config, folder)
       const volumeSuffix = splitByVolume && config.volume ? `-${sanitizeFileName(config.volume)}` : ""
       const outputPath = path.join(distDir, `${safeTitle}${volumeSuffix}.epub`)
 

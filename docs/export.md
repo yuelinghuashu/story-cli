@@ -1,19 +1,22 @@
 # 📤 内容导出指南
 
-story-cli 提供 **6 种导出方式**，覆盖读者侧（HTML / TXT / EPUB / PDF）和创作者侧（JSON / 合并 Markdown）。
+> 📋 完整命令清单见 [commands.md](commands.md)（别名/子命令/参数一览）。
+
+story-cli 提供 **7 种导出方式**，覆盖读者侧（HTML / TXT / EPUB / PDF）、创作者侧（JSON / 合并 Markdown）与 AI 检索侧（embeddings 文本块）。
 
 ---
 
 ## 📊 导出总览
 
-| 格式         | 命令                                     | 默认输出目录          | 适用场景                                  |
-| ------------ | ---------------------------------------- | --------------------- | ----------------------------------------- |
-| **HTML**     | `story export html`                      | `dist/html/`          | 静态站点阅读、浏览器打印为 PDF            |
-| **TXT**      | `story export txt`                       | `dist/txt/`           | 纯文字稿、通用文本分发                    |
-| **EPUB**     | `story epub "标题"` / `story epub --all` | `dist/epub/`          | 电子阅读器（Kindle / Apple Books / Kobo） |
-| **PDF**      | `story export html` + 浏览器打印         | `dist/html/` → 浏览器 | 打印 / 分发 / 存档                        |
-| **JSON**     | `story export json`                      | `dist/json/`          | AI 工作流、数据分析、Obsidian Dataview    |
-| **Markdown** | `story export md`                        | `dist/md/`            | 跨平台搬运、便携备份                      |
+| 格式         | 命令                                     | 默认输出目录            | 适用场景                                  |
+| ------------ | ---------------------------------------- | ----------------------- | ----------------------------------------- |
+| **HTML**     | `story export html`                      | `dist/html/`            | 静态站点阅读、浏览器打印为 PDF            |
+| **TXT**      | `story export txt`                       | `dist/txt/`             | 纯文字稿、通用文本分发                    |
+| **EPUB**     | `story epub "标题"` / `story epub --all` | `dist/epub/`            | 电子阅读器（Kindle / Apple Books / Kobo） |
+| **PDF**      | `story export html` + 浏览器打印         | `dist/html/` → 浏览器   | 打印 / 分发 / 存档                        |
+| **JSON**     | `story export json`                      | `dist/json/`            | AI 工作流、数据分析、Obsidian Dataview    |
+| **Markdown** | `story export md`                        | `dist/md/`              | 跨平台搬运、便携备份                      |
+| **Embeds**   | `story export embeddings`                | `dist/embeddings.jsonl` | 向量检索 / 语义搜索的文本块               |
 
 ---
 
@@ -48,10 +51,10 @@ story export txt
 ```bash
 # 输出到标准输出（带故事标题行 + 分隔符，管道友好）
 story export txt --stdout
-story export txt --stdout | grep -c "story-separator"  # 统计故事数
+story export txt --stdout | grep -c "^====$"  # 统计故事数
 ```
 
-> 多故事输出用 `<!-- story-separator -->` 分隔，每个故事前有标题行，便于下游脚本按故事切分。
+> 多故事输出用一行 `====` 分隔，每个故事前有标题行，便于下游脚本按故事切分。
 
 ---
 
@@ -59,7 +62,7 @@ story export txt --stdout | grep -c "story-separator"  # 统计故事数
 
 ```bash
 story epub "故事标题"     # 导出单个
-    
+
 story epub --all          # 导出全部
 
 story epub "故事标题" --split-by-volume  # 按 config.volume 分卷导出
@@ -178,6 +181,32 @@ author: "作者名"
 
 ---
 
+## 🧠 Embeddings 导出（向量检索）
+
+```bash
+story export embeddings                 # 输出到 dist/embeddings.jsonl
+story export embeddings --stdout        # 管道输出
+story export embeddings --output=dist/custom
+```
+
+将每个故事**按章节清洗为纯文本块（chunks）**，输出 JSONL 格式：
+
+```json
+{"folder":"01-故事A","title":"故事A","type":"original","chunkIndex":0,"chapter":"第一章","text":"第一章内容..."}
+{"folder":"01-故事A","title":"故事A","type":"original","chunkIndex":1,"chapter":"第二章","text":"第二章内容..."}
+```
+
+每行一个块，包含 `folder` / `title` / `type` / `chunkIndex` / `chapter` / `text`。
+
+> 💡 **设计哲学**：story-cli **只清洗、不内置向量库**——把数据洗成干净的文本块，交给用户自行对接 Chroma / LanceDB / OpenAI 等 embedding 服务。**我们负责格式化，他们负责检索。**
+
+**用途**：
+
+- 🧠 **语义检索 / RAG**：将 JSONL 灌入向量库，实现基于内容的语义搜索（而非关键词匹配）
+- 🤖 **AI 上下文**：把相关章节文本块喂给大模型做续写 / 分析，按需加载节省 Token
+
+---
+
 ## 🔗 工具链组合（与其他工具协作）
 
 story-cli 不穷举所有输出格式，而是通过 `--stdout` 与专业工具组合完成高级转换。
@@ -237,3 +266,4 @@ story export json --stdout | jq '.stories[].chapters | map(.title + ": " + (.con
 | 给 AI 续写 / 翻译   | JSON                    |
 | 搬到论坛 / 发给朋友 | 合并 Markdown           |
 | 纯文字稿            | TXT                     |
+| 语义检索 / RAG      | embeddings              |

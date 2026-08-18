@@ -1,12 +1,14 @@
 import fs from "node:fs"
 import path from "node:path"
-import { loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
-import { readStoryText, scanStoryFolders } from "../core/scanner.ts"
-import { loadStoryConfig } from "../core/story-loader.ts"
+import {
+  forEachExportStory,
+  loadExportOverrides,
+  resolveExportOptions,
+  resolveOutputDir,
+  storyFileName,
+} from "../core/exporter.ts"
 import type { StoryConfig } from "../core/types.ts"
 import { getLocale, resolveLang } from "../i18n/index.ts"
-import { sanitizeFileName } from "../utils/cli-utils.ts"
-import { formatError } from "../utils/errors.ts"
 
 /** 可序列化的元数据值 */
 type MetaValue = string | number | boolean | null
@@ -84,45 +86,20 @@ export function exportMd(rootDir: string, args: string[]): number {
     fs.mkdirSync(outputDir, { recursive: true })
   }
 
-  const folders = scanStoryFolders(rootDir)
-  let success = 0
-  let failed = 0
   const sections: string[] = []
+  const { success, failed } = forEachExportStory(rootDir, validationOverrides, locale.mdEmptyContent, (ctx) => {
+    // 合并 Markdown
+    const merged = buildMergedMarkdown(ctx.config, ctx.content)
 
-  for (const folder of folders) {
-    const folderPath = path.join(rootDir, folder)
-
-    try {
-      // 读取 + 校验故事配置
-      const { config } = loadStoryConfig(folderPath, folder, validationOverrides)
-
-      // 读取正文
-      const { content } = readStoryText(folderPath)
-      if (!content.trim()) {
-        console.warn(locale.mdEmptyContent(folder))
-        failed++
-        continue
-      }
-
-      // 合并 Markdown
-      const merged = buildMergedMarkdown(config, content)
-
-      if (toStdout) {
-        // stdout 模式：收集到数组，最后统一按分隔符拼接输出
-        sections.push(merged.trim())
-        success++
-      } else {
-        // 输出文件：以配置标题命名（安全文件名）
-        const safeTitle = sanitizeFileName(String(config.title)) || `story-${folder}`
-        const outputPath = path.join(outputDir, `${safeTitle}.md`)
-        fs.writeFileSync(outputPath, merged, "utf-8")
-        success++
-      }
-    } catch (e) {
-      console.error(formatError(e))
-      failed++
+    if (toStdout) {
+      // stdout 模式：收集到数组，最后统一按分隔符拼接输出
+      sections.push(merged.trim())
+    } else {
+      // 输出文件：以配置标题命名（安全文件名）
+      const safeTitle = storyFileName(ctx.config, ctx.folder)
+      fs.writeFileSync(path.join(outputDir, `${safeTitle}.md`), merged, "utf-8")
     }
-  }
+  })
 
   // stdout 模式：按分隔符拼接输出（管道友好）
   if (toStdout) {
@@ -133,7 +110,7 @@ export function exportMd(rootDir: string, args: string[]): number {
   const relativeOutput = path.relative(rootDir, outputDir) || "."
   console.log(locale.mdExportSuccess(success, relativeOutput))
   if (failed > 0) {
-    console.error(`  ⚠️ ${cliLang === "en" ? `${failed} stories skipped` : `${failed} 个故事已跳过`}`)
+    console.error(locale.skippedExport(failed))
   }
   return failed > 0 ? 1 : 0
 }

@@ -1,9 +1,11 @@
 import fs from "node:fs"
 import path from "node:path"
 import { parseArgs } from "../args.ts"
+import { suggestLinks } from "../core/link-suggestion.ts"
 import { loadStories } from "../core/loader.ts"
 import { EXCLUDE_DIRS } from "../core/scanner.ts"
 import type { StoryData, StorySummary } from "../core/types.ts"
+import { WatchScheduler } from "../core/watch-scheduler.ts"
 import { getLocale } from "../i18n/index.ts"
 import { generateRootReadme, generateStoryReadme } from "../render/readme.ts"
 import { detectCliLang, detectRenames } from "../utils/cli-utils.ts"
@@ -40,6 +42,12 @@ export function generateReadmes(
     const lang = story.lang
     const storyLocale = getLocale(lang)
 
+    // 关联故事（links 字段 → 标题与目录，供 README「关联故事」区块）
+    const folderTitle = new Map(stories.map((s) => [s.folder, s.config.title]))
+    const relatedStories = (config.links ?? [])
+      .filter((f) => folderTitle.has(f))
+      .map((f) => ({ folder: f, title: folderTitle.get(f) ?? f }))
+
     const renderData: Record<string, unknown> = {
       ...config,
       chapters: story.chapters,
@@ -48,6 +56,9 @@ export function generateReadmes(
       statusDisplay: story.statusDisplay,
       backToStoryList: storyLocale.backToStoryList,
       seriesLabel: storyLocale.seriesLabel,
+      relatedStoriesTitle: storyLocale.relatedStoriesTitle,
+      relatedStories,
+      hasRelatedStories: relatedStories.length > 0,
       basicInfoTitle: storyLocale.basicInfoTitle,
       typeLabel: storyLocale.typeLabel,
       wordCountLabel: storyLocale.wordCountLabel,
@@ -141,12 +152,32 @@ export async function runBuild(rootDir: string, args: string[]): Promise<number>
 
   generateReadmes(rootDir, stories, cliLang)
   console.log(`\n${locale.buildSuccess(stories.length)}`)
+
+  // 关联建议层（Story-Repo v2.0 links 半自动机制）：只提示，不写盘
+  const suggestions = suggestLinks(
+    stories.map((s) => ({
+      folder: s.folder,
+      series: s.config.series,
+      title: s.config.title,
+      summary: s.config.summary,
+      content: s.content,
+      lang: s.lang,
+    })),
+  )
+  if (suggestions.length > 0) {
+    console.log(`\n${locale.linkSuggestionTitle}`)
+    for (const sug of suggestions) {
+      console.log(locale.linkSuggestionLine(sug.source, sug.target, sug.sharedKeywords))
+    }
+    console.log(locale.linkSuggestionHint())
+  }
   return 0
 }
 
 /**
  * Watch 模式：监听仓库变更并自动重建
  * 每次 rebuild 后重新扫描故事目录，捕获新增/删除的目录
+ * 防抖 / 串行 / 排队调度由 WatchScheduler 承担（可单元测试）
  * @param rootDir 项目根目录
  * @param options watch 模式选项
  */
@@ -154,10 +185,6 @@ function runWatchMode(rootDir: string, options: { validateOnly: boolean; saveCou
   const { validateOnly, saveCounts, cliLang } = options
   const locale = getLocale(cliLang)
   console.log(`👀 ${locale.watchStart}`)
-
-  const debounceMs = 300
-  let timer: ReturnType<typeof setTimeout> | null = null
-  let rebuilding = false
 
   // 监听根目录下的直接子目录和文件（不递归，避免 node_modules 等噪音）
   const watchers: fs.FSWatcher[] = []
@@ -171,12 +198,12 @@ function runWatchMode(rootDir: string, options: { validateOnly: boolean; saveCou
       const watcher = fs.watch(dir, (_event, filename) => {
         if (!filename) return
 
-        // 忽略常见噪音
+        // 忽略常见噪音（.storyignore 是仓库级配置，其变更需要触发重建）
         const name = filename.toString()
-        if (name.startsWith(".")) return
+        if (name.startsWith(".") && name !== ".storyignore") return
         if (name === "node_modules") return
 
-        debouncedBuild(name, folderHint)
+        scheduler.request(name, folderHint)
       })
       watchers.push(watcher)
 
@@ -212,61 +239,53 @@ function runWatchMode(rootDir: string, options: { validateOnly: boolean; saveCou
     }
   }
 
-  const doBuild = async (trigger: string, folderHint?: string) => {
-    if (rebuilding) return
-    rebuilding = true
-    console.log(`\n🔨 ${locale.watchRebuild(trigger)}`)
+  const scheduler = new WatchScheduler({
+    debounceMs: 300,
+    onBuild: async (req) => {
+      console.log(`\n🔨 ${locale.watchRebuild(req.trigger)}`)
 
-    try {
-      const { stories, issues, warnings } = await loadStories(rootDir, saveCounts, cliLang, validateOnly)
+      try {
+        const { stories, issues, warnings } = await loadStories(rootDir, saveCounts, cliLang, validateOnly)
 
-      for (const w of warnings) {
-        console.log(w)
-      }
-
-      // 每次 rebuild 后重新扫描，监听新增的故事目录
-      rescanStoryDirs()
-
-      if (issues.length > 0) {
-        console.error(`\n${locale.buildFail}`)
-        for (const issue of issues) {
-          console.error(`  ❌ ${issue.message}`)
+        for (const w of warnings) {
+          console.log(w)
         }
-      } else if (!validateOnly) {
-        generateReadmes(rootDir, stories, cliLang, folderHint)
-        console.log(`${locale.watchDone(stories.length)}`)
-      } else {
-        console.log(`${locale.validateOnly(stories.length)}`)
-      }
-    } catch (e) {
-      // 捕获未处理的异常（如 I/O 错误），打印后继续监听而不是崩溃
-      console.error(formatError(e))
-      if (process.env.DEBUG && e instanceof Error && e.stack) {
-        console.error(e.stack)
-      }
-    } finally {
-      rebuilding = false
-    }
-  }
 
-  const debouncedBuild = (trigger: string, folderHint?: string) => {
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      void doBuild(trigger, folderHint)
-      timer = null
-    }, debounceMs)
-  }
+        // 每次 rebuild 后重新扫描，监听新增的故事目录
+        rescanStoryDirs()
+
+        if (issues.length > 0) {
+          console.error(`\n${locale.buildFail}`)
+          for (const issue of issues) {
+            console.error(`  ❌ ${issue.message}`)
+          }
+        } else if (!validateOnly) {
+          generateReadmes(rootDir, stories, cliLang, req.folderHint)
+          console.log(`${locale.watchDone(stories.length)}`)
+        } else {
+          console.log(`${locale.validateOnly(stories.length)}`)
+        }
+      } catch (e) {
+        // 捕获未处理的异常（如 I/O 错误），打印后继续监听而不是崩溃
+        console.error(formatError(e))
+        if (process.env.DEBUG && e instanceof Error && e.stack) {
+          console.error(e.stack)
+        }
+      }
+    },
+  })
 
   watchDir(rootDir)
 
   console.log(locale.watchHint)
 
   // 初始构建（包含首次 rescanStoryDirs）
-  void doBuild("initial")
+  scheduler.runInitial()
 
   // Ctrl+C 清理
   process.on("SIGINT", () => {
     for (const w of watchers) w.close()
+    scheduler.dispose()
     console.log(`\n👋 ${locale.watchExit}`)
     process.exit(0)
   })

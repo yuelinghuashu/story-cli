@@ -1,5 +1,7 @@
 # 📖 EPUB Export Guide
 
+> 📋 Full command list with aliases and subcommands: see [commands.en.md](commands.en.md).
+
 Convert stories to `.epub` with one command — perfect for e-readers.
 
 ---
@@ -25,6 +27,15 @@ story epub "My Story" --split-by-volume
 - When a `volume` field exists in `config.json`, the output filename becomes `My Story-<volume>.epub`
 - Without a `volume` field, behavior is identical to normal export (single volume)
 - Combine with `--all` to batch-export all stories as split volumes
+
+### Title Matching Rules
+
+The **title** in `story epub "Title"` is matched in two ways (tried by priority):
+
+1. **Exact match on the `title` field in `config.json`** — the story title you see in the README
+2. **Fallback to folder name** (substring match) — e.g. `story epub "星河入梦"` can match folder `01-星河入梦`
+
+> 💡 Normally `title` and the folder name stay in sync (both match automatically when created via `story new`). If you edit the `title` in `config.json`, either method still locates the story.
 
 Exported files go to `dist/epub/`:
 

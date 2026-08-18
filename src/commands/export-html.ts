@@ -1,12 +1,10 @@
 import fs from "node:fs"
 import path from "node:path"
-import { loadExportRepoConfig, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
-import { readStoryText, resolveWordCount, scanStoryFolders } from "../core/scanner.ts"
-import { loadStoryConfig } from "../core/story-loader.ts"
+import { forEachExportStory, loadExportRepoConfig, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
+import { resolveWordCount } from "../core/scanner.ts"
 import { formatStatus, formatType, getLocale } from "../i18n/index.ts"
 import { escapeHtml, PAGE_STYLE } from "../render/html-utils.ts"
 import { mdToHtml } from "../render/md-to-html.ts"
-import { formatError } from "../utils/errors.ts"
 
 /**
  * 导出为静态 HTML 站点
@@ -27,35 +25,18 @@ export function exportHtml(rootDir: string, args: string[]): number {
   // 创建输出目录
   fs.mkdirSync(outputDir, { recursive: true })
 
-  const folders = scanStoryFolders(rootDir)
   const storyItems: string[] = []
-  let success = 0
-  let failed = 0
+  const { success, failed } = forEachExportStory(rootDir, validationOverrides, locale.htmlEmptyContent, (ctx) => {
+    const { config, lang, content, folder } = ctx
 
-  // 生成每个故事的 HTML 页面
-  for (const folder of folders) {
-    const folderPath = path.join(rootDir, folder)
+    // 计算字数与展示文本
+    const wordCount = resolveWordCount(config, content)
+    const typeDisplay = formatType(config.type, lang, typeLabels)
+    const statusDisplay = formatStatus(config.status, lang, statusLabels)
+    const storyLocale = getLocale(lang)
 
-    try {
-      // 读取 + 校验故事配置
-      const { config, lang } = loadStoryConfig(folderPath, folder, validationOverrides)
-
-      // 读取正文
-      const { content } = readStoryText(folderPath)
-      if (!content.trim()) {
-        console.warn(locale.htmlEmptyContent(folder))
-        failed++
-        continue
-      }
-
-      // 计算字数与展示文本
-      const wordCount = resolveWordCount(config, content)
-      const typeDisplay = formatType(config.type, lang, typeLabels)
-      const statusDisplay = formatStatus(config.status, lang, statusLabels)
-      const storyLocale = getLocale(lang)
-
-      // 生成故事 HTML 页面
-      const storyHtml = `<!DOCTYPE html>
+    // 生成故事 HTML 页面
+    const storyHtml = `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
   <meta charset="UTF-8">
@@ -77,20 +58,15 @@ export function exportHtml(rootDir: string, args: string[]): number {
 </body>
 </html>`
 
-      fs.writeFileSync(path.join(outputDir, `${folder}.html`), storyHtml, "utf-8")
+    fs.writeFileSync(path.join(outputDir, `${folder}.html`), storyHtml, "utf-8")
 
-      // 收集索引项：使用本地化类型/状态显示
-      storyItems.push(
-        `<li><a href="./${encodeURIComponent(folder)}.html">${escapeHtml(config.title)}</a> — ${escapeHtml(
-          typeDisplay,
-        )} · ${escapeHtml(wordCount)} · ${escapeHtml(statusDisplay)}</li>`,
-      )
-      success++
-    } catch (e) {
-      console.error(formatError(e))
-      failed++
-    }
-  }
+    // 收集索引项：使用本地化类型/状态显示
+    storyItems.push(
+      `<li><a href="./${encodeURIComponent(folder)}.html">${escapeHtml(config.title)}</a> — ${escapeHtml(
+        typeDisplay,
+      )} · ${escapeHtml(wordCount)} · ${escapeHtml(statusDisplay)}</li>`,
+    )
+  })
 
   // 生成索引页
   const language = cliLang === "en" ? "en" : "zh"
@@ -118,7 +94,7 @@ export function exportHtml(rootDir: string, args: string[]): number {
   const relativeOutput = path.relative(rootDir, outputDir) || "."
   console.log(locale.htmlExportSuccess(success, relativeOutput))
   if (failed > 0) {
-    console.error(`  ⚠️ ${cliLang === "en" ? `${failed} stories skipped` : `${failed} 个故事已跳过`}`)
+    console.error(locale.skippedExport(failed))
   }
   return failed > 0 ? 1 : 0
 }

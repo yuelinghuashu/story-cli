@@ -42,6 +42,6 @@ demo:
 verify:
 	pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
-## 📊 写作质量分析（依赖 jq，展示章节字数/段落/对话趋势）
+## 📊 写作质量分析（依赖 jq；展示重复短语 / 章节趋势）
 analyze:
-	@node bin/index.ts stats --json | jq '.stories[] | {title, chapterCount, paragraphs, dialogues, chapters: [.chapters[].wordCount]}'
+	@node bin/index.ts stats --json | jq '{overview: {storyCount, totalWords}, stale_word_counts: [.health.items[] | select(.code == "stale-word-count") | .message], repeated_phrases: .analysis.repeated, chapter_trends: [.stories[] | {title, chapterCount, paragraphs, dialogues, chapters: [.chapters[].rawWordCount]}]}'

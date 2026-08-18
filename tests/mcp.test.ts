@@ -290,11 +290,18 @@ test("stats 返回写作统计", async () => {
     totalChapters: number
     completedCount: number
     ongoingCount: number
+    series: Array<{ name: string; count: number }>
+    health: { warnings: number; items: Array<{ code: string; message: string }> }
+    repeated: Array<{ phrase: string; count: number }>
   }
   assert.strictEqual(data.storyCount, 1)
   assert.ok(data.totalWords > 0)
   assert.ok(data.totalChapters >= 1)
   assert.strictEqual(data.ongoingCount, 1)
+  // 与 CLI stats --json 口径一致：结构化 health + 重复短语
+  assert.ok(Array.isArray(data.series), "应包含系列统计")
+  assert.ok(Array.isArray(data.health.items), "health.items 应为结构化数组")
+  assert.ok(Array.isArray(data.repeated), "应包含重复短语")
 })
 
 test("create_story 创建新故事", async () => {

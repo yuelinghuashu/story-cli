@@ -1,11 +1,18 @@
-# 📐 Story Repository Specification v1.0
+# 📐 Story Repository Specification v2.0
 
-> **Versioning Policy**: This document's version (v1.0) is independent of the CLI version.
-> Adding optional fields increments the minor version (v1.0 → v1.1);
-> breaking changes (removing/renaming fields) increment the major version (v1.x → v2.0).
+> **Independent Open Standard**: this document defines the **Story-Repo file format standard** and is **not bound to the story-cli implementation**.
+> Any tool (Obsidian plugin, VS Code extension, custom script, AI workflow) can read and write
+> conforming story repositories as long as it follows the directory structure and field semantics here.
 >
-> **Non-Goals**: This specification does not cover CLI command interfaces, UI interactions,
-> EPUB export details, or README template design.
+> 📋 CLI 命令清单见 [commands.en.md](commands.en.md)。
+>
+> **Versioning Policy**: This document's version (v2.0) is independent of the CLI version.
+> Adding optional fields increments the minor version (v2.0 → v2.1);
+> breaking changes (removing/renaming fields) increment the major version (v2.x → v3.0).
+>
+> **Non-Goals**: this specification only defines the `NN-folder` / `config.json` / `text.md` / `chapter-*.md`
+> structure and field semantics. It does **not** constrain CLI command interfaces, UI interactions,
+> EPUB export details, or README template design — those are implementation-specific behavior.
 
 ---
 
@@ -84,18 +91,25 @@ Every story directory must contain a `config.json` file.
 
 ### 2.2 Optional Fields
 
-| Field            | Type    | Description                                                                                 |
-| ---------------- | ------- | ------------------------------------------------------------------------------------------- |
-| `author`         | string  | Author name (optional for originals)                                                        |
-| `originalWork`   | string  | Original work name (required for fanfic)                                                    |
-| `originalAuthor` | string  | Original author (required for fanfic)                                                       |
-| `isMultiChapter` | boolean | Multi-chapter flag (auto-inferred, can be omitted)                                          |
-| `language`       | string  | Language (`zh` / `en`, default `zh`)                                                        |
-| `wordCount`      | string  | Word count description (formatted text, e.g. `~3K words`)                                   |
-| `cover`          | string  | Cover image path                                                                            |
-| `series`         | string  | Series name (groups stories into a series)                                                  |
-| `seriesOrder`    | number  | In-series sort key (supports integers and decimals; falls back to folder number if missing) |
-| `volume`         | string  | Volume name (display only)                                                                  |
+| Field            | Type     | Description                                                                                                  |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `author`         | string   | Author name (optional for originals)                                                                         |
+| `originalWork`   | string   | Original work name (required for fanfic)                                                                     |
+| `originalAuthor` | string   | Original author (required for fanfic)                                                                        |
+| `isMultiChapter` | boolean  | Multi-chapter flag (auto-inferred, can be omitted)                                                           |
+| `language`       | string   | Language (`zh` / `en`, default `zh`)                                                                         |
+| `wordCount`      | string   | Word count description (formatted text, e.g. `~3K words`)                                                    |
+| `cover`          | string   | Cover image path                                                                                             |
+| `series`         | string   | Series name (groups stories into a series)                                                                   |
+| `seriesOrder`    | number   | In-series sort key (supports integers and decimals; falls back to folder number if missing)                  |
+| `volume`         | string   | Volume name (display only)                                                                                   |
+| `links`          | string[] | List of related story folder names (optional weak relation, pointing to `NN-` folder names in the same repo) |
+
+> **`links` weak-relation semantics** (added in v2.0): `links` declares manual associations with other stories
+> (e.g. same series, shared characters, follow-up reading). It is a _weak relation_ — relying only on file paths
+> and metadata, **not on graph databases or vector stores**. Readers may render a "related stories" section from it;
+> writers should ensure entries are valid folder names in the same repo and deduplicate. (See implementations,
+> e.g. story-cli's `story link` command and the `build` suggestion layer.)
 
 ### 2.3 Validation Rules
 
@@ -263,7 +277,28 @@ Story bodies use Markdown format, processed by the built-in renderer (`md-to-htm
 
 ---
 
-## 6. Sponsor Directory
+## 6. Encoding Conventions
+
+All files must use **UTF-8 encoding**:
+
+| File                | Encoding           | Notes                       |
+| ------------------- | ------------------ | --------------------------- |
+| `config.json`       | UTF-8 required     | JSON standard requirement   |
+| `story.config.json` | UTF-8 required     | JSON standard requirement   |
+| `text.md`           | UTF-8 required     | avoids garbled CJK text     |
+| `chapter-*.md`      | UTF-8 required     | same as above               |
+| `.storyignore`      | UTF-8 recommended  | must match if it contains CJK dir names |
+
+> story-cli uses Node's built-in `TextDecoder(fatal: true)` to detect invalid UTF-8 sequences,
+> and `gb18030` reverse-detection to identify GBK/GB2312 files. It prints a warning when an
+> encoding issue is detected, **without blocking the build**.
+>
+> Third-party implementations conforming to this spec should decode all files as UTF-8,
+> and give a clear error when a file cannot be decoded.
+
+---
+
+## 7. Sponsor Directory
 
 Images in `assets/sponsor/` (`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp`) are used to generate the sponsor block:
 
@@ -272,15 +307,15 @@ Images in `assets/sponsor/` (`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bm
 
 ---
 
-## 7. Versioning and Compatibility
+## 8. Versioning and Compatibility
 
-### 7.1 Version Evolution
+### 8.1 Version Evolution
 
 - This document's version number is **independent of** the CLI package version
 - Adding optional fields → minor version increment (e.g. v1.0 → v1.1)
 - Breaking changes (removing/renaming fields) → major version increment (e.g. v1.x → v2.0)
 
-### 7.2 Backward Compatibility
+### 8.2 Backward Compatibility
 
 - New optional fields should not break older readers
 - Readers should **ignore** unknown fields

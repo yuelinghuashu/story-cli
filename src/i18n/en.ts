@@ -34,6 +34,7 @@ export const en: Locale = {
   // Story README
   backToStoryList: "← Back to Story List",
   seriesLabel: "Series",
+  relatedStoriesTitle: "🔗 Related Stories",
   basicInfoTitle: "📝 Basic Info",
   typeLabel: "Type",
   wordCountLabel: "Word Count",
@@ -92,6 +93,29 @@ export const en: Locale = {
   mergedWarning: (folder) => `⚠️ ${folder}: text.md not found, merged from chapter-*.md`,
   storyReadmeDone: (folder) => `  ✅ ${folder}/README.md`,
   noSummary: "No summary",
+  skippedExport: (n) => `  ⚠️ ${n} stories skipped`,
+
+  // story new command
+  newMissingTitle: `Please specify a story title!
+  Usage: story new "Title" [--type=original|fanfic] [--author="Work"] [--creator="Author"] [--lang=zh|en]
+
+  Examples:
+    story new "My First Story"
+    story new "Fan Work" --type=fanfic --author="Original Work" --creator="Author" --lang=en`,
+  newTypeInvalid: (choices, got) => `--type must be ${choices.map((v) => `"${v}"`).join(" or ")}, got "${got}"`,
+  newFanficRequiresAuthor: `Fan fiction requires --author="Original Work Name"`,
+  newFanficRequiresCreator: `Fan fiction requires --creator="Original Author"`,
+  newFolderExists: (folder) => `Folder already exists: ${folder}`,
+  newConfigInvalid: (issues) => `Config validation failed: ${issues}`,
+  newCreated: (folderName, type) => `✅ Created story: ${folderName}/
+   ├── config.json (type: ${type})
+   └── text.md`,
+  newNextSteps: (folderName) => `
+Next steps:
+  1. Edit ${folderName}/config.json
+  2. Write in ${folderName}/text.md
+  3. Run: story build
+`,
 
   // Watch mode
   watchStart: "Watch mode started. Auto-rebuilding on file changes...",
@@ -117,6 +141,10 @@ export const en: Locale = {
   epubCoverMissing: (p) => `⚠️ Cover image not found: ${p}`,
   epubSvgUnsafe: (p) => `⚠️ Cover SVG contains dangerous content (scripts/event handlers), skipped: ${p}`,
   epubCoverReadFailed: (p, msg) => `⚠️ Failed to read cover image: ${p} - ${msg}`,
+  epubLicenseOriginal:
+    "This work is licensed under CC BY-NC-SA 4.0. You are free to share, non-commercially; derivatives must use the same license.",
+  epubLicenseFanfic: (work, author) =>
+    `This is a fan work based on ${work} (by ${author}). Original characters and world rights belong to the original creators. Commercial use is strictly prohibited.`,
 
   // HTML export
   htmlExporting: "🌐 Exporting HTML site...",
@@ -139,6 +167,11 @@ export const en: Locale = {
   mdExporting: "📄 Exporting merged Markdown...",
   mdExportSuccess: (count, output) => `✅ Markdown export complete: ${count} stories → ${output}/`,
   mdEmptyContent: (folder) => `⚠️ ${folder}: empty content, skipped`,
+
+  // Embeddings export
+  embeddingsExporting: "🧠 Exporting text chunks (embeddings)...",
+  embeddingsExportSuccess: (chunks, output) => `✅ Embeddings export complete: ${chunks} chunks → ${output}`,
+  embeddingsEmptyContent: (folder) => `⚠️ ${folder}: empty content, skipped`,
 
   // Demo mode
   demoGenerating: "🎬 Generating demo story repository...",
@@ -163,7 +196,6 @@ export const en: Locale = {
   statsHealthTitle: (count) => `⚠️ Health check: ${count} warnings`,
   statsStaleWordCount: (folder, config, actual) =>
     `    [Stale word count] ${folder}: config=${config}, actual=${actual}`,
-  statsMissingSummary: (folder) => `    [Missing summary] ${folder}`,
   statsHealthy: "✅ Health check: all good",
   statsThisMonth: "this month",
   statsLastMonth: "last month",
@@ -183,8 +215,41 @@ story import json --file=stories.json --output=my-stories/  # Specify output dir
   importJsonDone: (success, failed) => `📥 Import complete: ${success} success, ${failed} failed`,
   importJsonOutputDir: (dir) => `Output directory: ${dir}`,
   importJsonNextStep: "Run `story build` to generate READMEs",
+  importJsonValidationFailed: (title, issues) => `  ⚠️ ${title}: ${issues}`,
+  importJsonTitleExists: (title) => `  ⚠️ ${title}: a story with the same title already exists, skipped`,
+  importJsonDirExists: (folder) => `  ⚠️ ${folder}: directory already exists, skipped`,
 
   // Encoding detection
   encodingGbkWarning: (filePath) => `⚠️ ${filePath} may use GBK/GB2312 encoding. Please re-save it as UTF-8 and re-run.`,
   encodingUnknownWarning: (filePath) => `⚠️ ${filePath} is not valid UTF-8. Please convert it to UTF-8 and re-run.`,
+
+  // Compliance check (story validate)
+  complianceTitle: "📐 Checking repository compliance...",
+  compliancePass: (count) => `✅ Compliance check passed: ${count} stories conform to the Story-Repo spec`,
+  complianceFail: (errorCount, warningCount) =>
+    `❌ Compliance check failed: ${errorCount} errors, ${warningCount} warnings`,
+  complianceInvalidFolderName: (folder) => `Folder name does not match "NN-name" (at least 2 digits): ${folder}`,
+  complianceDuplicateNumber: (num, existing, folder) => `Duplicate number "${num}": ${existing} and ${folder}`,
+  complianceMissingConfig: (folder) => `${folder}: missing config.json`,
+  complianceInvalidConfig: (folder) => `${folder}: config.json is invalid (unparseable or fails schema)`,
+  complianceMissingContent: (folder) => `${folder}: missing content (need text.md or chapter-*.md)`,
+  complianceEncoding: (folder, file) => `${folder}/${file} is possibly not UTF-8 encoded`,
+
+  // story link
+  linkUsage: `Usage: story link <sourceFolder> <targetFolder>  |  story link --remove=<target> <source>  |  story link --list [source]`,
+  linkNotFound: (folder) => `Story folder not found: ${folder}`,
+  linkMissingConfig: (folder) => `${folder}: missing config.json`,
+  linkParseError: (folder) => `${folder}: failed to parse config.json`,
+  linkList: (source, links) => `${source}: ${links}`,
+  linkNone: "no links",
+  linkNotPresent: (source, target) => `${source} is not linked to ${target}`,
+  linkRemoved: (source, target) => `Removed ${source} → ${target}`,
+  linkSelf: (source) => `Cannot link ${source} to itself`,
+  linkAlreadyPresent: (source, target) => `${source} already linked to ${target} (idempotent)`,
+  linkAdded: (source, target) => `Added ${source} → ${target}`,
+
+  // build link suggestions
+  linkSuggestionTitle: "🔗 Possible related stories detected (not auto-written; confirm manually):",
+  linkSuggestionLine: (source, target, shared) => `  - ${source} ↔ ${target} (${shared} shared keywords)`,
+  linkSuggestionHint: () => `    To confirm, run: story link "<source>" "<target>"`,
 }

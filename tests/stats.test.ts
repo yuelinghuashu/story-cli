@@ -5,6 +5,7 @@ import os from "node:os"
 import path from "node:path"
 import { after, test } from "node:test"
 import { fileURLToPath } from "node:url"
+import { avgChapterLength, chapterLengthStdDev, dialogueRatio } from "../src/commands/stats.ts"
 
 const binPath = fileURLToPath(new URL("../bin/index.ts", import.meta.url))
 
@@ -115,6 +116,67 @@ test("story stats --json 输出结构化数据", () => {
   assert.ok(Array.isArray(data.stories[0].chapters), "应包含章节明细")
   assert.ok(typeof data.stories[0].paragraphs === "number", "应包含段落数")
   assert.ok(typeof data.stories[0].dialogues === "number", "应包含对话数")
+  // 章节应包含原始字数（数值分析原料）
+  assert.ok(typeof data.stories[0].chapters[0].rawWordCount === "number", "章节应包含 rawWordCount")
+  assert.ok(data.stories[0].chapters[0].rawWordCount > 0)
+  // 创作健康看板派生指标（供 AI 审视创作节奏/结构）
+  assert.ok(typeof data.stories[0].avgChapterLen === "number", "应包含平均章节字数")
+  assert.ok(data.stories[0].avgChapterLen >= 0, "平均章节字数应为非负")
+  assert.ok(typeof data.stories[0].chapterLenStdDev === "number", "应包含章节字数标准差")
+  assert.ok(data.stories[0].chapterLenStdDev >= 0, "章节字数标准差应为非负")
+  assert.ok(typeof data.stories[0].dialogueRatio === "number", "应包含对话占比")
+  assert.ok(data.stories[0].dialogueRatio >= 0 && data.stories[0].dialogueRatio <= 1, "对话占比应在 0~1")
+  // 分析原料：重复短语
+  assert.ok(Array.isArray(data.analysis.repeated), "应包含 analysis.repeated")
+})
+
+test("story stats --json 输出重复短语", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stats-"))
+  // 重复短语：星光闪烁 出现多次
+  createStory(dir, "01-重复", createStoryConfig("重复"), `# 第一章\n\n星光闪烁，星光闪烁，星光闪烁。`)
+
+  const stdout = runCli(["stats", "--json"], dir)
+  const data = JSON.parse(stdout)
+
+  const repeated = data.analysis.repeated
+  assert.ok(
+    repeated.some((p: { phrase: string }) => p.phrase === "星光"),
+    "重复短语应包含 星光",
+  )
+})
+
+test("story stats --json health 项为结构化对象（code + folder + message）", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stats-"))
+  // 字数过期（config 声称约 1 千字，实际远超 2500 字 → 触发 stale-word-count 健康项）
+  const storyDir = path.join(dir, "01-字数过期")
+  fs.mkdirSync(storyDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(storyDir, "config.json"),
+    JSON.stringify({
+      title: "字数过期",
+      type: "original",
+      status: "completed",
+      summary: "测试字数过期。",
+      created: "2026-08-01",
+      wordCount: "约 1 千字",
+      language: "zh",
+    }),
+    "utf-8",
+  )
+  fs.writeFileSync(
+    path.join(storyDir, "text.md"),
+    `# 第一章\n\n${"写作内容写作内容写作内容写作内容写作内容写作内容写作内容写作内容写作内容写作内容".repeat(300)}`,
+    "utf-8",
+  )
+
+  const stdout = runCli(["stats", "--json"], dir)
+  const data = JSON.parse(stdout)
+  assert.ok(data.health.warnings >= 1, "字数过期应有健康警告")
+  const stale = data.health.items.find((item: { code: string }) => item.code === "stale-word-count")
+  assert.ok(stale, "应包含 stale-word-count 项")
+  assert.strictEqual(stale.folder, "01-字数过期")
+  assert.strictEqual(typeof stale.message, "string", "message 字段应保留（人类可读）")
+  assert.ok(stale.message.length > 0)
 })
 
 test("story stats 忽略无效配置的故事但不崩溃", () => {
@@ -199,4 +261,47 @@ test("story stats 是 Git 仓库但最近无提交时正确识别", () => {
   // 应显示「写作活跃度」而非「非 Git 仓库」
   assert.ok(stdout.includes("写作活跃度") || stdout.includes("Writing activity"), "应正确识别为 Git 仓库")
   assert.ok(!stdout.includes("非 Git 仓库"), "不应误报非 Git 仓库")
+})
+
+// ─── 创作健康看板派生指标单元测试 ─────────────────────────
+
+test("avgChapterLength 计算平均章节字数", () => {
+  assert.strictEqual(avgChapterLength([100, 200, 300]), 200)
+  assert.strictEqual(avgChapterLength([1000]), 1000)
+  assert.strictEqual(avgChapterLength([]), 0, "空数组返回 0")
+})
+
+test("chapterLengthStdDev 计算章节字数标准差", () => {
+  // [100,100] → 均 100，标准差 0
+  assert.strictEqual(chapterLengthStdDev([100, 100]), 0)
+  // [100, 300] → 均 200，方差 10000，标准差 100
+  assert.strictEqual(chapterLengthStdDev([100, 300]), 100)
+  // 少于 2 章 → 0（无意义）
+  assert.strictEqual(chapterLengthStdDev([100]), 0)
+  assert.strictEqual(chapterLengthStdDev([]), 0)
+  // 均衡与不均衡的区分
+  assert.strictEqual(chapterLengthStdDev([100, 100, 100]), 0)
+  assert.ok(chapterLengthStdDev([50, 150, 400]) > chapterLengthStdDev([100, 100, 150]))
+})
+
+test("dialogueRatio 计算对话字数占比（中文）", () => {
+  // 全部是对话 → 占比 ~1（“...” 内字数/总字数，含引号字符，接近但略小于 1）
+  const allDialogue = "“你好吗？”“我很好。”"
+  const r = dialogueRatio(allDialogue, "zh")
+  assert.ok(r > 0 && r <= 1, "全对话占比应在 (0,1]")
+  // 无对话 → 0
+  assert.strictEqual(dialogueRatio("这是纯叙述文字，没有引号对话。", "zh"), 0)
+  // 空内容 → 0
+  assert.strictEqual(dialogueRatio("", "zh"), 0)
+  // 有对话有叙述 → 介于 0 和 1 之间
+  const mixed = "他走进房间。“你来了？”她说。房间里很安静。"
+  const rm = dialogueRatio(mixed, "zh")
+  assert.ok(rm > 0 && rm < 1, "混合内容对话占比应介于 0~1")
+})
+
+test("dialogueRatio 计算对话字数占比（英文）", () => {
+  const enDialogue = '"Hello there," she said quietly.'
+  const r = dialogueRatio(enDialogue, "en")
+  assert.ok(r > 0 && r <= 1, "英文对话占比应在 (0,1]")
+  assert.strictEqual(dialogueRatio("pure narration no quotes", "en"), 0)
 })
