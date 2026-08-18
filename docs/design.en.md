@@ -37,7 +37,7 @@ No database. No cloud sync. No proprietary format. **Your stories are always pla
 
 Edge cases are covered by **boundary tests** (see `tests/md-to-html.test.ts`) rather than adopting dependencies.
 
-**Known limitation: repeated phrase detection**. `analysis.repeated` in `stats --json` uses character-level n-grams (bigram), not tokenization. This means multi-character Chinese proper nouns (e.g. the 4-character name 乔尔乔斯) get split into overlapping bigram fragments ("乔尔" "尔乔" "乔斯"), each counted separately. This is a **deliberate trade-off** — n-grams are deterministic statistics (no tokenizer dependency) and sufficient as a "writing repetition reminder"; accurate Chinese tokenization (jieba etc.) requires intentionally adopting a third-party dependency (see ROADMAP P1).
+**Known limitation: repeated phrase detection**. `analysis.repeated` in `stats --json` uses character-level n-grams (bigram), not tokenization. This means multi-character Chinese proper nouns (e.g. the 4-character name 乔尔乔斯) get split into overlapping bigram fragments ("乔尔" "尔乔" "乔斯"), each counted separately. This is a **deliberate trade-off** — n-grams are deterministic statistics (no tokenizer dependency) and sufficient as a "writing repetition reminder"; accurate Chinese tokenization (jieba etc.) requires intentionally adopting a third-party dependency (see ROADMAP.en.md「Optional Dependency Strategy」).
 
 ---
 

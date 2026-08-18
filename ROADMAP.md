@@ -1,6 +1,6 @@
-# 🗺️ story-cli 进化路线图：从「故事引擎」到「通用内容中台」
+# 🗺️ story-cli 路线图
 
-> **核心理念升级**：story-cli 不止是小说管理工具，更是一个**零依赖、Git 原生、AI 友好的通用结构化内容治理引擎**。它管理的不只是故事，而是任何可以被“规范化”的文字资产——论文、访谈、周报、技术教程、个人复盘。
+> **核心理念**：story-cli 不止是小说管理工具，更是一个**零依赖、Git 原生、AI 友好的通用结构化内容治理引擎**。它管理的不只是故事，而是任何可以被“规范化”的文字资产——论文、访谈、周报、技术教程、个人复盘。
 
 ---
 
@@ -19,22 +19,19 @@
 
 **结论**：我们不是他们的竞品，而是**上下游关系**。我们不做“大而全的检索”，我们做“把脏乱差的信息洗成高规格标准件”的脏活累活。
 
----
+### 核心设计原则（源码注释引用锚点）
 
-## 二、总体规划矩阵（优化版）
+以下原则贯穿所有实现，也是 `src/` 中各模块注释引用 ROADMAP 的原文出处：
 
-| 方向                            | 优先级 | 预计周期 | 核心目的                                         | 改动范围                                | 状态      |
-| :------------------------------ | :----- | :------- | :----------------------------------------------- | :-------------------------------------- | :-------- |
-| **MCP Server**                  | **P0** | 1-2 月   | AI 时代的战略入口，让大模型通过标准协议自由读写  | 新增子命令（复用核心模块）              | ✅ 已完成 |
-| **通用内容中台**                | **P0** | 1-2 月   | 打破“故事”场景限制，扩展至论文/笔记/访谈等全品类 | 配置模板 + 文档重定位                   | ✅ 已完成 |
-| **分析工具链**                  | **P1** | 短期     | 提供写作/内容质量分析数据（Makefile 组合封装）   | 新增 stats 输出维度 + Makefile          | ✅ 已完成 |
-| **GitHub Action**               | **P1** | 短期     | 一键实现“Push → Build → 发布”的自动化 CI         | 独立 Composite Action                   | ✅ 已完成 |
-| **规范标准化**                  | **P2** | 3-6 月   | 建立开放生态，吸引第三方工具接入                 | 规范独立成文 + `validate` 命令          | ✅ 已完成 |
-| **扩展能力（links/embedding）** | **P2** | 中期     | 补齐“知识互链”与“AI 语义接入”短板                | 新增 `links` 字段 + `export embeddings` | ✅ 已完成 |
+- **「AI 只负责思考，CLI 负责治理」**——AI 以最低成本获取思考所需的上下文，治理动作由 CLI 以可校验、可回滚的方式执行（`src/commands/mcp.ts` / `src/mcp/protocol.ts`）
+- **「CLI 做原子能力，MCP 做适配层」**——CLI 提供确定性命令，MCP 只做协议适配，不重复实现领域逻辑（`src/mcp/tools.ts`）
+- **「我们负责格式化，他们负责检索」**——不内置向量库，把数据“洗得干干净净”交给外部检索服务（`src/commands/export-embeddings.ts`）
+- **「确认落盘」**——build 只给关联建议（零写入），`story link` 确认后才写库，保持 Git 树干净（`src/commands/link.ts`）
+- **「复杂中文 NLP 以可选依赖外挂」**——核心保持零依赖，jieba 等精确分词按需引入（`src/utils/phrase-frequency.ts`，见下文「可选依赖策略」）
 
 ---
 
-## 二点五、🧩 工具链组合（贯穿所有优先级）
+## 二、🧩 工具链组合（贯穿所有开发）
 
 ### 核心原则
 
@@ -48,16 +45,6 @@ story-cli 不穷举所有输出格式，而是通过 `--stdout` + 增强的 `--j
 | **零维护负担**     | ✅ 不需要为每个新格式写解析器、处理边界、修 bug  |
 | **释放生态潜力**   | ✅ 用户不被 CLI 命令集限制，自由组合             |
 | **与 MCP 互补**    | ✅ MCP 做 AI 实时读写，`--stdout` 做离线数据处理 |
-
-### 具体任务矩阵
-
-| 任务                                              | 优先级 | 改动量   | 状态      |
-| :------------------------------------------------ | :----- | :------- | :-------- |
-| `export md --stdout`                              | P0     | ~20 行   | ✅ 已完成 |
-| `export txt --stdout`                             | P0     | ~15 行   | ✅ 已完成 |
-| `stats --json` 增强维度（章节字数/段落数/对话数） | P1     | ~30 行   | ✅ 已完成 |
-| Makefile 模板加入工具组合参考                     | P1     | 模板更新 | ✅ 已完成 |
-| `docs/export.md` 新增「工具链组合」章节           | P2     | 文档更新 | ✅ 已完成 |
 
 ### `--stdout` 支持范围
 
@@ -79,108 +66,57 @@ story-cli 不穷举所有输出格式，而是通过 `--stdout` + 增强的 `--j
 
 ---
 
-## 三、P0 级任务详解（战略地基）
+## 三、✅ 已完成里程碑（第一阶段：2026-08 产品奠基）
 
-### 1. 🧠 MCP Server（AI 时代的读写分离架构）— ✅ 已实现（2026-08-16）
+> 详细交付历史见 [CHANGELOG.md](CHANGELOG.md) 与各 `docs/` 文档；本表只保留方向级结论。
 
-这是承接“AI 工作流”最关键的一步。核心设计遵循 **“AI 只负责思考，CLI 负责以最低成本提供思考所需的上下文”** 的原则——每个工具都以 Token 级优化为核心设计目标。
+| 方向                            | 核心交付物                                                                  | 完成时间   |
+| :------------------------------ | :-------------------------------------------------------------------------- | :--------- |
+| **MCP Server**                  | `story mcp-server` + 9 个工具（Token 优化 / `edit_config` 治理 / `--root`） | 2026-08-16 |
+| **通用内容中台**                | `story init` 三模板（story / knowledge / tech）                             | 2026-08-16 |
+| **GitHub Action**               | 零配置 Composite Action（Push → Build → 发布）                              | 2026-08-16 |
+| **分析工具链**                  | `stats --json` 增强 + `make analyze`（章节趋势/健康度/重复短语）            | 2026-08-17 |
+| **规范标准化**                  | Story-Repo 规范 v2.0 + `story validate` 合规检查器                          | 2026-08-17 |
+| **扩展能力（links/embedding）** | `links` 弱关联（建议/落盘/README 区块）+ `export embeddings` JSONL          | 2026-08-17 |
+| **构建规模化**                  | 增量构建缓存（`.story-cache.json`，22×）+ `suggestLinks` 去 O(n²)           | 2026-08-19 |
+| **EPUB 产品化**                 | 封面渲染 / 内置样式（`--css`）/ NCX 兼容目录 / 系列元数据 / `--output`      | 2026-08-19 |
+| **工具链组合（--stdout）**      | `export md/txt/json --stdout` + Makefile 工具组合参考                       | 2026-08-16 |
 
-- **架构设计**：新增 `story mcp-server` 子命令，不增加新依赖，只做适配层（`src/mcp/`：protocol.ts / tools.ts / server.ts）。
-- **暴露的工具矩阵**（实际实现）：
+### 可选依赖策略（Optional Dependency Strategy，设计决策存档）
 
-| MCP 工具        | 功能                                                 | 对应 CLI / 模块         | 解决痛点                               |
-| :-------------- | :--------------------------------------------------- | :---------------------- | :------------------------------------- |
-| `scan_stories`  | 列出所有内容条目 + 元数据（`verbose` 精简输出）      | `core/loader.ts`        | AI 浏览目录（**精简模式节省 Token**）  |
-| `read_chapter`  | 读取指定条目正文（按需加载 + `tailLength` 末尾截断） | `readStoryTextAsync`    | **大幅节省 Token**（只读尾部衔接内容） |
-| `write_chapter` | 写入/编辑章节（原子写入）                            | fs 原子 rename          | AI 直接落盘                            |
-| `create_story`  | 创建新故事（文件夹 + config.json + text.md）         | `import-json`           | AI 一步创建新条目                      |
-| `stats`         | 写作统计（总字数/章节数/系列/健康度）                | `stats --json`          | AI 实时掌握入库进度与质量              |
-| `import_json`   | 从结构化 JSON 批量入库                               | `import json`           | 浏览器/爬虫抓取后直接灌入              |
-| `validate`      | 校验 config.json 合法性                              | `build --validate-only` | 确保 AI 输出格式正确                   |
-| `build`         | **真正执行** README / 站点重建                       | `story build`           | 一键发布更新（无需用户手动执行）       |
-
-> 📄 使用文档见 [docs/mcp.md](docs/mcp.md)（中文）/[docs/mcp.en.md](docs/mcp.en.md)（英文）
-
-- **风险应对——写入冲突**：
-  - **原则**：MCP 工具不做内存锁，直接依赖**文件系统的原子写入**。
-  - **提示**：在 AI 写入后，主动提示用户“请运行 `story build` 查看最新效果”，把版本控制交给 Git。
-
-- **同日增强记录（2026-08-16）**：
-  - `build` 从「提示运行」升级为**真正执行** README 重建（等效 `story build`，返回结构化构建结果，不污染 stdio）
-  - 新增 `stats`（写作统计：总字数/章节数/系列分组/健康度）与 `create_story`（创建新故事：文件夹 + config.json + text.md 草稿）
-  - `scan_stories` 新增 `verbose` 参数（默认精简输出节省 Token，`verbose=true` 获取完整元数据）
-  - `read_chapter` 新增 `tailLength` 参数（只返回章节末尾 N 字符，用于续写衔接，大幅节省 Token）
-  - 修复 `build --watch` 被 `process.exit()` 杀死的问题（提炼 `isLongRunning` 抽象，覆盖 MCP Server + watch 模式的通用豁免逻辑）
-
-### 2. 📦 通用内容中台（打破“故事”的边界）— ✅ 已实现（2026-08-16）
-
-我们要在**不修改一行核心代码**的前提下，让工具支持万物。
-
-- **实现方案**：
-  - 提供多套 `story.config.json` **预设模板**：
-    - `story init --template=story`（默认，小说模式）
-    - `story init --template=knowledge`（知识库模式，types: `paper`, `interview`, `blog`）
-    - `story init --template=tech`（技术文档模式，types: `tutorial`, `api-doc`, `changelog`）
-  - 在 `README.md` 中新增 **“不止于故事”** 章节，列举实战场景（如“用 story-cli 管理面试复盘”、“用 story-cli 做个人研究论文库”）。
-- **扩展 `config.json` 的语义**：
-  - `series` → 自动映射为“**知识专题**”或“**话题标签**”。
-  - `seriesOrder` → 映射为“**阅读顺序**”或“**逻辑优先级**”。
-  - `volume` → 映射为“**子章节**”或“**版本号**”。
+- **复杂中文 NLP（如 jieba 分词）以“可选依赖”形式外挂，不强制安装**——`stats` 的重复短语检测使用零依赖 n-gram（确定性统计，足以充当“写作重复提醒”），精确分词的取舍详见 [docs/design.md](docs/design.md#已知边界：重复短语检测)（本策略是 `docs/design.md`「见 ROADMAP」的引用落点）。
 
 ---
 
-## 四、P1 级任务详解（生态与体验）
+## 四、🔜 下一阶段规划
 
-### 3. 📊 写作质量分析（复合封装）— ✅ 已完成（2026-08-17）
+> 第一阶段功能已全部落地。当前真实状态：项目 5 天龄、社区为零（0 star / 0 issue）、EPUB 与 MCP 治理刚完成——下一阶段的重心从「造功能」转向「找用户、守质量、深生态」。
 
-坚持 **“make 为叠加优化”** 的 Unix 哲学，不把复杂的分析逻辑写进 CLI 核心。
+### P0 生态验证：建立用户反馈循环
 
-- **CLI 提供原料** ✅ 已完成：`story stats --json` 输出已加入“章节字数数组（含 raw 数值）”、“段落数”、“对话数”、“全局重复短语（analysis.repeated）”等原始数据；统计口径与 MCP `stats` 工具完全一致（共享 `computeStoryStats`）。
-- **Makefile 组合分析** ✅ 已完成：`make analyze` 输出章节字数趋势 / 字数过期警告（stale-word-count）/ 重复短语 top 列表（需 jq）。
-- **重复词检测** ✅ 已实现：零依赖轻量词频（中文字符 bigram / 英文单词），内置停用词过滤。
-- _注：复杂的中文 NLP（如 jieba 分词）以“可选依赖”形式外挂，不强制安装。_
+- **目的**：0 社区状态下所有功能决策都是“闭门造车”，需要真实用户与真实长篇工作流来验证与纠偏
+- **交付物**：
+  - `story demo` 完善（一键生成带封面/系列/多章节的示例仓库，直观展示能力）
+  - 快速上手文档（README 精简 + docs 快速开始示例）
+  - GitHub Issue 模板 + `CONTRIBUTING.md` / `CONTRIBUTING.en.md` 贡献指南
+- **验收标准**：外部用户（非作者本人）能按文档在 10 分钟内跑通「init → new → 写作 → build → epub → MCP 对话」全流程，并提交第一个真实 issue
 
-### 4. 🤖 GitHub Action 化（零配置自动化）— ✅ 已实现（2026-08-16）
+### P1 产品深化
 
-- **产出**：发布一个 **Composite Action**。
-- **用户侧用法**：在 `.github/workflows/build.yml` 中写入：
+- **EPUB 主题切换**：`--css` 已支持单文件替换，补内置多主题（`--theme=paper|sepia` 等），降低非技术用户定制门槛
+- **MCP 治理补齐**：`edit_config` 已落地元数据治理；`delete_story` / `rename_story` 作为**独立议题**给出设计（Git-native 语义：是否依赖 `git mv` / 归档而非物理删除），由社区反馈决定优先级
+- **验收标准**：EPUB 主题参数有测试覆盖；MCP 破坏性操作有明确的决策记录（做/不做/怎么做）
 
-  ```yaml
-  - uses: yuelinghuashu/story-cli@v1
-    with:
-      command: "build epub" # 自动执行 build 并导出 epub
-  ```
+### P1 工程化：守住已兑现的质量
 
-- **效果**：每次 `git push` 自动构建 README、导出 EPUB，并发布到 GitHub Release。彻底实现“写作者不懂 CI 也能用上自动化”。
+- **性能回归门槛**：增量缓存已带来 22× 收益，需防退化——`bench` 接入 CI，冷/热构建耗时超阈值即失败
+- **文档同步脚本**：`docs/commands.md` 与命令注册表存在漂移风险，加 `scripts/sync-docs.ts` 或 CI 校验
+- **覆盖率门槛**：`test:coverage` 已有，加最低覆盖率红线
+- **验收标准**：CI 流水线包含 bench 回归检查；命令文档由注册表派生（或 CI 校验一致）
 
----
+### P2 社区化：从「自用工具」走向「开放项目」
 
-## 五、P2 级任务详解（长期护城河与短板补齐）
-
-### 5. 📖 规范标准化（构建开放生态）— ✅ 已完成（2026-08-17）
-
-- **Story-Repo 标准 v2.0**：`docs/specification.md` / `.en.md` 升级为独立开放标准，明确声明「本规范不绑定 story-cli 实现」，非目标限定为目录结构与字段语义（不约束 CLI/UI/模板）。
-- **合规检查器**：`story validate` 独立命令（目录命名 / 必需文件 / 编码 / schema），支持 `--json` 结构化输出；MCP `validate` 工具复用同一 `checkRepoCompliance`。
-- **`links` 字段**：写入 v2.0 规范（可选弱关联，指向同仓库 `NN-` 目录，含去重语义）。
-- **目标**：吸引 Obsidian 插件、VS Code 扩展等第三方工具接入该标准，使文件格式成为 API。
-
-### 6. 🔗 补齐竞品优势（互链与语义接入）— ✅ 已完成（2026-08-17）
-
-针对 TypeMD/Kami 的“双向链接”和“语义检索”优势，我们采用符合自身哲学的轻量级反制方案：
-
-- **`links` 字段**：`config.json` 可选数组 `links: ["folder-name"]`，手动维护（零依赖）——已实现。
-  - **半自动建议机制**：`build` 时自动检测「同 `series` + 共享关键词」的内容生成候选关联，不以磁盘形式写入（避免 dirty tree），而是作为建议输出在 build report 中——已实现（`suggestLinks`，零写入实测断言）。
-  - **确认落盘**：`story link` 命令，将从候选关联中确认的 `links` 写入 `config.json`（写库才落盘，AI/手动都可触发）——已实现。
-  - **设计原理**：`links` 是「弱关联」，不依赖图数据库/向量库，只依赖文件路径与元数据；建议层完全零写入，符合 Git 原生哲学。
-- **`export embeddings` 命令**：提供一个纯导出命令，将 `config.json` + `text.md` 清洗为**纯文本块（Chunks）**，输出为 JSONL 格式——已实现。
-  - **目的**：我们不内置向量库（保持零依赖），但把数据“洗得干干净净”递给用户，让用户自己去接 Chroma / LanceDB。**我们负责格式化，他们负责检索。**
-
----
-
-## 六、执行时间线与里程碑
-
-| 阶段        | 时间      | 核心交付物                       | 验收标准                                                                  | 状态                                                          |
-| :---------- | :-------- | :------------------------------- | :------------------------------------------------------------------------ | :------------------------------------------------------------ |
-| **Phase 0** | 第 1 月   | MCP Server MVP + 通用模板发布    | AI（Claude/DeepSeek）能通过 MCP 读写 story 仓库；`init` 支持 3 种预设模板 | ✅ MCP 增强完成 + 通用模板完成（story/knowledge/tech 三模板） |
-| **Phase 1** | 第 2 月   | GitHub Action + 增强 stats       | `make analyze` 输出重复词报告；Push 后自动构建 Release                    | ✅ stats + analyze 完成 / Action ✅                           |
-| **Phase 2** | 第 3-6 月 | 规范独立化 + `export embeddings` | 第三方开发者能根据规范写出兼容的导入脚本；`links` 字段正式启用            | ✅ 规范 v2.0 + validate + links + embeddings 完成             |
+- **GitHub Action 正式发布**：Composite Action 打 v1 tag，接入 Marketplace
+- **Release 流程自动化**：版本号 / CHANGELOG / npm 发布 / GitHub Release 一键化
+- **Story-Repo 生态接入**：规范 v2.0 已独立成文，吸引 Obsidian 插件、VS Code 扩展等第三方工具接入，使文件格式成为 API
+- **验收标准**：`story-cli@v1` 可在第三方仓库 workflow 中直接使用；至少一个第三方工具声明兼容 Story-Repo 规范

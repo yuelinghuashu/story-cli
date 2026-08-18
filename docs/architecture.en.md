@@ -38,7 +38,8 @@ src/
 │   ├── schema.ts        # Declarative validation rules (required / enum / format)
 │   ├── validate.ts      # Generic validation engine based on schema (supports repo-level overrides)
 │   ├── config.ts        # Repo-level config (story.config.json custom enums + localized labels)
-│   ├── loader.ts        # Story loader (loadStories, shared by build & MCP)
+│   ├── loader.ts        # Story loader (loadStories, shared by build & MCP; useCache incremental loading)
+│   ├── story-cache.ts   # Incremental build cache (.story-cache.json: mtime+size fingerprint + cached derived data)
 │   ├── sequence.ts      # Sequence number management (getNextNumber)
 │   ├── exporter.ts      # Shared export utilities (forEachExportStory etc.)
 │   ├── story-loader.ts  # Single-story config loading & validation
@@ -56,7 +57,7 @@ src/
 ├── render/              # Rendering / output
 │   ├── readme.ts        # Generate story READMEs and root README (template-driven)
 │   ├── template.ts      # Handlebars template rendering (with compile cache)
-│   ├── epub-generator.ts # Minimal-compliant EPUB 3 generator
+│   ├── epub-generator.ts # EPUB 3 generator (cover rendering / stylesheet / NCX compat / series metadata)
 │   ├── epub-assets.ts   # Cover image loading & safety validation
 │   ├── md-to-html.ts    # Markdown → HTML converter
 │   └── html-utils.ts    # Shared HTML utilities (escapeHtml / sanitizeUrl / PAGE_STYLE / readConfigTitle)
@@ -290,17 +291,20 @@ The published package ships compiled `dist/` output (compatible with Node 22+). 
 - **Writing activity**: monthly/last-month added lines (approximate word count) via `git log --numstat`, counting only files inside story folders
 - **`--json` output**: structured data, pipe-friendly
 
-### 7. Minimal-Compliant EPUB Generation (epub-generator.ts)
+### 7. EPUB Generation (epub-generator.ts)
 
-An EPUB is essentially a ZIP package. This project generates the file structure defined by the EPUB 3 spec directly:
+An EPUB is essentially a ZIP package. This project generates the file structure defined by the EPUB 3 spec directly (with an EPUB2 compatibility layer):
 
 ```text
 ├── mimetype              ← Must be first and uncompressed (STORE mode)
 ├── META-INF/container.xml
 └── OEBPS/
-    ├── content.opf       ← Metadata + spine manifest
-    ├── toc.xhtml         ← Table of contents navigation
+    ├── content.opf       ← Metadata + spine manifest (date / rights / series)
+    ├── toc.xhtml         ← EPUB3 nav table of contents
+    ├── toc.ncx           ← EPUB2 compatibility TOC (Kindle / legacy ADE)
+    ├── styles.css        ← Built-in typesetting stylesheet (overridable via --css)
     ├── chapterN.xhtml    ← Individual chapters
+    ├── titlepage.xhtml   ← Title page (cover image centered)
     └── images/           ← Embedded images
 ```
 
@@ -309,6 +313,9 @@ An EPUB is essentially a ZIP package. This project generates the file structure 
 - Runtime dependencies are only `fflate` (ZIP packaging) and `handlebars` (template rendering)
 - Markdown → HTML converter supports tables, nested lists, code blocks, and more
 - Image paths support absolute paths / story-folder-relative / project-root-relative
+- Cover is marked via `properties="cover-image"` (legacy reader recognition) and rendered on the title page
+- Built-in stylesheet (`--css=<path>` replaces it wholesale); NCX compatibility TOC keeps older readers working
+- Series metadata (`belongs-to-collection` + `group-position`) enables bookshelf series grouping
 
 ### 8. Structured Error Handling (errors.ts)
 
@@ -343,6 +350,19 @@ class StoryError extends Error {
 - Config validation errors use `ValidationIssue[]` (a structured issue list) instead of concatenated strings
 - Setting `DEBUG` prints full stack traces; by default only user-friendly error messages are shown
 
+### 9. Incremental Build Cache (story-cache.ts)
+
+Every `story build` re-reads each story's content and re-runs word counting / chapter splitting. `story-cache.ts` records fingerprints of each story's derived `StoryData` fields in `.story-cache.json` at the repo root (Git-ignored), and reuses them on a hit:
+
+- **Fingerprint** = config (serialized normalized object) + content source (`text.md` mtime + size, stat only — no content read) + repo-level config; any change invalidates the entry
+- **Read-only optimization**: on a cache hit `story.content` is an empty string — the build path's README rendering and link suggestions never need the content; MCP / watch paths leave the cache disabled by default
+- **Correctness boundaries**: only `text.md`-sourced stories are cached (multi-chapter merged stories always take the full path, so the side effect of materializing `text.md` is never skipped); a CLI upgrade or a `story.config.json` change invalidates the whole cache; any cache read/write failure silently degrades to a full build
+- **Companion optimization**: `suggestLinks` now buckets stories by `series` and only compares within buckets, eliminating O(n²) all-pairs traversal on large repos
+
+Measured on a 100-story × 1MB novel repo: cold build ~4.3s → warm build ~0.2s (~22×).
+
+> 💡 `.story-cache.json` is pure cache — deleting it just falls back to a full build, no residual risk. Repos created via `story init` already ignore it; **repos created before this feature** should append `.story-cache.json` to their `.gitignore` manually to keep it out of `git status`.
+
 ---
 
 ## 📦 Dependencies
@@ -370,29 +390,39 @@ class StoryError extends Error {
 
 Measured with `bench/generate.ts` (creates the repo) + `bench/bench.ts` (runs timings):
 
-**Benchmark repo size** (1000 stories):
+**Benchmark repo size** (2000 stories):
 
 | Dimension         | Value                               |
 | ----------------- | ----------------------------------- |
-| Stories           | 1,000                               |
-| Total chapters    | ~6,000                              |
-| Stats word count  | ~42,000 words                       |
-| Source files size | ~0.7 MB (excluding exports)         |
-| Total files       | ~5,000                              |
+| Stories           | 2,000                               |
+| Total chapters    | ~12,000                             |
+| Stats word count  | ~84,000 words                       |
+| Source files size | ~1.4 MB (excluding exports)         |
+| Total files       | ~10,000                             |
 | Per-story average | text.md ~828 B + config.json ~618 B |
 
-**Results** (on current dev machine):
+**Results** (on current dev machine, repo generated with `node bench/generate.ts 2000`):
 
-| Operation               | Time    |
-| ----------------------- | ------- |
-| `build --validate-only` | ~300 ms |
-| `build` (full)          | ~471 ms |
-| `export json`           | ~198 ms |
-| `export md`             | ~222 ms |
-| `epub --all`            | ~863 ms |
+| Operation                  | Time    |
+| -------------------------- | ------- |
+| `build --validate-only`    | ~510 ms |
+| `build` (full, cold cache) | ~870 ms |
+| `build` (full, cache hit)  | ~770 ms |
+| `export json`              | ~260 ms |
+| `export md`                | ~330 ms |
+| `epub --all`               | ~1.7 s  |
+
+> With toy-sized stories (hundreds of bytes each), word counting is a tiny share of the work, so the cold/warm difference is small; the incremental cache pays off mainly on **realistic** repos.
+
+**Incremental cache benefit** (realistic scale: 100 stories × 1MB novels):
+
+| Scenario                                | Time   |
+| --------------------------------------- | ------ |
+| Cold build (first run, fills cache)     | ~4.3 s |
+| Warm build (subsequent runs, cache hit) | ~0.2 s |
 
 **Watch incremental rebuild**: single-story change detect + rebuild ≈ **304 ms** (includes 300ms debounce; actual rebuild ~4ms).
 
 > ⚠️ Performance depends on hardware; these are reference values from the current dev machine.
 >
-> 💡 Reproduce: `node bench/generate.ts 1000 <dir>` + `node bench/bench.ts <dir>`
+> 💡 Reproduce: `node bench/generate.ts 2000 <dir>` + `node bench/bench.ts <dir>` (`bench.ts` prints a cold / warm build comparison)

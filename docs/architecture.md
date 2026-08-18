@@ -38,7 +38,8 @@ src/
 │   ├── schema.ts        # 声明式校验规则（必填字段 / 枚举 / 格式）
 │   ├── validate.ts      # 基于 schema 的通用校验引擎（支持仓库级覆盖）
 │   ├── config.ts        # 仓库级配置（story.config.json 自定义枚举 + 本地化标签）
-│   ├── loader.ts        # 故事加载器（loadStories，build 与 MCP 共享）
+│   ├── loader.ts        # 故事加载器（loadStories，build 与 MCP 共享；useCache 增量加载）
+│   ├── story-cache.ts   # 增量构建缓存（.story-cache.json：mtime+size 指纹 + 派生数据缓存）
 │   ├── sequence.ts      # 序号管理（getNextNumber）
 │   ├── exporter.ts      # 导出共享工具（forEachExportStory 等）
 │   ├── story-loader.ts  # 单故事配置加载与校验
@@ -56,7 +57,7 @@ src/
 ├── render/              # 渲染 / 输出
 │   ├── readme.ts        # 生成故事 README 和根目录 README（模板驱动）
 │   ├── template.ts      # Handlebars 模板渲染（带编译缓存）
-│   ├── epub-generator.ts # 最小合规 EPUB 3 生成器
+│   ├── epub-generator.ts # EPUB 3 生成器（封面渲染/排版样式/NCX 兼容目录/系列元数据）
 │   ├── epub-assets.ts   # 封面图片加载与安全校验
 │   ├── md-to-html.ts    # Markdown → HTML 转换器
 │   └── html-utils.ts    # 公共 HTML 工具
@@ -290,17 +291,20 @@ run(process.argv)
 - **写作活跃度**：通过 `git log --numstat` 统计本月/上月新增行数（近似字数），仅统计故事文件夹内文件
 - **`--json` 输出**：结构化数据，支持管道消费
 
-### 7. EPUB 最小合规生成（epub-generator.ts）
+### 7. EPUB 生成（epub-generator.ts）
 
-EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文件结构：
+EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文件结构（含 EPUB2 兼容层）：
 
 ```text
 ├── mimetype              ← 必须第一个且不压缩（STORE 模式）
 ├── META-INF/container.xml
 └── OEBPS/
-    ├── content.opf       ← 元数据 + spine 清单
-    ├── toc.xhtml         ← 目录导航
+    ├── content.opf       ← 元数据 + spine 清单（日期/版权/系列）
+    ├── toc.xhtml         ← EPUB3 nav 目录导航
+    ├── toc.ncx           ← EPUB2 兼容目录（Kindle/旧 ADE）
+    ├── styles.css        ← 内置排版样式（--css 可自定义）
     ├── chapterN.xhtml    ← 各章节
+    ├── titlepage.xhtml   ← 标题页（封面图居中渲染）
     └── images/           ← 嵌入的图片
 ```
 
@@ -309,6 +313,9 @@ EPUB 本质是一个 ZIP 包，本项目直接生成符合 EPUB 3 规范的文�
 - 运行时依赖仅 `fflate`（ZIP 打包）和 `handlebars`（模板渲染）
 - Markdown → HTML 转换器支持表格、嵌套列表、代码块等
 - 图片路径支持绝对路径 / 相对故事文件夹 / 相对项目根目录
+- 封面通过 `properties="cover-image"` 标记（老阅读器识别）并渲染到标题页
+- 内置排版样式表（`--css=<path>` 可整体替换），NCX 兼容目录保证老阅读器可用
+- 系列元数据（`belongs-to-collection` + `group-position`）支持书架系列归组
 
 ### 8. 结构化错误处理（errors.ts）
 
@@ -343,6 +350,19 @@ class StoryError extends Error {
 - 配置校验错误使用 `ValidationIssue[]`（结构化问题列表），而非拼接字符串
 - `DEBUG` 环境变量开启时输出完整堆栈，默认只显示用户友好的错误消息
 
+### 9. 增量构建缓存（story-cache.ts）
+
+`story build` 每次全量重建时，对每个故事都要重新读取正文 + 字数统计 + 章节切分。`story-cache.ts` 用仓库根目录的 `.story-cache.json`（Git 忽略）记录每个故事 `StoryData` 派生字段的指纹，命中时直接复用：
+
+- **指纹** = config（规范化对象序列化）+ 正文来源（`text.md` 的 mtime + size，仅 stat 不读内容）+ 仓库级配置；任一部分变化即失效
+- **只读优化**：缓存命中时 `story.content` 为空串——build 路径的 README 渲染与关联建议都不依赖正文；MCP / watch 路径默认不启用缓存
+- **正确性边界**：仅缓存 `text.md` 来源的故事（多章节合并故事每次完整读取，保证 build 物化 `text.md` 的副作用不丢失）；CLI 升级或 `story.config.json` 变化整体失效；缓存读取 / 写入失败一律静默降级为全量构建
+- **配套优化**：`suggestLinks` 关联建议改为按 `series` 分桶后桶内两两比较，消除大规模仓库下 O(n²) 全量配对
+
+实测（100 篇 × 1MB 长篇小说仓库）：冷构建 ~4.3s → 热构建 ~0.2s（约 22×）。
+
+> 💡 `.story-cache.json` 是纯缓存，删除即回到全量构建，无残留风险。`story init` 新仓库的 `.gitignore` 已包含该文件；**升级前创建的老仓库**请手动在 `.gitignore` 中追加一行 `.story-cache.json`，避免缓存文件出现在 `git status` 中。
+
 ---
 
 ## 📦 依赖清单
@@ -371,29 +391,39 @@ class StoryError extends Error {
 
 使用 `bench/generate.ts` 生成基准仓库后运行 `bench/bench.ts` 测量：
 
-**基准仓库规模**（1000 个故事）：
+**基准仓库规模**（2000 个故事）：
 
 | 维度         | 数值                                |
 | ------------ | ----------------------------------- |
-| 故事数       | 1,000                               |
-| 章节总数     | ~6,000                              |
-| 统计数据字数 | ~42,000 字                          |
-| 源文件总量   | ~0.7 MB（不含导出产物）             |
-| 文件总数     | ~5,000                              |
+| 故事数       | 2,000                               |
+| 章节总数     | ~12,000                             |
+| 统计数据字数 | ~84,000 字                          |
+| 源文件总量   | ~1.4 MB（不含导出产物）             |
+| 文件总数     | ~10,000                             |
 | 单个故事平均 | text.md ~828 B + config.json ~618 B |
 
-**测试结果**（当前开发机）：
+**测试结果**（当前开发机，以 `node bench/generate.ts 2000` 生成的仓库测量）：
 
-| 操作                    | 耗时    |
-| ----------------------- | ------- |
-| `build --validate-only` | ~300 ms |
-| `build`（全量）         | ~471 ms |
-| `export json`           | ~198 ms |
-| `export md`             | ~222 ms |
-| `epub --all`            | ~863 ms |
+| 操作                      | 耗时    |
+| ------------------------- | ------- |
+| `build --validate-only`   | ~510 ms |
+| `build`（全量，冷缓存）   | ~870 ms |
+| `build`（全量，命中缓存） | ~770 ms |
+| `export json`             | ~260 ms |
+| `export md`               | ~330 ms |
+| `epub --all`              | ~1.7 s  |
+
+> 玩具体量故事（数百字节/篇）下字数统计占比很小，冷/热构建差异不明显；增量缓存的收益主要体现在**真实体量**的仓库上。
+
+**增量缓存收益**（贴近真实体量：100 篇 × 1MB 长篇小说仓库）：
+
+| 场景                         | 耗时   |
+| ---------------------------- | ------ |
+| 冷构建（首次，含建缓存）     | ~4.3 s |
+| 热构建（第二次起，命中缓存） | ~0.2 s |
 
 **Watch 增量重建**：单故事变更检测 + rebuild 总耗时约 **304 ms**（含 300ms debounce，实际重建约 4ms）。
 
 > ⚠️ 性能数据依赖硬件环境，以上结果为当前开发机上的参考值。
 >
-> 💡 自行复现：`node bench/generate.ts 1000 <目录>` + `node bench/bench.ts <目录>`
+> 💡 自行复现：`node bench/generate.ts 2000 <目录>` + `node bench/bench.ts <目录>`（`bench.ts` 会输出冷 / 热构建对比行）

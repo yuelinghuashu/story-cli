@@ -14,10 +14,13 @@
   {{/if}}
 - [{{{tocLicense}}}](#license)
 
-## {{{storyListTitle}}} {#story-list}
+<a id="story-list"></a>
+
+## {{{storyListTitle}}}
 
 {{#if hasSeries}}
 {{#each seriesGroups}}
+
 ### {{name}}
 
 {{{../storyListHeader}}}
@@ -28,6 +31,7 @@
 {{/each}}
 {{/if}}
 {{#if hasUngrouped}}
+
 ### {{{independentStoriesTitle}}}
 
 {{{storyListHeader}}}
@@ -38,7 +42,9 @@
 
 {{{storyListHint}}}
 
-## {{{howToAddTitle}}} {#how-to-add}
+<a id="how-to-add"></a>
+
+## {{{howToAddTitle}}}
 
 {{{howToAddDesc}}}
 
@@ -46,12 +52,16 @@
 {{{howToAddStep2}}}
 {{{howToAddStep3}}}
 
-## {{{architectureTitle}}} {#architecture}
+<a id="architecture"></a>
+
+## {{{architectureTitle}}}
 
 {{{architectureDesc}}}
 
 {{#if hasSponsor}}
-## {{{sponsorTitle}}} {#sponsor}
+<a id="sponsor"></a>
+
+## {{{sponsorTitle}}}
 
 <details>
 <summary>{{{sponsorSummary}}}</summary>
@@ -63,7 +73,9 @@
 </details>
 
 {{/if}}
-## {{{licenseTitle}}} {#license}
+<a id="license"></a>
+
+## {{{licenseTitle}}}
 
 {{{licenseOriginal}}}
 

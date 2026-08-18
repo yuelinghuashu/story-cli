@@ -22,7 +22,7 @@
 - **Related stories** — `story link` manages weak relations; `story build` auto-suggests candidate matches
 - **Bilingual support** — zh/en content with localized READMEs
 - **Chapters + word counts** — auto-extract chapter titles and language-aware word counts
-- **Multi-format export** — EPUB / HTML / TXT / JSON / Markdown / embeddings, with `--stdout` pipe support
+- **Multi-format export** — EPUB (cover rendering / stylesheet / series metadata) / HTML / TXT / JSON / Markdown / embeddings, with `--stdout` pipe support
 - **General-purpose content platform** — knowledge mode (paper/interview/note), tech docs mode (tutorial/API)
 - **MCP Server** — AI clients (Claude / Cursor) can read and write content directly
 - **GitHub Action** — zero-config CI entry (`yuelinghuashu/story-cli@v1`), one-click "Push → Build → Release" pipeline
@@ -33,6 +33,9 @@
 ## 🚀 Quick Start
 
 ```bash
+# Install (requires Node.js >= 22)
+npm install -g @yuelinghuashu/story-cli
+
 # Create a demo repo and see it in action
 story demo
 
@@ -94,27 +97,16 @@ story-cli includes a built-in **MCP Server** — AI clients (Claude Desktop / Cu
 | Capability | MCP Tools                        | Description                                                                     |
 | ---------- | -------------------------------- | ------------------------------------------------------------------------------- |
 | 📖 Browse  | `scan_stories` / `read_chapter`  | List stories, read chapters (on-demand loading & tail truncation, saves tokens) |
-| ✍️ Write   | `write_chapter` / `create_story` | Create new stories, atomically write content                                    |
-| ✅ Govern  | `build` / `validate`             | Actually execute README rebuild, validate config                                |
+| ✍️ Write   | `write_chapter` / `create_story` | Create new stories, atomically write content (optional post-write compliance)   |
+| ✅ Govern  | `edit_config` / `build` / `validate` | Edit metadata fields directly, rebuild READMEs, validate config              |
 | 📊 Stats   | `stats`                          | Total words / chapters / series progress / health                               |
 
 ```bash
-# Start MCP Server (run in your story repository root)
+# Start MCP Server (run in your story repository root; --root targets a repo from any directory)
 story mcp-server
 ```
 
 > 💡 See [docs/mcp.en.md](docs/mcp.en.md) for detailed setup and examples. **MCP Server reads and writes files in the current working directory — run it only in trusted repositories.**
-
----
-
-## 📦 Installation
-
-```bash
-npm install -g @yuelinghuashu/story-cli
-# or npx @yuelinghuashu/story-cli
-```
-
-> Requires Node >= 22. Published package ships compiled `dist/` output.
 
 ---
 
@@ -125,7 +117,7 @@ npm install -g @yuelinghuashu/story-cli
 | `story init [--template=story\|knowledge\|tech]`              | Initialize a repository (story/knowledge/tech mode) |
 | `story new "Title" [--type] [--lang] [--author] [--creator]`  | Create a new entry                                  |
 | `story build [--validate-only] [--save-counts] [--watch]`     | Build READMEs                                       |
-| `story epub "Title" [--all] [--split-by-volume]`              | Export EPUB                                         |
+| `story epub "Title" [--all] [--split-by-volume] [--output=dir] [--css=path]` | Export EPUB |
 | `story export html / txt / json / md / embeddings [--stdout]` | Export formats                                      |
 | `story import json --file=xxx.json`                           | Batch import from JSON                              |
 | `story stats [--json]`                                        | Writing statistics                                  |
@@ -188,7 +180,7 @@ All files must use **UTF-8** encoding. GBK/GB2312 detected files will warn witho
 make test         # or pnpm test
 ```
 
-**500+ tests all passing**. Covering: scanner, series grouping, validation, template rendering, word counts, i18n, README generation, EPUB export, CLI end-to-end (smoke tests for all commands), `.storyignore`, MCP protocol, JSON import, GitHub Action structure, compliance checks, related suggestions, embeddings export, and more.
+**550+ tests all passing**. Covering: scanner, series grouping, validation, template rendering, word counts, i18n, README generation, EPUB export, CLI end-to-end (smoke tests for all commands), `.storyignore`, MCP protocol, JSON import, GitHub Action structure, compliance checks, related suggestions, incremental build cache, embeddings export, and more.
 
 ---
 
@@ -207,3 +199,9 @@ make test         # or pnpm test
 ## ⚖️ License
 
 [MIT](./LICENSE)
+
+---
+
+## 🤝 Contributing
+
+**Issues** are welcome (bug reports / feature suggestions — form templates provided); for code contributions, please read [CONTRIBUTING.en.md](CONTRIBUTING.en.md) and check [ROADMAP.en.md](ROADMAP.en.md) for the project's positioning.

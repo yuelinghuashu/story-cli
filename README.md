@@ -22,7 +22,7 @@
 - **关联故事** — `story link` 管理弱关联；`story build` 自动建议同系列候选关联
 - **双语支持** — 中英内容 + 自动生成本地化 README
 - **章节 + 字数** — 自动提取章节标题与语言感知的字数统计
-- **多格式导出** — EPUB / HTML / TXT / JSON / Markdown / embeddings，支持 `--stdout` 管道
+- **多格式导出** — EPUB（封面渲染/排版样式/系列元数据）/ HTML / TXT / JSON / Markdown / embeddings，支持 `--stdout` 管道
 - **通用内容中台** — 知识库模式（论文/访谈/笔记）、技术文档模式（教程/API）
 - **MCP Server** — AI 客户端（Claude / Cursor）可直接读写内容库
 - **GitHub Action** — 零配置 CI 入口（`yuelinghuashu/story-cli@v1`），一键实现「Push → Build → 发布」
@@ -33,6 +33,9 @@
 ## 🚀 快速开始
 
 ```bash
+# 安装（需要 Node.js >= 22）
+npm install -g @yuelinghuashu/story-cli
+
 # 创建示例仓库并查看效果
 story demo
 
@@ -95,27 +98,16 @@ story-cli 内置 **MCP Server** —— AI 客户端（Claude Desktop / Cursor / 
 | 能力    | MCP 工具                         | 说明                                                       |
 | ------- | -------------------------------- | ---------------------------------------------------------- |
 | 📖 浏览 | `scan_stories` / `read_chapter`  | 列出故事库、读取章节（支持按需加载与末尾截断，节省 Token） |
-| ✍️ 写作 | `write_chapter` / `create_story` | 创建新故事、原子写入正文                                   |
-| ✅ 治理 | `build` / `validate`             | 真正执行 README 重建、校验配置合法性                       |
+| ✍️ 写作 | `write_chapter` / `create_story` | 创建新故事、原子写入正文（可选写后合规校验）               |
+| ✅ 治理 | `edit_config` / `build` / `validate` | 直接改元数据字段、执行 README 重建、校验配置合法性      |
 | 📊 统计 | `stats`                          | 获取总字数 / 章节数 / 系列进度 / 健康度                    |
 
 ```bash
-# 启动 MCP Server（需在故事仓库根目录）
+# 启动 MCP Server（需在故事仓库根目录；--root 可从任意目录指定仓库）
 story mcp-server
 ```
 
 > 💡 详细配置与示例见 [docs/mcp.md](docs/mcp.md)。**MCP Server 会读写当前工作目录下的所有文件，请仅在信任的仓库中运行。**
-
----
-
-## 📦 安装
-
-```bash
-npm install -g @yuelinghuashu/story-cli
-# 或 npx @yuelinghuashu/story-cli
-```
-
-> 需要 Node >= 22。发布包为编译后 `dist/` 产物。
 
 ---
 
@@ -126,7 +118,7 @@ npm install -g @yuelinghuashu/story-cli
 | `story init [--template=story\|knowledge\|tech]`              | 初始化仓库（默认故事/知识库/技术文档模式） |
 | `story new "标题" [--type] [--lang] [--author] [--creator]`   | 创建新条目                                 |
 | `story build [--validate-only] [--save-counts] [--watch]`     | 构建 README                                |
-| `story epub "标题" [--all] [--split-by-volume]`               | 导出 EPUB                                  |
+| `story epub "标题" [--all] [--split-by-volume] [--output=dir] [--css=path]` | 导出 EPUB |
 | `story export html / txt / json / md / embeddings [--stdout]` | 导出多种格式（embeddings 为文本块 JSONL）  |
 | `story import json --file=xxx.json`                           | 从 JSON 批量导入                           |
 | `story stats [--json]`                                        | 创作统计                                   |
@@ -189,7 +181,7 @@ npm install -g @yuelinghuashu/story-cli
 make test         # 或 pnpm test
 ```
 
-**500+ 项测试全部通过**。覆盖：扫描器、系列分组、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出、CLI 端到端（冒烟测试覆盖全部命令）、`.storyignore`、MCP 协议、JSON 导入、GitHub Action 结构、合规检查、关联建议、embeddings 导出等。
+**550+ 项测试全部通过**。覆盖：扫描器、系列分组、校验、模板渲染、字数统计、国际化、README 生成、EPUB 导出、CLI 端到端（冒烟测试覆盖全部命令）、`.storyignore`、MCP 协议、JSON 导入、GitHub Action 结构、合规检查、关联建议、增量构建缓存、embeddings 导出等。
 
 ---
 
@@ -208,3 +200,9 @@ make test         # 或 pnpm test
 ## ⚖️ License
 
 [MIT](./LICENSE)
+
+---
+
+## 🤝 参与贡献
+
+欢迎提交 **Issue**（bug 反馈 / 功能建议，有表单模板）；有意贡献代码请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并在 [ROADMAP.md](ROADMAP.md) 了解项目定位。
