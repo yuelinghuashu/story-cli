@@ -303,9 +303,11 @@ test("getSponsorImages 读取 assets/sponsor/ 中的图片", () => {
     "assets/sponsor/note.txt": "not image",
   })
   const images = getSponsorImages(dir)
-  // 只包含图片格式，且路径以 assets/sponsor/ 开头
-  assert.ok(images.includes("assets/sponsor/ali-pay.jpg"))
-  assert.ok(images.includes("assets/sponsor/wechat-pay.png"))
+  // 只包含图片格式，且以 assets/sponsor/ 为前缀（Windows 可能用反斜杠分隔，故用 path.join 构造期望值）
+  const aliPay = path.join("assets", "sponsor", "ali-pay.jpg")
+  const wechatPay = path.join("assets", "sponsor", "wechat-pay.png")
+  assert.ok(images.includes(aliPay), `应包含 ${aliPay}，实际: ${images.join(", ")}`)
+  assert.ok(images.includes(wechatPay), `应包含 ${wechatPay}，实际: ${images.join(", ")}`)
   assert.ok(!images.some((f) => f.includes("note.txt")), "非图片文件应被过滤")
 })
 

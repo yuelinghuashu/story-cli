@@ -5,7 +5,8 @@ import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 
 const rootDir = fileURLToPath(new URL("..", import.meta.url))
-const actionPath = path.join(rootDir, ".github", "actions", "story-cli", "action.yml")
+// 根目录 action.yml 是外部 uses: owner/repo@ref 引用的唯一事实来源
+const actionPath = path.join(rootDir, "action.yml")
 const workflowPath = path.join(rootDir, ".github", "workflows", "example.yml")
 
 test("action.yml 存在且包含必要字段", () => {

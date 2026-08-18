@@ -61,8 +61,11 @@ test("renderTemplate 模板修改后（mtime 变化）自动失效重新编译",
   const tpl = writeTempTemplate("旧内容：{{title}}")
   assert.strictEqual(renderTemplate(tpl, { title: "A" }), "旧内容：A")
 
-  // 修改模板内容（mtime 会变化）
+  // 修改模板内容，并显式设置一个更新的 mtime
+  // （Windows 上写入后 mtime 精度/时序可能不变，导致缓存误判未失效；显式 set 保证跨平台稳定）
   fs.writeFileSync(tpl, "新内容：{{title}}", "utf-8")
+  const base = fs.statSync(tpl).mtimeMs
+  fs.utimesSync(tpl, new Date(base / 1000 + 1), new Date(base / 1000 + 1))
 
   // 同一路径 + 新 mtime → 应重新编译并返回新内容
   assert.strictEqual(renderTemplate(tpl, { title: "B" }), "新内容：B")
