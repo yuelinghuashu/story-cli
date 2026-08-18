@@ -46,7 +46,9 @@ jobs:
 
       # 性能回归门槛：生成 100 个玩具故事仓库并测量冷/热构建与 EPUB 导出耗时，
       # 超过内置阈值（bench/bench.ts 的 DEFAULT_CHECK_SPECS）即失败
+      # shell: bash —— Windows runner 默认 PowerShell 不识别 rm -rf
       - name: Performance regression check
+        shell: bash
         run: |
           node bench/generate.ts 100 bench-check
           node bench/bench.ts bench-check --check

@@ -106,7 +106,9 @@ export function generateBenchRepo(count = 100, outputDir = "."): void {
 }
 
 // CLI 直接运行时生成仓库
-if (import.meta.url === "file://" + process.argv[1]) {
+// 用 import.meta.filename 比较（跨平台）："file://" + process.argv[1] 在 Windows 上
+// 因 file:/// 三斜杠与反斜杠路径不一致而永远不成立，导致直接运行时静默不生成
+if (import.meta.filename === process.argv[1]) {
   const countArg = Number(process.argv[2] ?? "100")
   const dirArg = process.argv[3] ?? "."
   generateBenchRepo(countArg, dirArg)
