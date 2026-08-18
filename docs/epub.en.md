@@ -14,6 +14,12 @@ story epub "Story Title"
 
 # Export all stories
 story epub --all
+
+# Custom output directory
+story epub "Story Title" --output=my-epub
+
+# Custom typesetting stylesheet (warns and falls back to built-in if missing)
+story epub "Story Title" --css=my-style.css
 ```
 
 ### Split-Volume Export (--split-by-volume)
@@ -95,8 +101,32 @@ Cover paths support three forms (same resolution as inline images):
 
 Supported formats: `png`, `jpg` / `jpeg`, `gif`, `webp`.
 
+> ✨ Besides being packaged into the manifest (`properties="cover-image"`, recognized by legacy readers), the cover is also **rendered on the title page**, centered.
 > ⚠️ If the cover file doesn't exist, export won't fail — a warning is printed and a text-only cover page is used.
 > ⚠️ Without a `cover` field, a text-only cover page (title + author + summary) is used.
+
+---
+
+## 🎨 Typesetting Stylesheet
+
+The EPUB ships a built-in stylesheet (`styles.css`: paragraph spacing, headings, blockquotes, code blocks, tables, responsive images) referenced by every page.
+
+To customize the look, provide your own CSS file:
+
+```bash
+story epub "My Story" --css=my-style.css
+```
+
+- The custom stylesheet **wholesale replaces** the built-in one (not merged)
+- If the file is missing, a warning is printed and the built-in style is used; export continues
+
+---
+
+## 🔧 Compatibility & Metadata
+
+- **EPUB2 compatibility TOC (toc.ncx)**: besides the EPUB3 `toc.xhtml` nav, an NCX table of contents is generated for readers that only honor NCX (Kindle / legacy ADE)
+- **Series metadata**: when `series` / `seriesOrder` are set in `config.json`, the EPUB writes `belongs-to-collection` + `group-position`, enabling bookshelf series grouping
+- **Date & rights**: `dc:date` comes from `config.json`'s `created`; `dc:rights` carries the license text (same source as the copyright page)
 
 ---
 
@@ -134,10 +164,11 @@ Use Markdown image syntax in `text.md` to embed images into the EPUB:
 EPUB is standard EPUB 3:
 
 - `mimetype` placed correctly (first & uncompressed)
-- `content.opf` metadata (title, author, language, UUID)
-- `toc.xhtml` navigation
+- `content.opf` metadata (title, author, language, UUID, date, rights, series)
+- `toc.xhtml` (EPUB3 nav) plus `toc.ncx` (EPUB2 compatibility TOC)
+- `styles.css` typesetting stylesheet
 - Chapter content as XHTML
-- Cover image (optional) correctly marked via `properties="cover-image"`
+- Cover image (optional) marked via `properties="cover-image"` and rendered on the title page
 
 Compatible with most major readers (Kindle, Apple Books, Kobo, WeRead, etc.).
 

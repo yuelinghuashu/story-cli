@@ -525,3 +525,98 @@ test("EPUB 集成：图片引用与 manifest 一致", () => {
   // manifest 中应有对应图片条目，且 media-type 正确
   assert.ok(opf.includes('<item id="image_1" href="images/img1.png" media-type="image/png"/>'), "manifest 应有图片条目")
 })
+
+// ---- EPUB 产品化：样式 / NCX / 封面渲染 / 元数据 ----
+
+test("EPUB 集成：styles.css 存在且所有页面引用", () => {
+  const epubData = generateEpub({ title: "样式书", author: "作者", lang: "zh", license: "CC BY" }, [
+    { title: "第一章", data: "<p>内容</p>" },
+  ])
+  const files = extractEpub(epubData)
+
+  assert.ok(files["OEBPS/styles.css"], "styles.css 应存在")
+  assert.ok(files["OEBPS/styles.css"].includes("story-cli built-in EPUB stylesheet"), "应使用内置样式")
+
+  // 章节 / 标题页 / 版权页 / 目录页都应引用 styles.css
+  for (const page of ["OEBPS/chapter001.xhtml", "OEBPS/titlepage.xhtml", "OEBPS/copyright.xhtml", "OEBPS/toc.xhtml"]) {
+    assert.ok(files[page]?.includes('href="styles.css"'), `${page} 应引用 styles.css`)
+  }
+})
+
+test("EPUB 集成：自定义样式替换内置样式（css 选项）", () => {
+  const epubData = generateEpub({ title: "自定义样式书", css: "body { color: red; }" }, [
+    { title: "章", data: "<p>内容</p>" },
+  ])
+  const files = extractEpub(epubData)
+  assert.ok(files["OEBPS/styles.css"].includes("body { color: red; }"), "自定义样式应生效")
+  assert.ok(!files["OEBPS/styles.css"].includes("story-cli built-in"), "自定义样式应替代内置样式")
+})
+
+test("EPUB 集成：toc.ncx 存在且 navMap 覆盖全部章节", () => {
+  const epubData = generateEpub({ title: "NCX书" }, [
+    { title: "第一章", data: "<p>一</p>" },
+    { title: "第二章", data: "<p>二</p>" },
+  ])
+  const files = extractEpub(epubData)
+  const ncx = files["OEBPS/toc.ncx"]
+  const opf = files["OEBPS/content.opf"]
+
+  assert.ok(ncx, "toc.ncx 应存在")
+  assert.ok(ncx.includes('xmlns="http://www.daisy.org/z3986/2005/ncx/"'), "应为 NCX 命名空间")
+  assert.ok(ncx.includes("<navLabel><text>第一章</text></navLabel>"), "NCX 应包含第一章")
+  assert.ok(ncx.includes('<content src="chapter001.xhtml"/>'), "NCX 应指向章节文件")
+  assert.ok(ncx.includes('<content src="chapter002.xhtml"/>'), "NCX 应指向第二章")
+
+  // opf：manifest 声明 ncx 条目，spine 引用 toc="ncx"
+  assert.ok(
+    opf.includes('<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'),
+    "manifest 应声明 ncx",
+  )
+  assert.ok(opf.includes('<spine toc="ncx">'), "spine 应引用 ncx")
+  // EPUB3 nav 文档仍保留
+  assert.ok(
+    opf.includes('<item id="toc" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>'),
+    "nav 文档应保留",
+  )
+})
+
+test("EPUB 集成：封面渲染到标题页", () => {
+  const epubData = generateEpub({ title: "封面渲染书" }, [{ title: "章", data: "<p>内容</p>" }], [], {
+    name: "cover.jpg",
+    data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+  })
+  const files = extractEpub(epubData)
+  const titlePage = files["OEBPS/titlepage.xhtml"]
+
+  assert.ok(titlePage.includes('<img src="images/cover.jpg" alt="cover"/>'), "标题页应渲染封面图")
+  assert.ok(titlePage.includes('class="cover"'), "封面应使用居中布局")
+})
+
+test("EPUB 集成：元数据包含创建日期/版权/系列", () => {
+  const epubData = generateEpub(
+    {
+      title: "元数据书",
+      author: "作者",
+      lang: "zh",
+      license: "CC BY-NC-SA 4.0",
+      created: "2026-08-19",
+      series: "星河系列",
+      seriesOrder: 2,
+    },
+    [{ title: "章", data: "<p>内容</p>" }],
+  )
+  const files = extractEpub(epubData)
+  const opf = files["OEBPS/content.opf"]
+
+  assert.ok(opf.includes("<dc:date>2026-08-19</dc:date>"), "应包含 dc:date")
+  assert.ok(opf.includes("<dc:rights>CC BY-NC-SA 4.0</dc:rights>"), "应包含 dc:rights")
+  assert.ok(opf.includes('<meta property="belongs-to-collection" id="c01">星河系列</meta>'), "应包含系列元数据")
+  assert.ok(opf.includes('<meta refines="#c01" property="group-position">2</meta>'), "应包含系列内序号")
+})
+
+test("EPUB 集成：无系列时不含 belongs-to-collection 元数据", () => {
+  const epubData = generateEpub({ title: "无系列书" }, [{ title: "章", data: "<p>内容</p>" }])
+  const files = extractEpub(epubData)
+  const opf = files["OEBPS/content.opf"]
+  assert.ok(!opf.includes("belongs-to-collection"), "无系列时不应输出系列元数据")
+})

@@ -13,7 +13,52 @@ import { escapeHtml } from "./html-utils.ts"
 const escapeXml = escapeHtml
 
 /**
- * 生成最小合规的 EPUB 3 文件
+ * 内置排版样式表（styles.css）
+ * 统一正文排版：段落 / 标题 / 引用 / 代码块 / 表格 / 图片，以及封面页居中布局。
+ * 用户可通过 `story epub --css=<path>` 提供自定义样式覆盖。
+ */
+export const EPUB_STYLE = `/* story-cli built-in EPUB stylesheet */
+body {
+  font-family: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", Georgia, serif;
+  line-height: 1.8;
+  margin: 5% 6%;
+  font-size: 1em;
+}
+h1 { font-size: 1.8em; margin: 1.2em 0 0.6em; text-align: center; }
+h2 { font-size: 1.4em; margin: 1.2em 0 0.5em; }
+h3 { font-size: 1.15em; margin: 1em 0 0.4em; }
+p { margin: 0.6em 0; text-align: justify; }
+blockquote {
+  border-left: 3px solid #999;
+  margin: 0.8em 0;
+  padding: 0.2em 1em;
+  color: #555;
+}
+pre, code { font-family: Consolas, Monaco, monospace; font-size: 0.9em; }
+pre {
+  background: #f5f5f5;
+  padding: 0.8em 1em;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ccc; padding: 0.4em 0.6em; text-align: left; }
+img { max-width: 100%; height: auto; }
+hr { border: none; border-top: 1px solid #ccc; margin: 1.5em 0; }
+/* 封面页 */
+.cover { text-align: center; margin: 10% 0 1.5em 0; }
+.cover img { max-width: 90%; max-height: 80%; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.title-page h1 { margin-bottom: 0.3em; }
+.author { text-align: center; font-size: 1.2em; color: #555; margin-bottom: 1.5em; }
+.desc { text-align: center; font-size: 0.95em; color: #777; line-height: 1.6; margin: 0 8%; }
+/* 目录页 */
+nav#toc h1 { text-align: center; }
+nav#toc ol { padding-left: 1.2em; }
+nav#toc li { margin: 0.4em 0; }
+`
+
+/**
+ * 生成最小合规的 EPUB 3 文件（含 EPUB2 NCX 兼容目录）
  * 依赖：仅 fflate（ZIP 打包）
  *
  * EPUB 本质是一个 ZIP 包：
@@ -21,7 +66,9 @@ const escapeXml = escapeHtml
  * ├── META-INF/container.xml      ← 指向 OPF
  * └── OEBPS/
  *     ├── content.opf             ← 元数据 + spine 清单
- *     ├── toc.xhtml               ← 目录导航
+ *     ├── toc.xhtml               ← EPUB3 目录导航
+ *     ├── toc.ncx                 ← EPUB2 兼容目录（老阅读器）
+ *     ├── styles.css              ← 排版样式
  *     ├── chapterN.xhtml          ← 各章节
  *     └── images/                 ← 故事中引用的图片
  */
@@ -84,7 +131,7 @@ export function safeImageName(filePath: string, index: number): string {
  * @param options 元数据
  * @param chapters 章节列表（HTML 格式）
  * @param images 图片列表
- * @param coverImage 封面图片（可选）
+ * @param coverImage 封面图片（可选；同时渲染到标题页并标记 cover-image）
  * @returns EPUB 文件的二进制内容
  */
 export function generateEpub(
@@ -95,18 +142,38 @@ export function generateEpub(
     lang?: string
     /** 许可证文本（可选） */
     license?: string
+    /** 创建日期（YYYY-MM-DD，可选，写入 dc:date） */
+    created?: string
+    /** 系列名称（可选，写入 belongs-to-collection） */
+    series?: string
+    /** 系列内序号（可选，配合 series 写入 group-position） */
+    seriesOrder?: number
+    /** 自定义样式表内容（替代内置 EPUB_STYLE；由 --css 提供） */
+    css?: string
   },
   chapters: EpubChapter[],
   images: EpubImage[] = [],
   coverImage?: EpubImage,
 ): Uint8Array {
-  const { title, author = "unknown", description = "", lang = "zh", license = "" } = options
+  const {
+    title,
+    author = "unknown",
+    description = "",
+    lang = "zh",
+    license = "",
+    created = "",
+    series,
+    seriesOrder,
+    css,
+  } = options
 
   const safeTitle = escapeXml(title)
   const safeAuthor = escapeXml(author)
   const safeDesc = escapeXml(description)
   const safeLang = escapeXml(lang)
   const safeLicense = escapeXml(license)
+  const safeCreated = escapeXml(created)
+  const safeSeries = series ? escapeXml(series) : ""
 
   // ---- mimetype（必须第一个且不压缩）----
   const mimetype = strToU8("application/epub+zip")
@@ -122,6 +189,10 @@ export function generateEpub(
   // ---- 章节序号格式化 ----
   const pad = (n: number) => String(n).padStart(3, "0")
 
+  // ---- 样式表（内置或用户自定义）----
+  const stylesCss = strToU8(css ?? EPUB_STYLE)
+  const stylesheetLink = `<link rel="stylesheet" type="text/css" href="styles.css"/>`
+
   // ---- 图片处理 ----
   const imageFiles: Zippable = {}
   const imageItems = images.map((img, i) => {
@@ -135,17 +206,21 @@ export function generateEpub(
   // EPUB 3 规范：manifest 中元素 properties="cover-image"
   // 元数据中通过 <meta name="cover" content="封面 item id"/> 指定
   let coverImageItem: { id: string; href: string; mime: string } | null = null
+  let coverImgHtml = ""
   if (coverImage) {
     const safeName = coverImage.name || "cover.png"
     const filePath = `OEBPS/images/${safeName}`
     imageFiles[filePath] = coverImage.data as Uint8Array<ArrayBufferLike>
     coverImageItem = { id: "cover-image", href: `images/${safeName}`, mime: getImageMimeType(safeName) }
+    // 封面同时渲染到标题页（居中展示）
+    coverImgHtml = `<div class="cover"><img src="images/${safeName}" alt="cover"/></div>\n`
   }
 
   // ---- 生成各章节 XHTML ----
   const chapterFiles: Zippable = {}
   const chapterIds: Array<{ id: string; fileId: string; title: string }> = []
   const tocItems: string[] = []
+  const ncxItems: string[] = []
 
   chapters.forEach((chapter, index) => {
     const id = `chapter${pad(index + 1)}`
@@ -157,6 +232,7 @@ export function generateEpub(
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
   <title>${escapeXml(chapter.title)}</title>
+  ${stylesheetLink}
 </head>
 <body>
 <h1>${escapeXml(chapter.title)}</h1>
@@ -166,11 +242,16 @@ ${chapter.data}
 
     chapterFiles[`OEBPS/${id}.xhtml`] = html as Uint8Array<ArrayBufferLike>
 
-    // 目录项
+    // EPUB3 目录项
     tocItems.push(`<li><a href="${id}.xhtml">${escapeXml(chapter.title)}</a></li>`)
+    // EPUB2 NCX 目录项
+    ncxItems.push(`<navPoint id="navPoint-${index + 1}" playOrder="${index + 1}">
+    <navLabel><text>${escapeXml(chapter.title)}</text></navLabel>
+    <content src="${id}.xhtml"/>
+  </navPoint>`)
   })
 
-  // ---- 封面页（标题 + 作者 + 简介）----
+  // ---- 封面页（标题 + 作者 + 简介 + 封面图）----
   const titlePageId = "titlepage"
   const titleFileId = "item_titlepage"
   const titlePageHtml = strToU8(`<?xml version="1.0" encoding="UTF-8"?>
@@ -178,14 +259,10 @@ ${chapter.data}
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
   <title>${safeTitle}</title>
-  <style>
-    body { text-align: center; margin: 20% 10% 0 10%; }
-    h1 { font-size: 2.4em; margin-bottom: 0.5em; }
-    .author { font-size: 1.3em; color: #555; margin-bottom: 2em; }
-    .desc { font-size: 1em; color: #777; line-height: 1.6; }
-  </style>
+  ${stylesheetLink}
 </head>
-<body>
+<body class="title-page">
+  ${coverImgHtml}
   <h1>${safeTitle}</h1>
   <div class="author">${safeAuthor}</div>
   ${safeDesc ? `<div class="desc">${safeDesc}</div>` : ""}
@@ -205,6 +282,7 @@ ${chapter.data}
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
   <title>${safeTitle} — Copyright</title>
+  ${stylesheetLink}
 </head>
 <body>
 <h2>Copyright</h2>
@@ -214,12 +292,13 @@ ${chapter.data}
     chapterFiles[`OEBPS/${copyrightId}.xhtml`] = copyrightHtml as Uint8Array<ArrayBufferLike>
   }
 
-  // ---- OEBPS/toc.xhtml（目录）----
+  // ---- OEBPS/toc.xhtml（EPUB3 目录导航）----
   const tocXhtml = strToU8(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
   <title>${safeTitle}</title>
+  ${stylesheetLink}
 </head>
 <body>
 <nav epub:type="toc" id="toc">
@@ -231,13 +310,30 @@ ${tocItems.join("\n")}
 </body>
 </html>`)
 
+  // ---- OEBPS/toc.ncx（EPUB2 兼容目录，供 Kindle/旧 ADE 使用）----
+  const ncxUid = `urn:uuid:${randomUUID()}`
+  const tocNcx = strToU8(`<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="${ncxUid}"/>
+    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle><text>${safeTitle}</text></docTitle>
+  <navMap>
+${ncxItems.join("\n")}
+  </navMap>
+</ncx>`)
+
   // ---- OEBPS/content.opf ----
   const manifestItems = [
-    { id: titleFileId, href: `${titlePageId}.xhtml` },
-    ...copyrightItems.map((c) => ({ id: c.fileId, href: `${c.id}.xhtml` })),
-    ...chapterIds.map(({ id, fileId }) => ({ id: fileId, href: `${id}.xhtml` })),
+    { id: "ncx", href: "toc.ncx", mediaType: "application/x-dtbncx+xml" },
+    { id: titleFileId, href: `${titlePageId}.xhtml`, mediaType: "application/xhtml+xml" },
+    ...copyrightItems.map((c) => ({ id: c.fileId, href: `${c.id}.xhtml`, mediaType: "application/xhtml+xml" })),
+    ...chapterIds.map(({ id, fileId }) => ({ id: fileId, href: `${id}.xhtml`, mediaType: "application/xhtml+xml" })),
   ]
-    .map((item) => `<item id="${item.id}" href="${item.href}" media-type="application/xhtml+xml"/>`)
+    .map((item) => `<item id="${item.id}" href="${item.href}" media-type="${item.mediaType}"/>`)
     .join("\n    ")
 
   const imageManifestItems = imageItems
@@ -257,6 +353,13 @@ ${tocItems.join("\n")}
     .map(({ fileId }) => `<itemref idref="${fileId}"/>`)
     .join("\n    ")
 
+  // 系列元数据（EPUB 3.2：belongs-to-collection + group-position）
+  const seriesMeta = safeSeries
+    ? `\n    <meta property="belongs-to-collection" id="c01">${safeSeries}</meta>${
+        seriesOrder !== undefined ? `\n    <meta refines="#c01" property="group-position">${seriesOrder}</meta>` : ""
+      }`
+    : ""
+
   const contentOpf = strToU8(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0" xml:lang="${safeLang}">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -265,7 +368,10 @@ ${tocItems.join("\n")}
     <dc:creator>${safeAuthor}</dc:creator>
     <dc:language>${safeLang}</dc:language>
     <dc:description>${safeDesc}</dc:description>
+    ${safeCreated ? `<dc:date>${safeCreated}</dc:date>` : ""}
+    ${safeLicense ? `<dc:rights>${safeLicense}</dc:rights>` : ""}
     <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}/, "")}Z</meta>
+    ${seriesMeta}
     ${coverImageItem ? `<meta name="cover" content="${coverImageItem.id}"/>` : ""}
   </metadata>
   <manifest>
@@ -274,7 +380,7 @@ ${tocItems.join("\n")}
     ${imageManifestItems ? `\n    ${imageManifestItems}` : ""}
     ${coverManifestItem ? `\n    ${coverManifestItem}` : ""}
   </manifest>
-  <spine toc="toc">
+  <spine toc="ncx">
     ${spineItems}
   </spine>
 </package>`)
@@ -286,6 +392,8 @@ ${tocItems.join("\n")}
     "META-INF/container.xml": containerXml,
     "OEBPS/content.opf": contentOpf,
     "OEBPS/toc.xhtml": tocXhtml,
+    "OEBPS/toc.ncx": tocNcx,
+    "OEBPS/styles.css": stylesCss,
     ...chapterFiles,
     ...imageFiles,
   }

@@ -113,7 +113,7 @@ export const COMMANDS: CommandDef[] = [
   {
     name: "epub",
     aliases: ["e"],
-    usage: 'story epub "标题" | story epub --all | story epub "标题" --split-by-volume',
+    usage: 'story epub "标题" [--all] [--split-by-volume] [--output=dir] [--css=path]',
     description: "Export stories to EPUB 3 (e-reader format)",
     descriptionZh: "导出 EPUB 3 电子书（支持分卷/封面/图片）",
     category: "export",

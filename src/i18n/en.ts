@@ -141,6 +141,7 @@ Next steps:
   epubCoverMissing: (p) => `⚠️ Cover image not found: ${p}`,
   epubSvgUnsafe: (p) => `⚠️ Cover SVG contains dangerous content (scripts/event handlers), skipped: ${p}`,
   epubCoverReadFailed: (p, msg) => `⚠️ Failed to read cover image: ${p} - ${msg}`,
+  epubCssMissing: (p) => `⚠️ Custom stylesheet not found: ${p}, falling back to built-in style`,
   epubLicenseOriginal:
     "This work is licensed under CC BY-NC-SA 4.0. You are free to share, non-commercially; derivatives must use the same license.",
   epubLicenseFanfic: (work, author) =>

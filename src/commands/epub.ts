@@ -238,7 +238,7 @@ function loadStoryImages(
 }
 
 /**
- * 生成 EPUB 元数据（许可证文本 + 作者）
+ * 生成 EPUB 元数据（许可证文本 + 作者 + 日期/系列）
  * @param config 故事配置
  * @param lang 语言
  * @returns 元数据对象
@@ -252,6 +252,9 @@ function buildEpubMetadata(
   description: string
   lang: Language
   license: string
+  created: string
+  series?: string
+  seriesOrder?: number
 } {
   const locale = getLocale(lang)
   const license =
@@ -267,6 +270,9 @@ function buildEpubMetadata(
     description: String(config.summary || ""),
     lang,
     license,
+    created: config.created || "",
+    series: config.series,
+    seriesOrder: config.seriesOrder,
   }
 }
 
@@ -288,8 +294,23 @@ export function exportEpub(rootDir: string, args: string[]): number {
   const all = !!options.all
   /** 按 config.volume 分卷导出（启用时文件名带卷名） */
   const splitByVolume = !!options["split-by-volume"]
-  const distDir = path.join(rootDir, "dist", "epub")
+  /** 自定义输出目录（默认 dist/epub） */
+  const defaultDistDir = path.join(rootDir, "dist", "epub")
+  const distDir =
+    typeof options.output === "string" && options.output ? path.resolve(rootDir, options.output) : defaultDistDir
   const locale = getLocale(detectCliLang())
+
+  // 自定义样式表（--css=<path>，可选）：文件缺失时警告并回退内置样式，不阻断导出
+  let customCss: string | undefined
+  const cssPath = typeof options.css === "string" && options.css ? options.css : null
+  if (cssPath) {
+    const resolvedCss = path.resolve(rootDir, cssPath)
+    try {
+      customCss = fs.readFileSync(resolvedCss, "utf-8")
+    } catch {
+      console.warn(locale.epubCssMissing(cssPath))
+    }
+  }
 
   if (!title && !all) {
     throw new StoryError(locale.epubNoArgsError, ErrorCode.INVALID_ARGS)
@@ -335,9 +356,9 @@ export function exportEpub(rootDir: string, args: string[]): number {
       // 加载封面图片（可选）
       const coverImage = config.cover ? loadCoverImage(folderPath, rootDir, config.cover, locale) : null
 
-      // 写入 EPUB
+      // 写入 EPUB（自定义样式 / 封面渲染 / NCX 兼容目录由 generateEpub 统一处理）
       fs.mkdirSync(distDir, { recursive: true })
-      const epubData = generateEpub(option, chapters, images, coverImage || undefined)
+      const epubData = generateEpub({ ...option, css: customCss }, chapters, images, coverImage || undefined)
       fs.writeFileSync(outputPath, epubData)
 
       const sizeKB = (epubData.length / 1024).toFixed(1)

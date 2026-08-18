@@ -138,6 +138,7 @@ export const zh: Locale = {
   epubCoverMissing: (p) => `⚠️ 封面图片不存在: ${p}`,
   epubSvgUnsafe: (p) => `⚠️ 封面 SVG 包含危险内容（脚本/事件属性），已跳过: ${p}`,
   epubCoverReadFailed: (p, msg) => `⚠️ 读取封面图片失败: ${p} - ${msg}`,
+  epubCssMissing: (p) => `⚠️ 自定义样式文件不存在: ${p}，已使用内置样式`,
   epubLicenseOriginal: "本作品采用 CC BY-NC-SA 4.0 许可证。你可以署名共享、非商业使用，修改后的作品需沿用相同许可。",
   epubLicenseFanfic: (work, author) =>
     `本作品是基于${work}（原作：${author}）的同人创作。原作角色、世界观等元素的版权归原作者及版权方所有。禁止将本故事用于任何商业用途。`,

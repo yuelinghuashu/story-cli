@@ -147,6 +147,8 @@ export interface Locale {
   epubSvgUnsafe: (path: string) => string
   /** 封面图片读取失败 */
   epubCoverReadFailed: (path: string, msg: string) => string
+  /** 自定义样式文件不存在（回退内置样式） */
+  epubCssMissing: (path: string) => string
   /** 原创故事许可证文本（EPUB 版权页） */
   epubLicenseOriginal: string
   /** 二创故事许可证文本（EPUB 版权页） */
