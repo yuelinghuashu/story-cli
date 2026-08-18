@@ -15,9 +15,14 @@ story-cli includes a built-in **MCP (Model Context Protocol)** server that lets 
 ```bash
 # Start in the story repository root
 story mcp-server
+
+# Or target a repo explicitly from any directory (for AI clients launched elsewhere)
+story mcp-server --root=/path/to/story-repo
 ```
 
 The server provides JSON-RPC 2.0 over stdio, waiting for MCP clients.
+
+> 💡 `--root=<path>`: explicitly set the story repository root; defaults to the current working directory.
 
 ---
 
@@ -118,16 +123,32 @@ MCP Inspector opens in your browser and lets you:
 
 ## 🛠️ Exposed MCP Tools
 
-| Tool            | Description                                                                      | Params                                                                    | Token Savings                    |
-| --------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| `scan_stories`  | List all stories with metadata (compact by default)                              | `verbose` (optional, true for full metadata)                              | ✅ Compact default ~80-95%       |
-| `read_chapter`  | Read chapter content of a story (supports on-demand loading and tail truncation) | `folder` (required) + `chapterIndex` (optional) + `tailLength` (optional) | ✅ On-demand/tailLength ~95%+    |
-| `write_chapter` | Atomically write content to a story                                              | `folder` + `content`                                                      | —                                |
-| `validate`      | Check repository compliance (folder naming / required files / UTF-8 / duplicate numbers / schema) | — | — |
-| `build`         | **Actually executes** README rebuild (equivalent to `story build`)               | —                                                                         | ✅ Structured result, no parsing |
-| `stats`         | Get writing statistics (total words/chapters/series/health)                      | —                                                                         | ✅ All data in one call ~99%     |
-| `import_json`   | Batch import stories from structured JSON                                        | `stories` (array, may include `links`)                                    | —                                |
-| `create_story`  | Create a new story (folder + config.json + text.md)                              | `title` (required) + optional fields (incl. `links`)                      | —                                |
+| Tool            | Description                                                                                       | Params                                                                    | Token Savings                    |
+| --------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
+| `scan_stories`  | List all stories with metadata (compact by default)                                               | `verbose` (optional, true for full metadata)                              | ✅ Compact default ~80-95%       |
+| `read_chapter`  | Read chapter content of a story (supports on-demand loading and tail truncation)                  | `folder` (required) + `chapterIndex` (optional) + `tailLength` (optional) | ✅ On-demand/tailLength ~95%+    |
+| `write_chapter` | Atomically write content to a story                                                               | `folder` + `content` + `validate` (optional, run compliance after write)  | —                                |
+| `edit_config`   | Update story metadata (summary/status/series/links governance fields)                             | `folder` + `fields` (null removes a field; identity/audit fields locked)  | —                                |
+| `validate`      | Check repository compliance (folder naming / required files / UTF-8 / duplicate numbers / schema) | —                                                                         | —                                |
+| `build`         | **Actually executes** README rebuild (equivalent to `story build`)                                | —                                                                         | ✅ Structured result, no parsing |
+| `stats`         | Get writing statistics (total words/chapters/series/health)                                       | —                                                                         | ✅ All data in one call ~99%     |
+| `import_json`   | Batch import stories from structured JSON                                                         | `stories` (array, may include `links`)                                    | —                                |
+| `create_story`  | Create a new story (folder + config.json + text.md)                                               | `title` (required) + optional fields (incl. `links`)                      | —                                |
+
+### edit_config in detail
+
+`edit_config` is the core tool for "AI-governed metadata editing": the AI can update a story's summary, status, series, links, etc. without touching config.json manually.
+
+- **Editable**: `summary` / `status` / `series` / `seriesOrder` / `volume` / `links` / `author` / `originalWork` / `originalAuthor` / `cover` / `language` / `wordCount`
+- **Pass `null` to remove an optional field** (e.g. `{"series": null}` clears series membership)
+- **Locked**: `title` / `type` / `created` / `isMultiChapter` (identity & audit fields; returns a structured error)
+- Validated against the repo-level schema (incl. custom enums from `story.config.json`) **before writing; a failed validation never writes**. Writes are atomic (tmp + rename)
+
+```bash
+# Example: mark 星河入梦 as completed + assign to a series
+echo '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"edit_config","arguments":{"folder":"01-星河入梦","fields":{"status":"completed","series":"星河系列"}}}}' \
+  | node /path/to/story-cli/dist/bin/index.js mcp-server
+```
 
 ---
 
@@ -165,7 +186,7 @@ MCP Inspector opens in your browser and lets you:
 > **AI (calls write_chapter, folder="01-星河入梦")**:
 >
 > ```
-> ✅ Written to 01-星河入梦/text.md. Run story build to update README.
+> {"written": "01-星河入梦/text.md", "nextStep": "请运行 build 更新 README"}
 > ```
 
 **4. You rebuild READMEs**

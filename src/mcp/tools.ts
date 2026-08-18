@@ -12,6 +12,7 @@ import { loadStories } from "../core/loader.ts"
 import { readStoryTextAsync, scanStoryFolders, splitContentByChapters } from "../core/scanner.ts"
 import { getNextNumber } from "../core/sequence.ts"
 import { computeStoryStats, type StatsStoryInput } from "../core/stats-shared.ts"
+import { validateConfig } from "../core/validate.ts"
 import { getLocale } from "../i18n/index.ts"
 import { safeTail } from "../utils/unicode.ts"
 import type { McpToolResult, RegisteredTool } from "./protocol.ts"
@@ -130,12 +131,14 @@ export function registerTools(rootDir: string): RegisteredTool[] {
     {
       tool: {
         name: "write_chapter",
-        description: "将正文写入指定故事（原子写入 text.md）",
+        description:
+          "将正文写入指定故事（原子写入 text.md）。validate=true 时写入后立即执行仓库合规检查并返回结果（不阻断写入）",
         inputSchema: {
           type: "object",
           properties: {
             folder: { type: "string", description: "故事文件夹名（如 01-故事A）" },
             content: { type: "string", description: "要写入的 Markdown 正文" },
+            validate: { type: "boolean", description: "写后是否执行合规检查（默认 false）" },
           },
           required: ["folder", "content"],
         },
@@ -148,7 +151,121 @@ export function registerTools(rootDir: string): RegisteredTool[] {
         const tmpPath = path.join(rootDir, folder, ".text.md.tmp")
         await fs.promises.writeFile(tmpPath, content, "utf-8")
         await fs.promises.rename(tmpPath, path.join(rootDir, folder, "text.md"))
-        return textResult(`✅ 已写入 ${folder}/text.md。请运行 build 更新 README。`)
+        const base: Record<string, unknown> = { written: `${folder}/text.md` }
+
+        // 可选：写后立即执行合规检查，把结果附在返回值中（不额外写盘）
+        if (args.validate === true) {
+          const result = checkRepoCompliance(rootDir, getLocale("zh"))
+          base.compliance = {
+            valid: result.valid,
+            errorCount: result.issues.filter((i) => i.severity === "error").length,
+            warningCount: result.issues.filter((i) => i.severity === "warning").length,
+          }
+        }
+
+        return textResult(JSON.stringify({ ...base, nextStep: "请运行 build 更新 README" }, null, 2))
+      },
+    },
+    {
+      tool: {
+        name: "edit_config",
+        description:
+          "更新故事 config.json 的元数据字段。可编辑：summary/status/series/seriesOrder/volume/links/author/originalWork/originalAuthor/cover/language/wordCount。字段值传 null 表示移除该可选字段。title/type/created/isMultiChapter 为身份或审计字段，禁止修改。写入前经仓库级 schema 校验，校验失败不写盘。修改后请运行 build 更新 README",
+        inputSchema: {
+          type: "object",
+          properties: {
+            folder: { type: "string", description: "故事文件夹名（如 01-故事A）" },
+            fields: {
+              type: "object",
+              description: "要更新的字段（值为 null 时移除该可选字段）",
+            },
+          },
+          required: ["folder", "fields"],
+        },
+      },
+      handler: async (args) => {
+        const folder = safeFolder(args.folder, rootDir)
+        if (!folder) return textResult(`文件夹不存在: ${args.folder}`, true)
+
+        const fields = args.fields
+        if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
+          return textResult("fields 必须是一个对象", true)
+        }
+
+        const configPath = path.join(rootDir, folder, "config.json")
+        if (!fs.existsSync(configPath)) {
+          return textResult(`缺少 config.json: ${folder}`, true)
+        }
+
+        let config: Record<string, unknown>
+        try {
+          config = JSON.parse(fs.readFileSync(configPath, "utf-8")) as Record<string, unknown>
+        } catch {
+          return textResult(`config.json 解析失败: ${folder}`, true)
+        }
+
+        // 可编辑白名单：治理性元数据；身份/审计字段拒绝
+        const EDITABLE_FIELDS = new Set([
+          "summary",
+          "status",
+          "series",
+          "seriesOrder",
+          "volume",
+          "links",
+          "author",
+          "originalWork",
+          "originalAuthor",
+          "cover",
+          "language",
+          "wordCount",
+        ])
+        const rejected: string[] = []
+        const updated: Record<string, unknown> = { ...config }
+        for (const [key, value] of Object.entries(fields)) {
+          if (!EDITABLE_FIELDS.has(key)) {
+            rejected.push(key)
+            continue
+          }
+          if (value === null) {
+            // null = 移除可选字段
+            delete updated[key]
+          } else {
+            updated[key] = value
+          }
+        }
+
+        if (rejected.length > 0) {
+          return textResult(
+            JSON.stringify(
+              {
+                success: false,
+                rejected: {
+                  fields: rejected,
+                  reason: "title/type/created/isMultiChapter 为身份或审计字段，不允许修改",
+                },
+              },
+              null,
+              2,
+            ),
+            true,
+          )
+        }
+
+        // 仓库级 schema 校验（含自定义类型/状态枚举）；失败不写盘
+        const overrides = loadExportOverrides(rootDir)
+        const validation = validateConfig(updated, folder, overrides)
+        if (!validation.valid) {
+          return textResult(JSON.stringify({ success: false, issues: validation.issues }, null, 2), true)
+        }
+
+        // 原子写：tmp + rename（与 write_chapter 一致）
+        const tmpPath = `${configPath}.tmp`
+        await fs.promises.writeFile(tmpPath, `${JSON.stringify(updated, null, 2)}\n`, "utf-8")
+        await fs.promises.rename(tmpPath, configPath)
+
+        return textResult(
+          JSON.stringify({ success: true, folder, config: updated, nextStep: "请运行 build 更新 README" }, null, 2),
+        )
       },
     },
     {

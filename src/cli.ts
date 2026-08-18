@@ -154,8 +154,8 @@ export async function run(argv: string[]): Promise<number> {
 
       case "mcp-server":
       case "mcp":
-        // MCP stdio 服务器（AI 客户端连接入口）
-        runMcpServer(rootDir)
+        // MCP stdio 服务器（AI 客户端连接入口；支持 --root=<path> 指定仓库根）
+        runMcpServer(rootDir, args)
         return 0
 
       case "demo":

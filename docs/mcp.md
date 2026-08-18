@@ -15,9 +15,14 @@ story-cli 内置 **MCP（Model Context Protocol）Server**，让 AI 客户端（
 ```bash
 # 在故事仓库根目录启动
 story mcp-server
+
+# 或从任意目录显式指定仓库根（AI 客户端可从任意工作目录启动）
+story mcp-server --root=/path/to/story-repo
 ```
 
 启动后，服务器通过 stdin/stdout 提供 JSON-RPC 2.0 协议，等待 MCP 客户端连接。
+
+> 💡 `--root=<path>`：显式指定故事仓库根目录；省略时使用当前工作目录。
 
 ---
 
@@ -92,7 +97,7 @@ VSCode 内置 MCP 客户端（需启用 GitHub Copilot Chat），配置后：
 **方式 A：通过管道直接发 JSON-RPC 请求（不依赖任何客户端）**
 
 ```bash
-# 1. 列出所有工具（应返回 8 个）
+# 1. 列出所有工具（应返回 9 个）
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node /path/to/story-cli/dist/bin/index.js mcp-server
 
 # 2. 扫描故事（应返回故事列表）
@@ -122,12 +127,28 @@ MCP Inspector 启动后在浏览器中打开，可以：
 | --------------- | --------------------------------------------------------- | -------------------------------------------------------------- | ------------------------ |
 | `scan_stories`  | 列出所有故事及元数据（默认精简版）                        | `verbose`（可选，true 返回完整元数据）                         | ✅ 默认精简输出 ~80-95%  |
 | `read_chapter`  | 读取指定故事的章节内容（支持按需加载与末尾截断）          | `folder`（必填）+ `chapterIndex`（可选）+ `tailLength`（可选） | ✅ 按需/tailLength ~95%+ |
-| `write_chapter` | 将正文原子写入指定故事                                    | `folder` + `content`                                           | —                        |
+| `write_chapter` | 将正文原子写入指定故事                                    | `folder` + `content` + `validate`（可选，写后执行合规检查）    | —                        |
+| `edit_config`   | 更新故事元数据（summary/status/series/links 等治理字段）  | `folder` + `fields`（null 移除字段；身份/审计字段不可改）      | —                        |
 | `validate`      | 检查仓库合规性（目录命名/必需文件/UTF-8/重复序号/schema） | —                                                              | —                        |
 | `build`         | **真正执行** README 重建（等效 `story build`）            | —                                                              | ✅ 结构化结果免解析      |
 | `stats`         | 获取写作统计（总字数/章节数/系列/健康度）                 | —                                                              | ✅ 一次调用拿全数据 ~99% |
 | `import_json`   | 从结构化 JSON 批量导入故事                                | `stories`（数组，可含 `links`）                                | —                        |
 | `create_story`  | 创建新故事（文件夹 + config.json + text.md）              | `title`（必填）+ 可选字段（含 `links`）                        | —                        |
+
+### edit_config 详解
+
+`edit_config` 是「AI 治理内容元数据」的核心工具：AI 可以直接修改故事的简介、状态、系列、关联等字段，无需手动编辑 config.json。
+
+- **可编辑**：`summary` / `status` / `series` / `seriesOrder` / `volume` / `links` / `author` / `originalWork` / `originalAuthor` / `cover` / `language` / `wordCount`
+- **传 `null` 表示移除可选字段**（如 `{"series": null}` 清除系列归属）
+- **禁止修改**：`title` / `type` / `created` / `isMultiChapter`（身份与审计字段，返回结构化错误）
+- 写入前经仓库级 schema 校验（含 `story.config.json` 自定义枚举），**校验失败不写盘**；写入为原子操作（tmp + rename）
+
+```bash
+# 示例：把「星河入梦」改为已完结 + 归入系列
+echo '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"edit_config","arguments":{"folder":"01-星河入梦","fields":{"status":"completed","series":"星河系列"}}}}' \
+  | node /path/to/story-cli/dist/bin/index.js mcp-server
+```
 
 ---
 
@@ -165,7 +186,7 @@ MCP Inspector 启动后在浏览器中打开，可以：
 > **AI（调用 write_chapter，folder="01-星河入梦"）**：
 >
 > ```
-> ✅ 已写入 01-星河入梦/text.md。请运行 story build 更新 README。
+> {"written": "01-星河入梦/text.md", "nextStep": "请运行 build 更新 README"}
 > ```
 
 **4. 你更新 README**

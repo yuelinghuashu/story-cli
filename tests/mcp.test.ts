@@ -80,14 +80,15 @@ test("serializeMessage 输出带换行的 JSON", () => {
   assert.strictEqual(str, '{"jsonrpc":"2.0","id":1,"result":{"x":1}}\n')
 })
 
-test("registerTools 注册了 8 个 MCP 工具", () => {
+test("registerTools 注册了 9 个 MCP 工具", () => {
   const dir = setupRepo()
   const tools = registerTools(dir)
-  assert.strictEqual(tools.length, 8)
+  assert.strictEqual(tools.length, 9)
   const names = tools.map((t) => t.tool.name).sort()
   assert.deepStrictEqual(names, [
     "build",
     "create_story",
+    "edit_config",
     "import_json",
     "read_chapter",
     "scan_stories",
@@ -210,7 +211,8 @@ test("write_chapter 原子写入正文", async () => {
   assert.ok(write)
   const result = await write.handler({ folder: "01-测试故事", content: "# 新章节\n\n新内容。" }, dir)
   assert.strictEqual(result.isError, false)
-  assert.ok(result.content[0].text.includes("已写入"))
+  const data = JSON.parse(result.content[0].text) as { written: string }
+  assert.ok(data.written.includes("01-测试故事"), "应返回写入路径")
   const text = fs.readFileSync(path.join(dir, "01-测试故事", "text.md"), "utf-8")
   assert.ok(text.includes("新内容"))
 })
@@ -239,7 +241,8 @@ test("write_chapter 支持空格/连字符变体匹配（safeFolder）", async (
   // LLM 回传的是带空格的标题（而不是实际目录名 02-AI-创作的故事）
   const result = await write.handler({ folder: "02-AI 创作的故事", content: "# 第一章\n\n变体匹配成功。" }, dir)
   assert.strictEqual(result.isError, false)
-  assert.ok(result.content[0].text.includes("已写入"))
+  const data = JSON.parse(result.content[0].text) as { written: string }
+  assert.ok(data.written.includes("02-AI-创作的故事"), "应返回实际目录的写入路径")
   // 验证内容确实写入了实际目录
   const text = fs.readFileSync(path.join(dir, "02-AI-创作的故事", "text.md"), "utf-8")
   assert.ok(text.includes("变体匹配成功"))
@@ -460,4 +463,119 @@ test("import_json 包含缺少 title 的故事时部分成功", async () => {
   assert.strictEqual(data.success, 1)
   assert.strictEqual(data.failed, 1)
   assert.ok(data.errors.some((e) => e.includes("缺少 title")))
+})
+
+// ─── edit_config 治理工具 ──────────────────────────
+test("edit_config 合法修改元数据字段", async () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const edit = tools.find((t) => t.tool.name === "edit_config")
+  assert.ok(edit)
+  const result = await edit.handler(
+    { folder: "01-测试故事", fields: { status: "completed", summary: "新简介", series: "测试系列" } },
+    dir,
+  )
+  assert.strictEqual(result.isError, false)
+  const data = JSON.parse(result.content[0].text) as { success: boolean; config: Record<string, unknown> }
+  assert.strictEqual(data.success, true)
+  assert.strictEqual(data.config.status, "completed")
+  assert.strictEqual(data.config.summary, "新简介")
+  assert.strictEqual(data.config.series, "测试系列")
+  // 写盘验证
+  const onDisk = JSON.parse(fs.readFileSync(path.join(dir, "01-测试故事", "config.json"), "utf-8")) as Record<
+    string,
+    unknown
+  >
+  assert.strictEqual(onDisk.status, "completed")
+  // 无残留 tmp 文件
+  assert.ok(!fs.existsSync(path.join(dir, "01-测试故事", "config.json.tmp")))
+})
+
+test("edit_config null 值移除可选字段", async () => {
+  const dir = setupRepo()
+  const storyDir = path.join(dir, "01-测试故事")
+  const config = JSON.parse(fs.readFileSync(path.join(storyDir, "config.json"), "utf-8")) as Record<string, unknown>
+  config.series = "要移除的系列"
+  fs.writeFileSync(path.join(storyDir, "config.json"), JSON.stringify(config, null, 2), "utf-8")
+
+  const tools = registerTools(dir)
+  const edit = tools.find((t) => t.tool.name === "edit_config")
+  assert.ok(edit)
+  const result = await edit.handler({ folder: "01-测试故事", fields: { series: null } }, dir)
+  const data = JSON.parse(result.content[0].text) as { success: boolean; config: Record<string, unknown> }
+  assert.strictEqual(data.success, true)
+  assert.strictEqual(data.config.series, undefined, "series 应被移除")
+  const onDisk = JSON.parse(fs.readFileSync(path.join(storyDir, "config.json"), "utf-8")) as Record<string, unknown>
+  assert.strictEqual(onDisk.series, undefined, "写盘后 series 应不存在")
+})
+
+test("edit_config 非法枚举被拒绝且不写盘", async () => {
+  const dir = setupRepo()
+  const before = fs.readFileSync(path.join(dir, "01-测试故事", "config.json"), "utf-8")
+  const tools = registerTools(dir)
+  const edit = tools.find((t) => t.tool.name === "edit_config")
+  assert.ok(edit)
+  const result = await edit.handler({ folder: "01-测试故事", fields: { status: "not-a-status" } }, dir)
+  assert.strictEqual(result.isError, true)
+  const data = JSON.parse(result.content[0].text) as { success: boolean; issues: Array<{ field: string }> }
+  assert.strictEqual(data.success, false)
+  assert.ok(data.issues.some((i) => i.field === "status"))
+  const after = fs.readFileSync(path.join(dir, "01-测试故事", "config.json"), "utf-8")
+  assert.strictEqual(after, before, "校验失败不应写盘")
+})
+
+test("edit_config 身份/审计字段被拒绝", async () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const edit = tools.find((t) => t.tool.name === "edit_config")
+  assert.ok(edit)
+  const result = await edit.handler({ folder: "01-测试故事", fields: { title: "改名" } }, dir)
+  assert.strictEqual(result.isError, true)
+  const data = JSON.parse(result.content[0].text) as { rejected: { fields: string[] } }
+  assert.deepStrictEqual(data.rejected.fields, ["title"])
+})
+
+test("edit_config 不存在的文件夹返回错误", async () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const edit = tools.find((t) => t.tool.name === "edit_config")
+  assert.ok(edit)
+  const result = await edit.handler({ folder: "99-不存在", fields: { summary: "x" } }, dir)
+  assert.strictEqual(result.isError, true)
+  assert.ok(result.content[0].text.includes("文件夹不存在"))
+})
+
+test("edit_config fields 非对象返回错误", async () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const edit = tools.find((t) => t.tool.name === "edit_config")
+  assert.ok(edit)
+  const result = await edit.handler({ folder: "01-测试故事", fields: "bad" }, dir)
+  assert.strictEqual(result.isError, true)
+  assert.ok(result.content[0].text.includes("fields 必须是一个对象"))
+})
+
+test("write_chapter validate=true 返回合规检查结果", async () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const write = tools.find((t) => t.tool.name === "write_chapter")
+  assert.ok(write)
+  const result = await write.handler({ folder: "01-测试故事", content: "# 新章\n\n内容。", validate: true }, dir)
+  assert.strictEqual(result.isError, false)
+  const data = JSON.parse(result.content[0].text) as { compliance: { valid: boolean; errorCount: number } }
+  assert.ok("compliance" in data, "validate=true 应返回合规检查")
+  assert.strictEqual(data.compliance.errorCount, 0)
+  // 写入确实生效
+  const written = fs.readFileSync(path.join(dir, "01-测试故事", "text.md"), "utf-8")
+  assert.ok(written.includes("新章"))
+})
+
+test("write_chapter 默认（无 validate）不返回合规检查", async () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const write = tools.find((t) => t.tool.name === "write_chapter")
+  assert.ok(write)
+  const result = await write.handler({ folder: "01-测试故事", content: "# 新章\n\n内容。", validate: false }, dir)
+  const data = JSON.parse(result.content[0].text) as Record<string, unknown>
+  assert.ok(!("compliance" in data), "validate=false 不应返回合规检查")
 })

@@ -65,7 +65,7 @@ test("MCP server 能响应 tools/list 请求", () => {
   const response = JSON.parse(lines[0] ?? "{}") as { id: number; result: { tools: unknown[] } }
   assert.strictEqual(response.id, 1)
   assert.ok(Array.isArray(response.result?.tools), "应包含 tools 数组")
-  assert.strictEqual(response.result.tools.length, 8, "应有 8 个工具")
+  assert.strictEqual(response.result.tools.length, 9, "应有 9 个工具")
 })
 
 test("MCP server 能响应 initialize 请求", () => {
@@ -146,7 +146,8 @@ test("MCP server 能响应异步 tools/call（write_chapter）", () => {
     result: { content: Array<{ type: string; text: string }> }
   }
   assert.strictEqual(response.id, 4)
-  assert.ok(response.result.content[0].text.includes("已写入"))
+  const result = JSON.parse(response.result.content[0].text) as { written: string }
+  assert.ok(result.written.includes("01-测试故事"), "应返回写入路径")
   // 验证文件确实被修改
   const text = fs.readFileSync(path.join(dir, "01-测试故事", "text.md"), "utf-8")
   assert.ok(text.includes("MCP 写入内容"))
@@ -182,4 +183,27 @@ test("MCP server 多个请求顺序响应（包含异步）", () => {
   // 按 id 验证（无序但都在）
   const ids = lines.map((l) => (JSON.parse(l) as { id: number }).id).sort()
   assert.deepStrictEqual(ids, [10, 11, 12])
+})
+
+test("MCP server --root 显式指定仓库根目录", () => {
+  const dir = setupRepo()
+  // 从无关目录（/tmp）启动，用 --root 指向仓库
+  const input = '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scan_stories","arguments":{}}}\n'
+  const result = spawnSync(process.execPath, [binPath, "mcp-server", `--root=${dir}`], {
+    cwd: os.tmpdir(),
+    input,
+    encoding: "utf-8",
+    timeout: 5000,
+  })
+  assert.strictEqual(result.status, 0, "退出码应为 0")
+  const response = JSON.parse((result.stdout || "").trim()) as {
+    id: number
+    result: { content: Array<{ type: string; text: string }> }
+  }
+  assert.strictEqual(response.id, 1)
+  const data = JSON.parse(response.result.content[0].text) as { stories: Array<{ folder: string }> }
+  assert.ok(
+    data.stories.some((s) => s.folder === "01-测试故事"),
+    "--root 应指向指定仓库",
+  )
 })
