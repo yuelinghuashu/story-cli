@@ -216,6 +216,9 @@ export function importJson(rootDir: string, args: string[]): number {
   let success = 0
   let failed = 0
 
+  // 起始序号只计算一次，循环内递增（避免每条都重新扫描目录，O(n²) → O(n)）
+  let nextNumber = Number.parseInt(getNextNumber(outputDir), 10)
+
   for (let i = 0; i < data.stories.length; i++) {
     const story = data.stories[i]
     if (!story || typeof story !== "object" || !story.title) {
@@ -224,8 +227,8 @@ export function importJson(rootDir: string, args: string[]): number {
       continue
     }
 
-    // 分配到下一个可用序号
-    const number = getNextNumber(outputDir)
+    // 分配到下一个可用序号（即使本条失败也递增，与旧行为一致：序号按输入顺序分配）
+    const number = String(nextNumber++).padStart(2, "0")
     const created = createStoryFromJson(outputDir, story, number, validationOverrides)
 
     if (created) {

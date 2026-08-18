@@ -1,6 +1,9 @@
 # story-cli 构建产物
 dist/
 
+# story-cli 增量构建缓存（自动重建，无需入库）
+.story-cache.json
+
 # 依赖（若作为 devDependency 安装 CLI）
 node_modules/
 

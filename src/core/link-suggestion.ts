@@ -83,6 +83,9 @@ function keywordSet(text: string, lang: Language): Set<string> {
 
 /**
  * 生成关联建议（仅返回建议，不写盘）
+ * 语义与旧实现完全等价（旧实现遍历所有 (i,j) 对后跳过不同系列），
+ * 但先按 series 分桶、仅桶内两两比较，避免大规模仓库下 O(n²) 全量配对
+ * （无 series 的故事直接不参与比较）。
  * @param stories 参与建议的故事
  * @param minSharedTokens 成为建议的最低共享关键片段数（默认 1）
  * @returns 建议列表
@@ -95,18 +98,28 @@ export function suggestLinks(stories: SuggestStoryInput[], minSharedTokens = 1):
     keywords.set(s.folder, keywordSet(`${s.title} ${s.summary ?? ""}`, s.lang))
   }
 
+  // 按 series 分桶（保持首次出现顺序），桶内按原始下标两两比较
+  const buckets = new Map<string, number[]>()
   for (let i = 0; i < stories.length; i++) {
-    for (let j = i + 1; j < stories.length; j++) {
-      const a = stories[i]
-      const b = stories[j]
-      // 只建议同一系列
-      if (!a.series || a.series !== b.series) continue
-      const kwa = keywords.get(a.folder) ?? new Set<string>()
-      const kwb = keywords.get(b.folder) ?? new Set<string>()
-      let shared = 0
-      for (const k of kwa) if (kwb.has(k)) shared++
-      if (shared >= minSharedTokens) {
-        suggestions.push({ source: a.folder, target: b.folder, sharedKeywords: shared })
+    const series = stories[i].series
+    if (!series) continue
+    const bucket = buckets.get(series)
+    if (bucket) bucket.push(i)
+    else buckets.set(series, [i])
+  }
+
+  for (const indices of buckets.values()) {
+    for (let a = 0; a < indices.length; a++) {
+      for (let b = a + 1; b < indices.length; b++) {
+        const i = indices[a]
+        const j = indices[b]
+        const kwa = keywords.get(stories[i].folder) ?? new Set<string>()
+        const kwb = keywords.get(stories[j].folder) ?? new Set<string>()
+        let shared = 0
+        for (const k of kwa) if (kwb.has(k)) shared++
+        if (shared >= minSharedTokens) {
+          suggestions.push({ source: stories[i].folder, target: stories[j].folder, sharedKeywords: shared })
+        }
       }
     }
   }

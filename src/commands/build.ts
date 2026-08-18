@@ -33,6 +33,9 @@ export function generateReadmes(
   const templatePath = path.join(templatesDir, "story-template.md")
   let readmeCount = 0
 
+  // 关联故事映射（文件夹 → 标题）：在循环外构建一次，避免对每个故事重复 O(n) 重建（O(n²) → O(n)）
+  const folderTitle = new Map(stories.map((s) => [s.folder, s.config.title]))
+
   for (const story of stories) {
     const { folder, config } = story
     // 增量模式：跳过非目标故事（根 README 仍会全量重建以反映最新索引）
@@ -43,7 +46,6 @@ export function generateReadmes(
     const storyLocale = getLocale(lang)
 
     // 关联故事（links 字段 → 标题与目录，供 README「关联故事」区块）
-    const folderTitle = new Map(stories.map((s) => [s.folder, s.config.title]))
     const relatedStories = (config.links ?? [])
       .filter((f) => folderTitle.has(f))
       .map((f) => ({ folder: f, title: folderTitle.get(f) ?? f }))
@@ -131,7 +133,8 @@ export async function runBuild(rootDir: string, args: string[]): Promise<number>
 
   console.log(locale.scanning, "\n")
 
-  const { stories, issues, warnings } = await loadStories(rootDir, saveCounts, cliLang, validateOnly)
+  // 非 watch 构建启用增量缓存：未变更的故事跳过正文读取与字数统计（纯优化，失败自动降级）
+  const { stories, issues, warnings } = await loadStories(rootDir, saveCounts, cliLang, validateOnly, true)
 
   for (const w of warnings) {
     console.log(w)
