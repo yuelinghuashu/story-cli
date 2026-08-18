@@ -7,7 +7,7 @@ branding:
 
 inputs:
   command:
-    description: 'story-cli command to run (e.g. "build", "build epub --all")'
+    description: 'story-cli command to run (e.g. "build", "epub --all", "export json --stdout")'
     required: true
   cli-version:
     description: 'Version of @yuelinghuashu/story-cli to use (e.g. "latest", "1.2.3")'

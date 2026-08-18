@@ -1,0 +1,6 @@
+# 强制所有文本文件使用 LF 行尾（跨平台一致性）
+# 若无此文件，Windows 上 git checkout 默认转 CRLF，而 biome 强制 LF，导致 Windows CI lint 失败
+* text=auto eol=lf
+
+# .ps1 也应 LF（biome 不检查，但保持 git diff 一致）
+*.ps1 text eol=lf
