@@ -1,6 +1,6 @@
 {
   "name": "@yuelinghuashu/story-cli",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "packageManager": "pnpm@11.21.0",
   "description": "A zero-deploy, Git-native content management CLI for Markdown stories. Manage stories with directory conventions, generate READMEs, export epub.",
   "type": "module",
@@ -14,17 +14,18 @@
   ],
   "scripts": {
     "build": "rimraf dist && tsc -p tsconfig.build.json && node -e \"try{require('fs').chmodSync('dist/bin/index.js',0o755)}catch(e){}\"",
-    "test": "node --test --test-concurrency=1 tests/*.test.ts",
-    "test:unit": "node --test --test-concurrency=1 tests/*.test.ts",
-    "test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage tests/*.test.ts",
+    "test": "node --test tests/*.test.ts",
+    "test:unit": "node --test tests/*.test.ts",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"tests/**\" --test-coverage-exclude=\"bench/**\" --test-coverage-exclude=\"scripts/**\" --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=70 tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/ tests/ bin/ bench/",
-    "lint:fix": "biome check --write src/ tests/ bin/ bench/",
-    "format": "biome format --write src/ tests/ bin/ bench/",
+    "lint": "biome check src/ tests/ bin/ bench/ scripts/",
+    "lint:fix": "biome check --write src/ tests/ bin/ bench/ scripts/",
+    "format": "biome format --write src/ tests/ bin/ bench/ scripts/",
+    "check:docs": "node scripts/sync-docs.ts",
     "bench": "node bench/generate.ts && node bench/bench.ts",
     "bench:generate": "node bench/generate.ts",
     "prepack": "pnpm build",
-    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint:fix && pnpm build"
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint && pnpm build"
   },
   "keywords": [
     "story",

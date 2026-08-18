@@ -2,6 +2,31 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-08-19
+
+### Added
+
+- **`story demo` polish**: demo repo now includes `links` relations (showcases the README "Related Stories" section), a cover image and an inline illustration (zero-dependency generated valid PNGs, showcasing EPUB cover rendering and image embedding)
+- **Contribution & feedback infrastructure**: GitHub Issue templates (bug report / feature request forms) and `CONTRIBUTING.md` / `CONTRIBUTING.en.md` contribution guides
+
+### Fixed
+
+- **`stats` data accuracy**: `stats --json` no longer silently swallows broken stories (errors now surface in the `errors` array, visible to pipeline consumers like `make analyze`); `countDialogues` no longer double-counts English quotes nested inside Chinese quotes
+- **demo PNG**: `strToU8("\x89PNG...")` UTF-8-encodes U+0089 into two bytes, corrupting the signature; switched to a raw byte array (locked by a new unit test)
+- **Watch mode process lifetime**: `bin/index.ts` now parses commands via `parseCommand` + `parseArgs` instead of hardcoding `argv[3]` position; `story build --validate-only --watch` (and any flag order) keeps listening correctly instead of exiting immediately
+- **Chapter file sort order**: `chapter-*.md` now uses natural sort (`localeCompare` with `numeric: true`); `chapter-10.md` no longer sorts before `chapter-2.md`, compatible with unpadded chapter numbering
+- **README rendering & Quick Start**: root README TOC anchors changed from the obsolete `<a name>` to `<a id>` (HTML5 spec, correct jumps under stricter renderers); auto-generated copyright line format changed from `_..._` back to `*...*` (renders as italic); the "🚀 Quick Start" section now leads with the `npm install` step
+
+### Improved
+
+- **EPUB productization**: cover image now rendered on the title page (centered); built-in `styles.css` typesetting (wholesale replaceable via `--css=<path>`); `toc.ncx` EPUB2 compatibility TOC (Kindle / legacy ADE); metadata enriched with `dc:date` / `dc:rights` / series (`belongs-to-collection` + `group-position`); `--output=<dir>` custom output directory
+- **MCP governance deepening**: new `edit_config` tool (AI can edit governance fields like summary/status/series/links directly — whitelist + repo-level schema validation + atomic write, validation failure never writes); `story mcp-server --root=<path>` explicitly sets the repo root; `write_chapter` gains an optional `validate` flag (returns compliance check after writing); tool count 8 → 9
+- **Incremental build cache** (`.story-cache.json`, Git-ignored): `story build` skips content reads and word counting for unchanged stories using cheap stat fingerprints; invalidated wholesale on CLI upgrade or repo config change, silently degrading to a full build on read/write failure. Benchmarked on a 100-story × 1MB novel repo: cold build 4.3s → warm build 0.2s (~22×)
+- **Large-repo performance (O(n²) → O(n))**: `suggestLinks` buckets by `series` and compares within buckets only; `generateReadmes` hoists the `folderTitle` Map out of the per-story loop; `import json` computes the sequence number once then increments
+- **Redundant computation elimination**: `loader` / `stats` count raw words once per story and scan chapters in a single pass; `renderInline` restores placeholders in one reverse-order pass (outer before inner), removing the while-loop rescan
+- **Testing & benchmarks**: tests now run in parallel (full suite 46s → 16s, ~3×); `bench.ts` adds a "cold / warm (cache hit)" build comparison row and discards child process output
+- **Housekeeping**: duplicate-number detection consolidated into the shared `scanner.checkDuplicateNumbers`; `prepublishOnly` changed from `lint:fix` to `lint` (publish no longer rewrites source)
+
 ## [1.4.0] - 2026-08-17
 
 ### Added

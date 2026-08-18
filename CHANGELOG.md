@@ -2,6 +2,31 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.5.0] - 2026-08-19
+
+### 新增
+
+- **`story demo` 完善**：示例仓库新增 `links` 关联（演示 README「关联故事」区块）、封面图与正文插图（零依赖生成合法 PNG，演示 EPUB 封面渲染与图片嵌入）
+- **贡献与反馈基建**：GitHub Issue 模板（bug report / feature request 表单）+ `CONTRIBUTING.md` / `CONTRIBUTING.en.md` 贡献指南
+
+### 修复
+
+- **`stats` 数据口径**：`stats --json` 不再静默吞掉坏故事（错误随结果输出到 `errors` 数组，`make analyze` 等管道消费方可见）；`countDialogues` 修正中文引号内嵌英文引号被重复计数的问题
+- **demo 示例 PNG**：`strToU8("\x89PNG...")` 将 U+0089 编码为两字节导致签名损坏，改为原始字节数组（新增单元测试锁定）
+- **Watch 模式进程存活判定**：`bin/index.ts` 通过 `parseCommand` + `parseArgs` 解析命令与参数，不再硬编码 `argv[3]` 位置；`story build --validate-only --watch` 等任意标志顺序均可正确保持监听
+- **章节文件排序**：`chapter-*.md` 改用自然排序（`localeCompare` `numeric: true`），`chapter-10.md` 不再误排在 `chapter-2.md` 之前，兼容未按两位补零的章节文件
+- **README 渲染与快速开始**：根 README 目录锚点由 `<a name>` 改为 `<a id>`（HTML5 规范，严格渲染器下跳转正常）；自动生成版权行格式 `_..._` 改回 `*...*`（正确渲染为斜体）；「快速开始」区块补充 `npm install` 安装步骤
+
+### 改进
+
+- **EPUB 产品化**：封面渲染到标题页（居中展示）；内置排版样式表 `styles.css`（`--css=<path>` 可整体替换为自定义样式）；新增 `toc.ncx` EPUB2 兼容目录（Kindle/旧 ADE）；元数据补全 `dc:date` / `dc:rights` / 系列（`belongs-to-collection` + `group-position`）；`--output=<dir>` 自定义输出目录
+- **MCP 治理深化**：新增 `edit_config` 工具（AI 可直接修改 summary/status/series/links 等治理字段，白名单限制 + 仓库级 schema 校验 + 原子写，校验失败不写盘）；`story mcp-server --root=<path>` 显式指定仓库根；`write_chapter` 新增可选 `validate` 参数（写后返回合规检查结果）；工具数 8 → 9
+- **增量构建缓存**（`.story-cache.json`，Git 忽略）：`story build` 对未变更的故事跳过正文读取与字数统计，仅做 stat 指纹比对；CLI 升级或仓库配置变化自动整体失效，读写失败静默降级为全量构建。bench 实测 100 篇 × 1MB 长篇小说仓库：冷构建 4.3s → 热构建 0.2s（约 22×）
+- **大规模仓库性能（O(n²) → O(n)）**：`suggestLinks` 关联建议按 series 分桶、仅桶内比较；`generateReadmes` 的 `folderTitle` Map 移出循环；`import json` 序号改为循环外一次性获取后递增
+- **重复计算消除**：`loader` / `stats` 的原始字数只统计一次、逐章字数单遍扫描；`renderInline` 占位符恢复改反向单遍（外层先于内层），消除 while 重扫
+- **测试与基准**：测试并行化（全量 46s → 16s，约 3×）；`bench.ts` 增加「冷构建 / 热构建（命中缓存）」对比行并丢弃子进程输出
+- **内部整理**：重复序号检测收敛到 `scanner.checkDuplicateNumbers` 共享实现；`prepublishOnly` 由 `lint:fix` 改为 `lint`（发布时不再改写源码）
+
 ## [1.4.0] - 2026-08-17
 
 ### 新增
