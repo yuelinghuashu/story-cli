@@ -94,8 +94,10 @@ test("注册表子命令也有 usage 和 description", () => {
 })
 
 test("help/version 命令有 flags 字段（--help/-h/--version/-v 是全局标志，非命令别名）", () => {
-  const helpCmd = COMMANDS.find((c) => c.name === "help")!
-  const versionCmd = COMMANDS.find((c) => c.name === "version")!
+  const helpCmd = COMMANDS.find((c) => c.name === "help")
+  const versionCmd = COMMANDS.find((c) => c.name === "version")
+  assert.ok(helpCmd, "注册表应包含 help 命令")
+  assert.ok(versionCmd, "注册表应包含 version 命令")
   assert.deepStrictEqual(helpCmd.flags, ["--help", "-h"], "help 的 flags 应为 --help/-h")
   assert.deepStrictEqual(versionCmd.flags, ["--version", "-v"], "version 的 flags 应为 --version/-v")
   assert.ok(!helpCmd.aliases?.includes("--help"), "help 的 aliases 不应含 --help")

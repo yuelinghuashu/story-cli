@@ -17,7 +17,7 @@ test("safeTruncate 正常截断至指定码点数", () => {
 test("safeTruncate 截断 emoji 时不产生孤立 surrogate（核心场景）", () => {
   // 构造边界：119 个 ASCII + 1 个 emoji（📚 = \uD83D\uDCDA，UTF-16 length=2）
   // 码点数 = 120，但 UTF-16 length = 121；截断到 120 码点 = 完整保留 emoji
-  const text = "a".repeat(119) + "📚"
+  const text = `${"a".repeat(119)}📚`
   const result = safeTruncate(text, 120)
   const resultCodePoints = Array.from(result).length
   assert.strictEqual(resultCodePoints, 120, "码点数应恰好 120")
@@ -39,14 +39,14 @@ test("safeTruncate 截断 emoji 时不产生孤立 surrogate（核心场景）",
 })
 
 test("safeTruncate 扩展 B 区生僻字（𠮷）不被切断", () => {
-  const text = "a".repeat(119) + "𠮷" // 𠮷 = U+20BB7，2 个 UTF-16 单元；码点数 = 120
+  const text = `${"a".repeat(119)}𠮷` // 𠮷 = U+20BB7，2 个 UTF-16 单元；码点数 = 120
   const result = safeTruncate(text, 120)
   assert.strictEqual(Array.from(result).length, 120, "码点数应恰好 120")
   assert.ok(result.endsWith("𠮷"), "末尾应是完整的生僻字")
 })
 
 test("safeTruncate JSON 序列化不会产生替换字符", () => {
-  const text = "test" + "📚".repeat(130)
+  const text = `test${"📚".repeat(130)}`
   const result = safeTruncate(text, 100)
   const json = JSON.stringify(result)
   assert.ok(!json.includes("\uFFFD"), "JSON 不应包含替换字符 \\uFFFD")
@@ -118,7 +118,7 @@ test("sanitizeFileName 对含 emoji 的超长标题不产生畸形字符", async
 
 test("truncateSummary 对含 emoji 的超长简介不产生畸形字符", async () => {
   // truncateSummary 内部使用 safeTruncate，通过含 emoji 的标题（间接验证同一代码路径）
-  const summary = "简介：" + "📚".repeat(50) + "结尾"
+  const summary = `简介：${"📚".repeat(50)}结尾`
   const safe = (await import("../src/utils/cli-utils.ts")).sanitizeFileName(summary)
   assert.ok(!safe.includes("\uFFFD"), "截断后不应有替换字符")
 })
