@@ -31,6 +31,10 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # 文档同步校验：docs/commands.md 必须与命令注册表一致（防漂移）
+      - name: Check docs sync
+        run: pnpm check:docs
+
       - name: Build package
         run: pnpm build
 
@@ -39,3 +43,11 @@ jobs:
 
       - name: Test coverage
         run: pnpm test:coverage
+
+      # 性能回归门槛：生成 100 个玩具故事仓库并测量冷/热构建与 EPUB 导出耗时，
+      # 超过内置阈值（bench/bench.ts 的 DEFAULT_CHECK_SPECS）即失败
+      - name: Performance regression check
+        run: |
+          node bench/generate.ts 100 bench-check
+          node bench/bench.ts bench-check --check
+          rm -rf bench-check

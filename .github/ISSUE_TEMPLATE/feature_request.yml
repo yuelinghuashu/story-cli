@@ -1,0 +1,31 @@
+name: ✨ Feature Request
+description: 建议一个新功能或改进
+title: "[Feature] 简述需求"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 你正在做什么，遇到了什么阻碍？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的方案
+      description: 你希望 story-cli 怎么做？（命令 / 参数 / 行为均可）
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+      description: 你试过其他办法吗？（如外部工具组合）
+  - type: checkboxes
+    id: philosophy
+    attributes:
+      label: 与项目定位的一致性（请确认）
+      description: story-cli 坚持零依赖、Git 原生、CLI 原子能力 + 外部工具编排。功能请求是否与此一致？
+      options:
+        - label: 我了解项目定位（零依赖 / Git 原生 / Unix 哲学），并认为该需求与之契合

@@ -15,10 +15,10 @@ Complete list of all story-cli commands, organized by purpose.
 
 ## ✍️ Content
 
-| Command | Alias | Usage                                                                                                | Description                                                                                                | Docs                         |
-| ------- | ----- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `new`   | `n`   | `story new "Title" [--type=original\|fanfic] [--author="Work"] [--creator="Author"] [--lang=zh\|en]` | Create a new story (generates config.json + text.md); fan fiction requires both `--author` and `--creator` | [add-story](add-story.en.md) |
-| `link`  |       | `story link <source> <target>`                                                                       | Add relation; `--remove=<target>` to remove; `--list` to list all or a specific story                      | [add-story](add-story.en.md) |
+| Command | Alias | Usage                                                                                                 | Description                                                                                                | Docs                         |
+| ------- | ----- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `new`   | `n`   | `story new "Title" [--type=original\|fanfic] [--author="Work"] [--creator="Author"] [--lang=zh\|en]`  | Create a new story (generates config.json + text.md); fan fiction requires both `--author` and `--creator` | [add-story](add-story.en.md) |
+| `link`  |       | `story link <source> <target> \| story link --remove=<target> <source> \| story link --list [source]` | Add relation; `--remove=<target>` to remove; `--list` to list all or a specific story                      | [add-story](add-story.en.md) |
 
 ## 🔨 Build & Validate
 
@@ -30,14 +30,14 @@ Complete list of all story-cli commands, organized by purpose.
 
 ## 📤 Export
 
-| Command             | Alias | Usage                                               | Description                                                                         | Docs                   |
-| ------------------- | ----- | --------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------- |
-| `export html`       |       | `story export html [--output=dir]`                  | Static HTML site (browser print to PDF)                                             | [export](export.en.md) |
-| `export txt`        |       | `story export txt [--stdout] [--output=dir]`        | Plain text export (`--stdout` pipe-friendly)                                        | [export](export.en.md) |
-| `export json`       |       | `story export json [--stdout] [--output=dir]`       | Structured JSON (`--stdout` pipe-friendly)                                          | [export](export.en.md) |
-| `export md`         |       | `story export md [--stdout] [--output=dir]`         | Merged Markdown with YAML frontmatter                                               | [export](export.en.md) |
-| `export embeddings` |       | `story export embeddings [--stdout] [--output=dir]` | Text chunks as JSONL (for external vector retrieval)                                | [export](export.en.md) |
-| `epub`              | `e`   | `story epub "Title" [--all] [--split-by-volume]`    | EPUB 3 e-book (supports split-volume / cover / images); `--all` exports all stories | [epub](epub.en.md)     |
+| Command             | Alias | Usage                                                                        | Description                                                                                           | Docs                   |
+| ------------------- | ----- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------- |
+| `export html`       |       | `story export html [--output=dir]`                                           | Static HTML site (browser print to PDF)                                                               | [export](export.en.md) |
+| `export txt`        |       | `story export txt [--stdout] [--output=dir]`                                 | Plain text export (`--stdout` pipe-friendly)                                                          | [export](export.en.md) |
+| `export json`       |       | `story export json [--stdout] [--output=dir]`                                | Structured JSON (`--stdout` pipe-friendly)                                                            | [export](export.en.md) |
+| `export md`         |       | `story export md [--stdout] [--output=dir]`                                  | Merged Markdown with YAML frontmatter                                                                 | [export](export.en.md) |
+| `export embeddings` |       | `story export embeddings [--stdout] [--output=dir]`                          | Text chunks as JSONL (for external vector retrieval)                                                  | [export](export.en.md) |
+| `epub`              | `e`   | `story epub "Title" [--all] [--split-by-volume] [--output=dir] [--css=path]` | EPUB 3 e-book (split-volume / cover / images); `--all` exports all stories; `--css` custom stylesheet | [epub](epub.en.md)     |
 
 ## 📥 Import
 
@@ -64,11 +64,12 @@ Complete list of all story-cli commands, organized by purpose.
 
 ## ⚠️ Common Options
 
-| Option              | Commands                              | Description                                    |
-| ------------------- | ------------------------------------- | ---------------------------------------------- |
-| `--json`            | `stats`, `validate`                   | Output structured JSON (for `jq` or scripting) |
-| `--stdout`          | `export txt`/`json`/`md`/`embeddings` | Write to stdout (no disk, pipe-friendly)       |
-| `--output=dir`      | `export *`, `import json`             | Custom output directory                        |
-| `--file=path`       | `import json`                         | Path to JSON file (or pipe from stdin)         |
-| `--all`             | `epub`, `export embeddings`           | Process all stories                            |
-| `--split-by-volume` | `epub`                                | Split by `volume` field in config.json         |
+| Option              | Commands                              | Description                                                |
+| ------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| `--json`            | `stats`, `validate`                   | Output structured JSON (for `jq` or scripting)             |
+| `--stdout`          | `export txt`/`json`/`md`/`embeddings` | Write to stdout (no disk, pipe-friendly)                   |
+| `--output=dir`      | `export *`, `import json`, `epub`     | Custom output directory                                    |
+| `--css=path`        | `epub`                                | Custom EPUB stylesheet (falls back to built-in if missing) |
+| `--file=path`       | `import json`                         | Path to JSON file (or pipe from stdin)                     |
+| `--all`             | `epub`, `export embeddings`           | Process all stories                                        |
+| `--split-by-volume` | `epub`                                | Split by `volume` field in config.json                     |

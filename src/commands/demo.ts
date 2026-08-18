@@ -3,6 +3,7 @@ import path from "node:path"
 import { getLocale } from "../i18n/index.ts"
 import { detectCliLang } from "../utils/cli-utils.ts"
 import { runBuild } from "./build.ts"
+import { demoCoverPng, demoInlinePng } from "./demo-assets.ts"
 import { initProject } from "./init.ts"
 
 /**
@@ -26,10 +27,14 @@ const DEMO_STORIES: Array<{
       author: "示例作者",
       series: "梦境宇宙",
       seriesOrder: 1,
+      cover: "cover.png",
+      links: ["02-星海守望"],
     },
     text: `# 第一章 梦的开始
 
 深夜里，我推开了一扇从未见过的门。
+
+![星图](images/stars.png)
 
 门后是漫天的星河，每一颗星都像是有人在对我说着什么。
 
@@ -115,10 +120,19 @@ export async function runDemo(rootDir: string): Promise<number> {
     fs.writeFileSync(path.join(storyDir, "text.md"), story.text, "utf-8")
   }
 
-  // 3. 运行 build 生成 README
+  // 3. 示例图片（零依赖生成纯色 PNG）：演示 EPUB 封面渲染与正文图片嵌入
+  const firstStory = DEMO_STORIES[0]
+  if (firstStory) {
+    const firstStoryDir = path.join(rootDir, firstStory.folder)
+    fs.writeFileSync(path.join(firstStoryDir, "cover.png"), demoCoverPng())
+    fs.mkdirSync(path.join(firstStoryDir, "images"), { recursive: true })
+    fs.writeFileSync(path.join(firstStoryDir, "images", "stars.png"), demoInlinePng())
+  }
+
+  // 4. 运行 build 生成 README
   const exitCode = await runBuild(rootDir, [])
 
-  // 4. 打印说明
+  // 5. 打印说明
   console.log("")
   console.log(locale.demoDone)
   console.log(locale.demoExplain(DEMO_STORIES.length))

@@ -1,0 +1,58 @@
+name: 🐛 Bug Report
+description: 报告一个缺陷（行为与预期不符）
+title: "[Bug] 简述问题"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供可复现的信息，这能大幅缩短定位时间。
+  - type: input
+    id: version
+    attributes:
+      label: story-cli 版本
+      description: 运行 `story version` 查看
+      placeholder: 例如 1.4.0
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 运行环境
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - WSL
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js 版本
+      description: 运行 `node --version` 查看
+      placeholder: 例如 v24.11.0
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？预期是什么？
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 最小化的复现路径（命令 / 仓库结构 / 文件内容）
+      placeholder: |
+        1. `story init && story new "测试"`
+        2. 修改 config.json 为 ...
+        3. 运行 `story build` → 期望 ... 实际 ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误输出
+      description: 相关命令的完整输出（可脱敏）
+      render: shell
