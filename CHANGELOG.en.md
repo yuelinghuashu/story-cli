@@ -2,7 +2,20 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
-## [1.5.0] - 2026-08-19
+## [1.5.1] - 2026-08-19
+
+### Fixed
+
+- **EPUB spec compliance**: four generator defects discovered and fixed via spec-assertion tests — all XHTML content documents now include `<meta charset="UTF-8"/>` (required by the EPUB spec); NCX `dtb:uid` and `dc:identifier` UUID unified (previously generated separately, producing different values); `dcterms:modified` fixed to remove the duplicate trailing `Z` (produced `...45ZZ` instead of `...45Z`); `styles.css` added to the OPF manifest (EPUB spec requires all resources referenced by content documents to be declared)
+
+### Improved
+
+- **MCP stdout protocol safety**: `startMcpServer` now redirects `console.log` to stderr at startup, preventing any stray debug statements from polluting the JSON-RPC protocol stream (protocol output uses only `process.stdout.write`)
+- **Subcommand --help**: `story <cmd> --help` now outputs the command-specific usage and description (with subcommand list if applicable) instead of global help; top-level `--help` still shows global help
+- **EPUB spec compliance tests**: added 12 structural assertions (charset declaration, UUID consistency, ISO 8601 date format, NCX playOrder sequencing, styles.css media-type, empty description / long title / empty chapter edge cases), coverage from 52 → 64 tests
+
+<details>
+<summary>## [1.5.0] - 2026-08-19</summary>
 
 ### Added
 
@@ -27,7 +40,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 - **Testing & benchmarks**: tests now run in parallel (full suite 46s → 16s, ~3×); `bench.ts` adds a "cold / warm (cache hit)" build comparison row and discards child process output
 - **Housekeeping**: duplicate-number detection consolidated into the shared `scanner.checkDuplicateNumbers`; `prepublishOnly` changed from `lint:fix` to `lint` (publish no longer rewrites source)
 
-## [1.4.0] - 2026-08-17
+</details>
+
+<details>
+<summary>## [1.4.0] - 2026-08-17</summary>
 
 ### Added
 
@@ -65,7 +81,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 - New WatchScheduler unit tests (debounce / queue / dispose), Watch integration tests (loop regression / new dir / invalid config recovery / `.storyignore`); compliance / story link / link suggestions / embeddings / stats parity — 45+ new tests
 - 554 tests run, 551 pass (3 GBK tests skipped on small-ICU Node builds)
 
-## [1.3.0] - 2026-08-16
+</details>
+
+<details>
+<summary>## [1.3.0] - 2026-08-16</summary>
 
 ### Added
 
@@ -94,6 +113,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Added boundary tests: Markdown rendering (nested / URL / encoding safety), MCP protocol/tools, `--stdout` pipeline, `sanitizeFileName` / `extractNumericWordCount` / template cache
 - 423 tests run, 420 pass (3 GBK tests skipped on small-ICU Node builds)
+
+</details>
 
 <details>
 <summary>## [1.2.0] - 2026-08-15</summary>

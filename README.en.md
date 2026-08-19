@@ -108,6 +108,23 @@ story mcp-server
 
 > 💡 See [docs/mcp.en.md](docs/mcp.en.md) for detailed setup and examples. **MCP Server reads and writes files in the current working directory — run it only in trusted repositories.**
 
+### 🎯 Fine-tuning Data Preparation (SFT / Embedding)
+
+A structured content library is naturally suited as LLM training data — `config.json` carries classification labels, `export json` chunks by chapter, `export embeddings` outputs clean text blocks. Combined with `--stdout` + Unix tools, **a single pipeline command converts it to standard fine-tuning format**:
+
+```bash
+# Export as instruction-tuning JSONL (summary → instruction, text → output)
+story export json --stdout | jq -c '.stories[] | {messages: [{role: "user", content: .summary}, {role: "assistant", content: .content}]}' > sft_data.jsonl
+
+# Export as Embedding training format
+story export embeddings --stdout | jq -c '{text: .content, metadata: {title: .title, series: .series}}' > embedding_data.jsonl
+
+# Quick data-mix analysis (word count / chapter distribution / repeated phrases)
+story stats --json | jq '{words: .totalWords, chapters: .totalChapters, repeated: .analysis.repeated}'
+```
+
+> 💡 story-cli already guarantees **UTF-8 encoding** (GBK auto-detected and warned), **chapter-level chunking** (no semantic truncation), and **complete metadata** (type/series/summary usable as classification labels and prompt instructions). No secondary cleaning scripts needed.
+
 ---
 
 ## 🛠️ Common Commands

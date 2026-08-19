@@ -95,12 +95,12 @@ story-cli 内置 **MCP Server** —— AI 客户端（Claude Desktop / Cursor / 
 
 > 💡 **Token 经济性**：MCP 工具从设计之初就以节省 AI 调用成本为核心原则。`scan_stories` 默认精简输出（目录浏览节省 ~80-95%）、`read_chapter` 支持按需截断（续写场景节省 ~95%+）、`stats` 一次调用拿全数据（~99%）——每个细节都在为你的 AI 工作流降低 Token 消耗。
 
-| 能力    | MCP 工具                         | 说明                                                       |
-| ------- | -------------------------------- | ---------------------------------------------------------- |
-| 📖 浏览 | `scan_stories` / `read_chapter`  | 列出故事库、读取章节（支持按需加载与末尾截断，节省 Token） |
-| ✍️ 写作 | `write_chapter` / `create_story` | 创建新故事、原子写入正文（可选写后合规校验）               |
-| ✅ 治理 | `edit_config` / `build` / `validate` | 直接改元数据字段、执行 README 重建、校验配置合法性      |
-| 📊 统计 | `stats`                          | 获取总字数 / 章节数 / 系列进度 / 健康度                    |
+| 能力    | MCP 工具                             | 说明                                                       |
+| ------- | ------------------------------------ | ---------------------------------------------------------- |
+| 📖 浏览 | `scan_stories` / `read_chapter`      | 列出故事库、读取章节（支持按需加载与末尾截断，节省 Token） |
+| ✍️ 写作 | `write_chapter` / `create_story`     | 创建新故事、原子写入正文（可选写后合规校验）               |
+| ✅ 治理 | `edit_config` / `build` / `validate` | 直接改元数据字段、执行 README 重建、校验配置合法性         |
+| 📊 统计 | `stats`                              | 获取总字数 / 章节数 / 系列进度 / 健康度                    |
 
 ```bash
 # 启动 MCP Server（需在故事仓库根目录；--root 可从任意目录指定仓库）
@@ -109,22 +109,39 @@ story mcp-server
 
 > 💡 详细配置与示例见 [docs/mcp.md](docs/mcp.md)。**MCP Server 会读写当前工作目录下的所有文件，请仅在信任的仓库中运行。**
 
+### 🎯 微调数据准备（SFT / Embedding）
+
+故事库的结构化输出天然适合作为大模型训练数据源——`config.json` 自带分类标签，`export json` 按章节精准切片，`export embeddings` 输出纯文本块。配合 `--stdout` + Unix 工具链，**一行管道即可转为标准微调格式**：
+
+```bash
+# 导出为指令微调 JSONL（summary → instruction，正文 → output）
+story export json --stdout | jq -c '.stories[] | {messages: [{role: "user", content: .summary}, {role: "assistant", content: .content}]}' > sft_data.jsonl
+
+# 导出为 Embedding 训练格式
+story export embeddings --stdout | jq -c '{text: .content, metadata: {title: .title, series: .series}}' > embedding_data.jsonl
+
+# 快速分析数据配比（总字数/章节分布/重复短语）
+story stats --json | jq '{words: .totalWords, chapters: .totalChapters, repeated: .analysis.repeated}'
+```
+
+> 💡 story-cli 已确保 UTF-8 编码（GBK 自动检测告警）、章节级切片（避免语义截断）、元数据完整（type/series/summary 天然可用作分类标签）。无需二次清洗脚本。
+
 ---
 
 ## 🛠️ 常用命令
 
-| 命令                                                          | 描述                                       |
-| ------------------------------------------------------------- | ------------------------------------------ |
-| `story init [--template=story\|knowledge\|tech]`              | 初始化仓库（默认故事/知识库/技术文档模式） |
-| `story new "标题" [--type] [--lang] [--author] [--creator]`   | 创建新条目                                 |
-| `story build [--validate-only] [--save-counts] [--watch]`     | 构建 README                                |
-| `story epub "标题" [--all] [--split-by-volume] [--output=dir] [--css=path]` | 导出 EPUB |
-| `story export html / txt / json / md / embeddings [--stdout]` | 导出多种格式（embeddings 为文本块 JSONL）  |
-| `story import json --file=xxx.json`                           | 从 JSON 批量导入                           |
-| `story stats [--json]`                                        | 创作统计                                   |
-| `story validate [--json]`                                     | 合规检查（Story-Repo 规范）                |
-| `story link "A" "B" [--remove=...] [--list]`                  | 管理故事关联（弱关联）                     |
-| `story mcp-server`                                            | 启动 MCP Server（AI 连接入口）             |
+| 命令                                                                        | 描述                                       |
+| --------------------------------------------------------------------------- | ------------------------------------------ |
+| `story init [--template=story\|knowledge\|tech]`                            | 初始化仓库（默认故事/知识库/技术文档模式） |
+| `story new "标题" [--type] [--lang] [--author] [--creator]`                 | 创建新条目                                 |
+| `story build [--validate-only] [--save-counts] [--watch]`                   | 构建 README                                |
+| `story epub "标题" [--all] [--split-by-volume] [--output=dir] [--css=path]` | 导出 EPUB                                  |
+| `story export html / txt / json / md / embeddings [--stdout]`               | 导出多种格式（embeddings 为文本块 JSONL）  |
+| `story import json --file=xxx.json`                                         | 从 JSON 批量导入                           |
+| `story stats [--json]`                                                      | 创作统计                                   |
+| `story validate [--json]`                                                   | 合规检查（Story-Repo 规范）                |
+| `story link "A" "B" [--remove=...] [--list]`                                | 管理故事关联（弱关联）                     |
+| `story mcp-server`                                                          | 启动 MCP Server（AI 连接入口）             |
 
 <details>
 <summary>完整命令参考</summary>

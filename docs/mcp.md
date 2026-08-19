@@ -218,7 +218,7 @@ story build
 - **写在文件，不写在 README**：AI 的成果最终是 `text.md` 中的 Markdown。README 由 `story build` 统一生成。
 - **不锁文件**：MCP 依赖文件系统原子写入，版本控制交给 Git。写入后建议检查 `git diff`。
 - **输出不污染 stdout**：MCP 专注于 JSON-RPC 协议，所有内容通过 `result` 返回，不直接打印。
-- **stdout 是协议专用通道**：MCP Server 的 stdout 只能包含 JSON-RPC 消息。任何 `console.log` 调试输出都会污染协议流，导致客户端无法解析。所有诊断日志应使用 `console.error` 输出到 stderr。
+- **stdout 是协议专用通道**：MCP Server 的 stdout 只能包含 JSON-RPC 消息。`server.ts` 启动时已将 `console.log` 重定向到 stderr（防御性措施），即使代码中误用 `console.log` 也不会污染协议流；所有诊断日志仍应使用 `console.error`（stderr）。
 - **不使用 `process.exit()`**：MCP Server 是长期运行进程，`process.exit()` 会在读取到请求前终止服务器。进程退出必须由 `close` / `SIGINT` 事件控制。
 - **等待异步 handler 完成**：MCP Server 内部会跟踪所有 in-flight 请求，确保 stdin 关闭时等待全部完成后再退出。
 

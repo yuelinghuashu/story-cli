@@ -186,6 +186,9 @@ export function generateEpub(
   </rootfiles>
 </container>`)
 
+  // ---- 共享 UUID（dc:identifier / NCX dtb:uid 必须一致，仅生成一次）----
+  const bookUid = `urn:uuid:${randomUUID()}`
+
   // ---- 章节序号格式化 ----
   const pad = (n: number) => String(n).padStart(3, "0")
 
@@ -231,6 +234,7 @@ export function generateEpub(
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
+  <meta charset="UTF-8"/>
   <title>${escapeXml(chapter.title)}</title>
   ${stylesheetLink}
 </head>
@@ -258,6 +262,7 @@ ${chapter.data}
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
+  <meta charset="UTF-8"/>
   <title>${safeTitle}</title>
   ${stylesheetLink}
 </head>
@@ -281,6 +286,7 @@ ${chapter.data}
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
+  <meta charset="UTF-8"/>
   <title>${safeTitle} — Copyright</title>
   ${stylesheetLink}
 </head>
@@ -297,6 +303,7 @@ ${chapter.data}
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${safeLang}">
 <head>
+  <meta charset="UTF-8"/>
   <title>${safeTitle}</title>
   ${stylesheetLink}
 </head>
@@ -311,11 +318,10 @@ ${tocItems.join("\n")}
 </html>`)
 
   // ---- OEBPS/toc.ncx（EPUB2 兼容目录，供 Kindle/旧 ADE 使用）----
-  const ncxUid = `urn:uuid:${randomUUID()}`
   const tocNcx = strToU8(`<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
-    <meta name="dtb:uid" content="${ncxUid}"/>
+    <meta name="dtb:uid" content="${bookUid}"/>
     <meta name="dtb:depth" content="1"/>
     <meta name="dtb:totalPageCount" content="0"/>
     <meta name="dtb:maxPageNumber" content="0"/>
@@ -329,6 +335,7 @@ ${ncxItems.join("\n")}
   // ---- OEBPS/content.opf ----
   const manifestItems = [
     { id: "ncx", href: "toc.ncx", mediaType: "application/x-dtbncx+xml" },
+    { id: "css", href: "styles.css", mediaType: "text/css" },
     { id: titleFileId, href: `${titlePageId}.xhtml`, mediaType: "application/xhtml+xml" },
     ...copyrightItems.map((c) => ({ id: c.fileId, href: `${c.id}.xhtml`, mediaType: "application/xhtml+xml" })),
     ...chapterIds.map(({ id, fileId }) => ({ id: fileId, href: `${id}.xhtml`, mediaType: "application/xhtml+xml" })),
@@ -355,22 +362,21 @@ ${ncxItems.join("\n")}
 
   // 系列元数据（EPUB 3.2：belongs-to-collection + group-position）
   const seriesMeta = safeSeries
-    ? `\n    <meta property="belongs-to-collection" id="c01">${safeSeries}</meta>${
-        seriesOrder !== undefined ? `\n    <meta refines="#c01" property="group-position">${seriesOrder}</meta>` : ""
-      }`
+    ? `\n    <meta property="belongs-to-collection" id="c01">${safeSeries}</meta>${seriesOrder !== undefined ? `\n    <meta refines="#c01" property="group-position">${seriesOrder}</meta>` : ""
+    }`
     : ""
 
   const contentOpf = strToU8(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0" xml:lang="${safeLang}">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:identifier id="bookid">urn:uuid:${randomUUID()}</dc:identifier>
+    <dc:identifier id="bookid">${bookUid}</dc:identifier>
     <dc:title>${safeTitle}</dc:title>
     <dc:creator>${safeAuthor}</dc:creator>
     <dc:language>${safeLang}</dc:language>
     <dc:description>${safeDesc}</dc:description>
     ${safeCreated ? `<dc:date>${safeCreated}</dc:date>` : ""}
     ${safeLicense ? `<dc:rights>${safeLicense}</dc:rights>` : ""}
-    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}/, "")}Z</meta>
+    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}/, "")}</meta>
     ${seriesMeta}
     ${coverImageItem ? `<meta name="cover" content="${coverImageItem.id}"/>` : ""}
   </metadata>

@@ -2,7 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [1.5.0] - 2026-08-19
+## [1.5.1] - 2026-08-19
+
+### 修复
+
+- **EPUB 规范合规**：四类生成器缺陷经规范断言测试发现并修复——所有 XHTML 内容文档补 `<meta charset="UTF-8"/>`（EPUB 规范要求）；NCX `dtb:uid` 与 `dc:identifier` UUID 统一（此前各生成一次导致不一致）；`dcterms:modified` 移除多余的 `Z` 后缀修复双重 Z 格式错误（`...45ZZ` → `...45Z`）；`styles.css` 加入 OPF manifest（规范要求所有内容文档引用的资源必须声明）
+
+### 改进
+
+- **MCP stdout 协议安全**：`startMcpServer` 启动时将 `console.log` 重定向到 `stderr`，彻底防止未来调试语句污染 JSON-RPC 协议流（协议仅通过 `process.stdout.write` 输出）
+- **子命令 --help**：`story <cmd> --help` 现在输出该命令的专项用法与说明（含子命令列表），而非全局帮助；无子命令时仍显示全局帮助
+- **EPUB 规范合规测试**：新增 12 项结构断言（charset 声明、UUID 一致性、ISO 8601 日期格式、NCX playOrder 连续性、styles.css media-type、空 description / 超长标题 / 空章节边界），测试覆盖率从 52 → 64 项
+
+<details>
+<summary>## [1.5.0] - 2026-08-19</summary>
 
 ### 新增
 
@@ -27,7 +40,10 @@
 - **测试与基准**：测试并行化（全量 46s → 16s，约 3×）；`bench.ts` 增加「冷构建 / 热构建（命中缓存）」对比行并丢弃子进程输出
 - **内部整理**：重复序号检测收敛到 `scanner.checkDuplicateNumbers` 共享实现；`prepublishOnly` 由 `lint:fix` 改为 `lint`（发布时不再改写源码）
 
-## [1.4.0] - 2026-08-17
+</details>
+
+<details>
+<summary>## [1.4.0] - 2026-08-17</summary>
 
 ### 新增
 
@@ -65,7 +81,10 @@
 - 新增 Watch 调度器单元测试、Watch 集成测试、合规检查 / story link / 关联建议 / embeddings / 统计口径一致性 等 45+ 项测试
 - 554 项测试运行，551 项通过（另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
 
-## [1.3.0] - 2026-08-16
+</details>
+
+<details>
+<summary>## [1.3.0] - 2026-08-16</summary>
 
 ### 新增
 
@@ -94,6 +113,8 @@
 
 - 新增边界测试：Markdown 渲染（嵌套 / URL / 编码安全）、MCP 协议/工具、`--stdout` 管道、`sanitizeFileName` / `extractNumericWordCount` / 模板缓存
 - 423 项测试运行，420 项通过（另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
+
+</details>
 
 <details>
 <summary>## [1.2.0] - 2026-08-15</summary>

@@ -14,7 +14,7 @@ import { runMcpServer } from "./commands/mcp.ts"
 import { createNewStory } from "./commands/new-story.ts"
 import { runStats } from "./commands/stats.ts"
 import { runValidate } from "./commands/validate.ts"
-import { CATEGORIES, getCommandsByCategory } from "./core/command-registry.ts"
+import { CATEGORIES, getCommandsByCategory, type CommandDef, COMMANDS } from "./core/command-registry.ts"
 import { formatError } from "./utils/errors.ts"
 import { getPackageVersion } from "./utils/paths.ts"
 
@@ -75,6 +75,40 @@ function printVersion(): void {
 }
 
 /**
+ * 根据命令名或别名查找 CommandDef
+ */
+function findCommandDef(name: string): CommandDef | undefined {
+  return COMMANDS.find((cmd) => cmd.name === name || cmd.aliases?.includes(name))
+}
+
+/**
+ * 打印单个命令的专项帮助（子命令级 --help）
+ * 输出：usage + description + 子命令列表 + 全局 flags 提示
+ */
+function printSubcommandHelp(cmd: CommandDef): void {
+  console.log(`story-cli v${VERSION}`)
+  console.log("")
+  console.log("Usage:")
+  console.log(`  ${cmd.usage}`)
+  console.log("")
+  console.log(`  ${cmd.descriptionZh}`)
+  console.log("")
+
+  if (cmd.subcommands && cmd.subcommands.length > 0) {
+    console.log("Available subcommands:")
+    for (const sub of cmd.subcommands) {
+      console.log(`  ${sub.usage}`)
+      console.log(`      ${sub.description}`)
+    }
+    console.log("")
+  }
+
+  console.log("Global flags (work after any command):")
+  console.log("  --help, -h          显示帮助信息")
+  console.log("  --version, -v       显示版本号")
+}
+
+/**
  * 主入口
  * @param argv 命令行参数
  * @returns 退出码（0 成功，1 失败）
@@ -87,6 +121,14 @@ export async function run(argv: string[]): Promise<number> {
   // parseArgs 处理子命令级标志（如 story build --help）；command 检查处理第一参数为标志的情况（如 story --version）
   const { options } = parseArgs(args)
   if (options.help || command === "--help" || command === "-h") {
+    // 子命令级 --help：command 是已知命令（非 --help/-h 标志本身），输出该命令专项帮助
+    if (options.help && command !== "--help" && command !== "-h") {
+      const cmdDef = findCommandDef(command)
+      if (cmdDef) {
+        printSubcommandHelp(cmdDef)
+        return 0
+      }
+    }
     printHelp()
     return 0
   }

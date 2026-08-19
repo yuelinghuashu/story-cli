@@ -620,3 +620,143 @@ test("EPUB 集成：无系列时不含 belongs-to-collection 元数据", () => {
   const opf = files["OEBPS/content.opf"]
   assert.ok(!opf.includes("belongs-to-collection"), "无系列时不应输出系列元数据")
 })
+
+// ---- EPUB 规范合规断言 ----
+
+test("规范：所有 XHTML 页面包含 charset 声明", () => {
+  const epubData = generateEpub(
+    { title: "charset书", author: "A", lang: "zh", license: "CC" },
+    [{ title: "第一章", data: "<p>内容</p>" }, { title: "第二章", data: "<p>内容</p>" }],
+  )
+  const files = extractEpub(epubData)
+  for (const page of ["OEBPS/chapter001.xhtml", "OEBPS/chapter002.xhtml", "OEBPS/titlepage.xhtml", "OEBPS/copyright.xhtml", "OEBPS/toc.xhtml"]) {
+    assert.ok(
+      files[page]?.includes('<meta charset="UTF-8"/>'),
+      `${page} 应包含 <meta charset="UTF-8"/>`,
+    )
+  }
+})
+
+test("规范：NCX dtb:uid 与 dc:identifier UUID 一致", () => {
+  const epubData = generateEpub({ title: "UUID书" }, [{ title: "章", data: "<p>内容</p>" }])
+  const files = extractEpub(epubData)
+  const opf = files["OEBPS/content.opf"]
+  const ncx = files["OEBPS/toc.ncx"]
+
+  // 提取 dc:identifier
+  const idMatch = opf.match(/<dc:identifier id="bookid">(urn:uuid:[^<]+)<\/dc:identifier>/)
+  assert.ok(idMatch, "应包含 dc:identifier")
+  const identifier = idMatch![1]
+
+  // 提取 dtb:uid
+  const uidMatch = ncx.match(/<meta name="dtb:uid" content="([^"]+)"/)
+  assert.ok(uidMatch, "应包含 dtb:uid")
+  const uid = uidMatch![1]
+
+  assert.strictEqual(uid, identifier, "dtb:uid 应与 dc:identifier 相同")
+})
+
+test("规范：dcterms:modified 格式为 ISO 8601 UTC", () => {
+  const epubData = generateEpub({ title: "日期书" }, [{ title: "章", data: "<p>内容</p>" }])
+  const files = extractEpub(epubData)
+  const opf = files["OEBPS/content.opf"]
+  const match = opf.match(/<meta property="dcterms:modified">([^<]+)<\/meta>/)
+  assert.ok(match, "应包含 dcterms:modified")
+  assert.ok(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(match![1]),
+    `dcterms:modified 格式应为 ISO 8601 UTC，实际: ${match![1]}`,
+  )
+})
+
+test("规范：空 description 不破坏 XML 结构", () => {
+  const epubData = generateEpub(
+    { title: "空简介书", description: "" },
+    [{ title: "章", data: "<p>内容</p>" }],
+  )
+  const files = extractEpub(epubData)
+  assert.ok(files["OEBPS/content.opf"], "content.opf 应存在")
+  assert.ok(files["OEBPS/titlepage.xhtml"], "标题页应存在")
+})
+
+test("规范：超长章节标题（>200 字符）不破坏结构", () => {
+  const longTitle = "这是一段非常长的章节标题".repeat(30)
+  const epubData = generateEpub({ title: "长标题书" }, [
+    { title: longTitle, data: "<p>内容</p>" },
+  ])
+  const files = extractEpub(epubData)
+  assert.ok(files["OEBPS/chapter001.xhtml"], "章节文件应存在")
+  assert.ok(files["OEBPS/toc.ncx"], "NCX 应存在")
+  assert.ok(files["OEBPS/toc.xhtml"], "TOC 应存在")
+  // 长标题应包含在章节和目录中
+  assert.ok(files["OEBPS/chapter001.xhtml"]!.includes(longTitle))
+  assert.ok(files["OEBPS/toc.ncx"]!.includes(longTitle))
+})
+
+test("规范：空章节内容不破坏 XHTML 结构", () => {
+  const epubData = generateEpub({ title: "空内容书" }, [
+    { title: "章", data: "" },
+  ])
+  const files = extractEpub(epubData)
+  assert.ok(files["OEBPS/chapter001.xhtml"], "章节文件应存在")
+  assert.ok(files["OEBPS/chapter001.xhtml"]!.includes("<h1>章</h1>"), "应包含章节标题")
+})
+
+test("规范：titlepage 无封面时不包含 img 标签", () => {
+  const epubData = generateEpub(
+    { title: "无封面标题页", author: "作者" },
+    [{ title: "章", data: "<p>内容</p>" }],
+  )
+  const files = extractEpub(epubData)
+  const titlepage = files["OEBPS/titlepage.xhtml"]
+  assert.ok(!titlepage.includes("<img "), "无封面时标题页不应包含图片")
+  assert.ok(titlepage.includes('class="title-page"'), "应使用标题页布局")
+  assert.ok(titlepage.includes("作者"), "应显示作者")
+})
+
+test("规范：styles.css 在 manifest 中 media-type 为 text/css", () => {
+  const epubData = generateEpub({ title: "CSS类型书" }, [{ title: "章", data: "<p>内容</p>" }])
+  const files = extractEpub(epubData)
+  const opf = files["OEBPS/content.opf"]
+  assert.ok(
+    opf.includes('href="styles.css" media-type="text/css"'),
+    "manifest 中 styles.css 的 media-type 应为 text/css",
+  )
+})
+
+test("规范：toc.xhtml nav 结构完整（nav + ol 包含所有章节）", () => {
+  const epubData = generateEpub({ title: "导航结构书" }, [
+    { title: "第壹章", data: "<p>一</p>" },
+    { title: "第贰章", data: "<p>二</p>" },
+    { title: "第叁章", data: "<p>三</p>" },
+  ])
+  const files = extractEpub(epubData)
+  const toc = files["OEBPS/toc.xhtml"]
+
+  // 必须包含 <nav epub:type="toc"> 和 <ol>
+  assert.ok(toc.includes('<nav epub:type="toc"'), "应包含 epub:type=toc 导航")
+  assert.ok(toc.includes("<ol>"), "应包含有序列表")
+  assert.ok(toc.includes("</ol>"), "有序列表应闭合")
+  // 每章都在 nav 的 <a> 中
+  for (const title of ["第壹章", "第贰章", "第叁章"]) {
+    assert.ok(toc.includes(`<a href="chapter`), `目录应包含章节链接`)
+  }
+})
+
+test("规范：NCX playOrder 从 1 开始连续递增", () => {
+  const epubData = generateEpub({ title: "序号书" }, [
+    { title: "甲", data: "<p>1</p>" },
+    { title: "乙", data: "<p>2</p>" },
+    { title: "丙", data: "<p>3</p>" },
+  ])
+  const files = extractEpub(epubData)
+  const ncx = files["OEBPS/toc.ncx"]
+
+  // 提取所有 playOrder
+  const playOrders: number[] = []
+  const regex = /playOrder="(\d+)"/g
+  let m: RegExpExecArray | null
+  while ((m = regex.exec(ncx)) !== null) playOrders.push(Number(m[1]))
+
+  assert.strictEqual(playOrders.length, 3, "应有 3 个 playOrder")
+  assert.deepStrictEqual(playOrders, [1, 2, 3], "playOrder 应从 1 开始连续递增")
+})
