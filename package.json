@@ -2,7 +2,7 @@
   "name": "@yuelinghuashu/story-cli",
   "version": "1.5.1",
   "packageManager": "pnpm@11.21.0",
-  "description": "A zero-deploy, Git-native content management CLI for Markdown stories. Manage stories with directory conventions, generate READMEs, export epub.",
+  "description": "Zero-deploy, Git-native content management CLI for Markdown stories and knowledge bases. Built-in MCP Server for AI integration, EPUB export, and structure-aware data pipelines for LLM fine-tuning.",
   "type": "module",
   "bin": {
     "story": "./dist/bin/index.js"
@@ -34,12 +34,20 @@
     "writing",
     "markdown",
     "cms",
+    "content-management",
+    "data-pipeline",
     "cli",
     "git",
     "epub",
+    "ebook",
     "mcp",
     "ai",
-    "llm"
+    "llm",
+    "rag",
+    "fine-tuning",
+    "sft",
+    "model-training",
+    "content-governance"
   ],
   "author": "yuelinghuashu",
   "license": "MIT",

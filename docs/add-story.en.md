@@ -105,23 +105,23 @@ When `story build` detects images in `assets/sponsor/`, it automatically generat
 
 ### Field Reference
 
-| Field            | Required    | Type      | Description                                                        |
-| ---------------- | ----------- | --------- | ------------------------------------------------------------------ |
-| `title`          | ✅          | `string`  | Story title                                                        |
-| `type`           | ✅          | `string`  | `"original"` or `"fanfic"`                                         |
-| `status`         | ✅          | `string`  | `"completed"` or `"ongoing"`                                       |
-| `isMultiChapter` | Optional    | `boolean` | Whether this is a multi-chapter story (default `false`)            |
-| `language`       | Optional    | `string`  | `"zh"` or `"en"`, determines README localization                   |
-| `summary`        | ✅          | `string`  | One-sentence summary of the story                                  |
-| `created`        | ✅          | `string`  | Creation date in `YYYY-MM-DD` format                               |
-| `author`         | Optional    | `string`  | Author name (used for original stories, shown in EPUB)             |
-| `originalWork`   | Fanfic only | `string`  | Original work name (required if fanfic)                            |
-| `originalAuthor` | Fanfic only | `string`  | Original author (required if fanfic)                               |
-| `cover`          | Optional    | `string`  | Cover image path (used in EPUB export)                             |
-| `series`         | Optional    | `string`  | Series name. Stories with this field are grouped                   |
-| `seriesOrder`    | Optional    | `number`  | Order key within series (supports decimals like `2.5`)             |
-| `volume`         | Optional    | `string`  | Volume/part name (display + `story epub --split-by-volume` export) |
-| `links`          | Optional    | `string[]`| Related story folder names (weak relation, see "Related Stories")  |
+| Field            | Required    | Type       | Description                                                        |
+| ---------------- | ----------- | ---------- | ------------------------------------------------------------------ |
+| `title`          | ✅          | `string`   | Story title                                                        |
+| `type`           | ✅          | `string`   | `"original"` or `"fanfic"`                                         |
+| `status`         | ✅          | `string`   | `"completed"` or `"ongoing"`                                       |
+| `isMultiChapter` | Optional    | `boolean`  | Whether this is a multi-chapter story (default `false`)            |
+| `language`       | Optional    | `string`   | `"zh"` or `"en"`, determines README localization                   |
+| `summary`        | ✅          | `string`   | One-sentence summary of the story                                  |
+| `created`        | ✅          | `string`   | Creation date in `YYYY-MM-DD` format                               |
+| `author`         | Optional    | `string`   | Author name (used for original stories, shown in EPUB)             |
+| `originalWork`   | Fanfic only | `string`   | Original work name (required if fanfic)                            |
+| `originalAuthor` | Fanfic only | `string`   | Original author (required if fanfic)                               |
+| `cover`          | Optional    | `string`   | Cover image path (used in EPUB export)                             |
+| `series`         | Optional    | `string`   | Series name. Stories with this field are grouped                   |
+| `seriesOrder`    | Optional    | `number`   | Order key within series (supports decimals like `2.5`)             |
+| `volume`         | Optional    | `string`   | Volume/part name (display + `story epub --split-by-volume` export) |
+| `links`          | Optional    | `string[]` | Related story folder names (weak relation, see "Related Stories")  |
 
 ### Related Stories (`links`, optional)
 
@@ -284,11 +284,11 @@ The root README shows all series stories grouped under their series name, follow
 ```markdown
 ## Three-Body
 
-| #   | Story       | Type     | Words  | Status    | Summary |
-| --- | ----------- | -------- | ------ | --------- | ------- |
-| 01  | The Past    | Original | 100K   | Completed | ...     |
-| 02  | Dark Forest | Original | 120K   | Completed | ...     |
-| 03  | Death's End | Original | 140K   | Ongoing   | ...     |
+| #   | Story       | Type     | Words | Status    | Summary |
+| --- | ----------- | -------- | ----- | --------- | ------- |
+| 01  | The Past    | Original | 100K  | Completed | ...     |
+| 02  | Dark Forest | Original | 120K  | Completed | ...     |
+| 03  | Death's End | Original | 140K  | Ongoing   | ...     |
 
 ## 📌 Standalone Stories
 

@@ -5,26 +5,25 @@ import os from "node:os"
 import path from "node:path"
 import { after, test } from "node:test"
 import { fileURLToPath } from "node:url"
+import { cleanupTempDirs } from "./helpers.ts"
 
 const binPath = fileURLToPath(new URL("../bin/index.ts", import.meta.url))
 
-// 测试结束后清理本文件创建的所有临时目录（前缀统一 "cli-"）
+// 测试结束后清理本文件创建的所有临时目录（精确前缀匹配，避免误删其他测试文件的目录）
 after(() => {
-  try {
-    const tmpDir = os.tmpdir()
-    for (const entry of fs.readdirSync(tmpDir)) {
-      // 只清理本测试文件创建的前缀（cli-test- / cli-txt-multi- / cli-json- / cli-md- / cli-sort-test- / cli-fractional-test- / cli-series-info-test- / cli-rename-test-）
-      if (entry.startsWith("cli-") && fs.statSync(path.join(tmpDir, entry)).isDirectory()) {
-        try {
-          fs.rmSync(path.join(tmpDir, entry), { recursive: true, force: true })
-        } catch {
-          // 清理失败静默忽略
-        }
-      }
-    }
-  } catch {
-    // 忽略
-  }
+  cleanupTempDirs([
+    "cli-test-",
+    "cli-demo-test-",
+    "cli-txt-multi-",
+    "cli-json-",
+    "cli-md-",
+    "cli-md-stdout-",
+    "cli-txt-stdout-",
+    "cli-sort-test-",
+    "cli-fractional-test-",
+    "cli-series-info-test-",
+    "cli-rename-test-",
+  ])
 })
 
 /** 运行 CLI 并返回 stdout + stderr 合并输出 */
