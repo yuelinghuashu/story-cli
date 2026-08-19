@@ -2,6 +2,26 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] - 1.5.2
+
+### Fixed
+
+- **MCP JSON-RPC notification compliance**: `parseRequest` now correctly distinguishes requests from notifications (messages without `id`). Previously `notifications/initialized` — a mandatory step of the MCP handshake — was rejected with `-32600 Invalid request` and answered with an error response, violating JSON-RPC 2.0 §4.2 (notifications must not be answered, even with an error). This broke strict clients (Claude Desktop / Cursor) and produced ZodError noise in mcp-proxy logs. Valid notifications are now silently ignored (fire-and-forget) with no output
+
+### Added
+
+- **Dockerfile**: container image built from the published npm package (stdio MCP server, non-root user) for MCP directories such as Glama / Smithery build and introspection checks
+- **npm metadata expansion**: description and keywords now cover content-management / data-pipeline / ebook / rag / fine-tuning / sft / model-training / content-governance, improving npm search discoverability
+
+### Improved
+
+- **Test temp-dir cleanup**: `cli.test.ts` `after()` cleanup switched from a broad `cli-` prefix match to `cleanupTempDirs` with an exact prefix list, avoiding deletion of temp dirs owned by other test files
+
+### Tests
+
+- Added 3 MCP tests: valid notification returns null (fire-and-forget), invalid notification (bad method / bad version) still throws InvalidRequest, and an end-to-end handshake (initialize → notifications/initialized → tools/list) produces exactly two responses
+- 601 tests run, 598 pass (3 GBK tests skipped on small-ICU Node builds)
+
 ## [1.5.1] - 2026-08-19
 
 ### Fixed

@@ -2,6 +2,26 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased] - 1.5.2
+
+### 修复
+
+- **MCP JSON-RPC 通知合规**：`parseRequest` 现在正确区分请求与通知（无 id 消息）。此前 `notifications/initialized`（MCP 握手的必需步骤）被误判为 `-32600 Invalid request` 并返回错误响应，违反 JSON-RPC 2.0 §4.2（通知不得响应，包括错误响应），导致 Claude Desktop / Cursor 等严格客户端握手失败、mcp-proxy 日志产生 ZodError 噪音。现在合法通知静默忽略（fire-and-forget），不产生任何输出
+
+### 新增
+
+- **Dockerfile**：基于 npm 已发布包的容器镜像（stdio MCP server，非 root 运行），供 Glama / Smithery 等 MCP 目录构建与 introspection 检查使用
+- **npm 元数据扩充**：description 与 keywords 覆盖 content-management / data-pipeline / ebook / rag / fine-tuning / sft / model-training / content-governance，提升 npm 搜索可发现性
+
+### 改进
+
+- **测试临时目录清理**：`cli.test.ts` 的 `after()` 清理从宽泛的 `cli-` 前缀匹配改为 `cleanupTempDirs` 精确前缀列表，避免误删其他测试文件的临时目录
+
+### 测试
+
+- 新增 3 项 MCP 测试：合法通知返回 null（fire-and-forget）、非法通知（坏 method / 坏版本）仍抛 InvalidRequest、端到端完整握手（initialize → notifications/initialized → tools/list）仅产生两条响应
+- 601 项测试运行，598 项通过（另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
+
 ## [1.5.1] - 2026-08-19
 
 ### 修复
