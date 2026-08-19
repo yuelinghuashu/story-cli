@@ -362,8 +362,9 @@ ${ncxItems.join("\n")}
 
   // 系列元数据（EPUB 3.2：belongs-to-collection + group-position）
   const seriesMeta = safeSeries
-    ? `\n    <meta property="belongs-to-collection" id="c01">${safeSeries}</meta>${seriesOrder !== undefined ? `\n    <meta refines="#c01" property="group-position">${seriesOrder}</meta>` : ""
-    }`
+    ? `\n    <meta property="belongs-to-collection" id="c01">${safeSeries}</meta>${
+        seriesOrder !== undefined ? `\n    <meta refines="#c01" property="group-position">${seriesOrder}</meta>` : ""
+      }`
     : ""
 
   const contentOpf = strToU8(`<?xml version="1.0" encoding="UTF-8"?>

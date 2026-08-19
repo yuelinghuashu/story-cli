@@ -14,7 +14,7 @@ import { runMcpServer } from "./commands/mcp.ts"
 import { createNewStory } from "./commands/new-story.ts"
 import { runStats } from "./commands/stats.ts"
 import { runValidate } from "./commands/validate.ts"
-import { CATEGORIES, getCommandsByCategory, type CommandDef, COMMANDS } from "./core/command-registry.ts"
+import { CATEGORIES, COMMANDS, type CommandDef, getCommandsByCategory } from "./core/command-registry.ts"
 import { formatError } from "./utils/errors.ts"
 import { getPackageVersion } from "./utils/paths.ts"
 

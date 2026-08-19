@@ -23,7 +23,7 @@ import {
 export function startMcpServer(rootDir: string, tools: RegisteredTool[]): void {
   // stdout 是 MCP JSON-RPC 协议专用通道；任何 console.log 都会污染协议流导致客户端解析失败。
   // 启动时将 console.log 统一重定向到 stderr，防止未来调试语句意外破坏协议。
-  console.log = (...args: unknown[]) => process.stderr.write(args.map(String).join(" ") + "\n")
+  console.log = (...args: unknown[]) => process.stderr.write(`${args.map(String).join(" ")}\n`)
 
   const rl = createInterface({ input: process.stdin, terminal: false })
   const pending = new Set<Promise<void>>()
