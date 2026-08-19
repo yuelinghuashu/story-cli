@@ -46,6 +46,7 @@ after(() => {
 
 test("parseRequest 解析合法请求", () => {
   const req = parseRequest('{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+  assert.ok(req, "合法请求不应返回 null")
   assert.strictEqual(req.method, "tools/list")
   assert.strictEqual(req.id, 1)
 })
@@ -60,6 +61,22 @@ test("parseRequest 非法 JSON 抛出 ParseError", () => {
 test("parseRequest 非法 jsonrpc 版本抛出 InvalidRequest", () => {
   assert.throws(
     () => parseRequest('{"jsonrpc":"1.0","id":1,"method":"tools/list"}'),
+    (e: Error & { code?: number }) => e.code === JsonRpcErrorCode.InvalidRequest,
+  )
+})
+
+test("parseRequest 合法通知返回 null（fire-and-forget）", () => {
+  const result = parseRequest('{"jsonrpc":"2.0","method":"notifications/initialized"}')
+  assert.strictEqual(result, null, "通知应返回 null 而非抛错")
+})
+
+test("parseRequest 无 id 且非法 method 抛出 InvalidRequest", () => {
+  assert.throws(
+    () => parseRequest('{"jsonrpc":"2.0","method":123}'),
+    (e: Error & { code?: number }) => e.code === JsonRpcErrorCode.InvalidRequest,
+  )
+  assert.throws(
+    () => parseRequest('{"jsonrpc":"1.0","method":"notifications/initialized"}'),
     (e: Error & { code?: number }) => e.code === JsonRpcErrorCode.InvalidRequest,
   )
 })

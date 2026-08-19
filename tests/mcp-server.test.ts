@@ -185,6 +185,21 @@ test("MCP server 多个请求顺序响应（包含异步）", () => {
   assert.deepStrictEqual(ids, [10, 11, 12])
 })
 
+test("MCP server 通知（notifications/initialized）不产生任何响应", () => {
+  const dir = setupRepo()
+  // 完整 MCP 握手：initialize → 通知 → tools/list
+  // 通知必须静默忽略（JSON-RPC 2.0 §4.2），不得返回错误响应
+  const { stdout } = sendRequests(dir, [
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}',
+    '{"jsonrpc":"2.0","method":"notifications/initialized"}',
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
+  ])
+  const lines = stdout.trim().split("\n").filter(Boolean)
+  assert.strictEqual(lines.length, 2, "通知不应产生响应，只有 initialize 和 tools/list 各一条")
+  const ids = lines.map((l) => (JSON.parse(l) as { id: number }).id).sort()
+  assert.deepStrictEqual(ids, [1, 2], "响应 id 应为 1 和 2，通知不应有任何输出")
+})
+
 test("MCP server --root 显式指定仓库根目录", () => {
   const dir = setupRepo()
   // 从无关目录（/tmp）启动，用 --root 指向仓库

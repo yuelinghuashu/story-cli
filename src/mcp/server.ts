@@ -31,7 +31,7 @@ export function startMcpServer(rootDir: string, tools: RegisteredTool[]): void {
   rl.on("line", (line) => {
     const trimmed = line.trim()
     if (!trimmed) return
-    let request: JsonRpcRequest
+    let request: JsonRpcRequest | null
     try {
       request = parseRequest(trimmed)
     } catch (e) {
@@ -39,6 +39,8 @@ export function startMcpServer(rootDir: string, tools: RegisteredTool[]): void {
       process.stdout.write(serializeMessage(makeErrorResponse(null, code, (e as Error).message)))
       return
     }
+    // 通知（无 id，如 notifications/initialized）：fire-and-forget，不产生任何响应（JSON-RPC 2.0 §4.2）
+    if (request === null) return
     // 跟踪 in-flight 请求，确保 stdin 关闭时异步 handler 已完成
     const task = (async () => {
       const response = await handleRequest(request, rootDir, tools)

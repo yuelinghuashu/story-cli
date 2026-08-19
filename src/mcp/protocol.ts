@@ -74,10 +74,15 @@ export function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
 
 /**
  * 解析 JSON-RPC 请求消息
+ *
+ * JSON-RPC 2.0 区分两类消息：
+ * - 请求（含 id）：期望响应，返回 JsonRpcRequest
+ * - 通知（无 id，如 notifications/initialized）：fire-and-forget，不期望任何响应，返回 null
+ *
  * @param raw 原始输入文本（单条 JSON）
- * @returns 解析后的请求；格式非法时抛出带错误码的 Error
+ * @returns 解析后的请求；通知时返回 null；格式非法时抛出带错误码的 Error
  */
-export function parseRequest(raw: string): JsonRpcRequest {
+export function parseRequest(raw: string): JsonRpcRequest | null {
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
@@ -87,8 +92,8 @@ export function parseRequest(raw: string): JsonRpcRequest {
     throw err
   }
 
+  // 有 id → 请求
   if (parsed && typeof parsed === "object" && "id" in (parsed as object)) {
-    // 可能是通知（无 id）或请求（有 id）
     if (!isJsonRpcRequest(parsed)) {
       const err = new Error("Invalid request") as Error & { code?: number }
       err.code = JsonRpcErrorCode.InvalidRequest
@@ -97,7 +102,13 @@ export function parseRequest(raw: string): JsonRpcRequest {
     return parsed
   }
 
-  // 无 id → 通知（fire-and-forget）
+  // 无 id → 通知（fire-and-forget）：仅校验 jsonrpc 版本与 method，合法则静默忽略（返回 null）
+  // 注意：JSON-RPC 2.0 §4.2 规定通知不得返回任何响应（含错误响应），故不抛错
+  const obj = parsed as { jsonrpc?: unknown; method?: unknown } | null
+  if (obj && typeof obj === "object" && obj.jsonrpc === "2.0" && typeof obj.method === "string") {
+    return null
+  }
+
   const err = new Error("Invalid request") as Error & { code?: number }
   err.code = JsonRpcErrorCode.InvalidRequest
   throw err
