@@ -123,17 +123,17 @@ MCP Inspector 启动后在浏览器中打开，可以：
 
 ## 🛠️ 暴露的 MCP 工具
 
-| 工具名          | 说明                                                      | 参数                                                           | Token 节省               |
-| --------------- | --------------------------------------------------------- | -------------------------------------------------------------- | ------------------------ |
-| `scan_stories`  | 列出所有故事及元数据（默认精简版）                        | `verbose`（可选，true 返回完整元数据）                         | ✅ 默认精简输出 ~80-95%  |
-| `read_chapter`  | 读取指定故事的章节内容（支持按需加载与末尾截断）          | `folder`（必填）+ `chapterIndex`（可选）+ `tailLength`（可选） | ✅ 按需/tailLength ~95%+ |
-| `write_chapter` | 将正文原子写入指定故事                                    | `folder` + `content` + `validate`（可选，写后执行合规检查）    | —                        |
-| `edit_config`   | 更新故事元数据（summary/status/series/links 等治理字段）  | `folder` + `fields`（null 移除字段；身份/审计字段不可改）      | —                        |
-| `validate`      | 检查仓库合规性（目录命名/必需文件/UTF-8/重复序号/schema） | —                                                              | —                        |
-| `build`         | **真正执行** README 重建（等效 `story build`）            | —                                                              | ✅ 结构化结果免解析      |
-| `stats`         | 获取写作统计（总字数/章节数/系列/健康度）                 | —                                                              | ✅ 一次调用拿全数据 ~99% |
-| `import_json`   | 从结构化 JSON 批量导入故事                                | `stories`（数组，可含 `links`）                                | —                        |
-| `create_story`  | 创建新故事（文件夹 + config.json + text.md）              | `title`（必填）+ 可选字段（含 `links`）                        | —                        |
+| 工具名          | 类型    | 说明                                                      | 参数                                                           | Token 节省               |
+| --------------- | ------- | --------------------------------------------------------- | -------------------------------------------------------------- | ------------------------ |
+| `scan_stories`  | 🔍 只读 | 列出所有故事及元数据（默认精简版）                        | `verbose`（可选，true 返回完整元数据）                         | ✅ 默认精简输出 ~80-95%  |
+| `read_chapter`  | 🔍 只读 | 读取指定故事的章节内容（支持按需加载与末尾截断）          | `folder`（必填）+ `chapterIndex`（可选）+ `tailLength`（可选） | ✅ 按需/tailLength ~95%+ |
+| `write_chapter` | ✏️ 写入 | 将正文原子写入指定故事                                    | `folder` + `content` + `validate`（可选，写后执行合规检查）    | —                        |
+| `edit_config`   | ✏️ 写入 | 更新故事元数据（summary/status/series/links 等治理字段）  | `folder` + `fields`（null 移除字段；身份/审计字段不可改）      | —                        |
+| `validate`      | 🔍 只读 | 检查仓库合规性（目录命名/必需文件/UTF-8/重复序号/schema） | —                                                              | —                        |
+| `build`         | ✏️ 写入 | **真正执行** README 重建（等效 `story build`）            | —                                                              | ✅ 结构化结果免解析      |
+| `stats`         | 🔍 只读 | 获取写作统计（总字数/章节数/系列/健康度）                 | —                                                              | ✅ 一次调用拿全数据 ~99% |
+| `import_json`   | ✏️ 写入 | 从结构化 JSON 批量导入故事                                | `stories`（数组，可含 `links`）                                | —                        |
+| `create_story`  | ✏️ 写入 | 创建新故事（文件夹 + config.json + text.md）              | `title`（必填）+ 可选字段（含 `links`）                        | —                        |
 
 ### edit_config 详解
 
@@ -142,6 +142,10 @@ MCP Inspector 启动后在浏览器中打开，可以：
 - **可编辑**：`summary` / `status` / `series` / `seriesOrder` / `volume` / `links` / `author` / `originalWork` / `originalAuthor` / `cover` / `language` / `wordCount`
 - **传 `null` 表示移除可选字段**（如 `{"series": null}` 清除系列归属）
 - **禁止修改**：`title` / `type` / `created` / `isMultiChapter`（身份与审计字段，返回结构化错误）
+  - `title`：文件夹命名的物理坐标锚点（如 `01-星河入梦`），改它会破坏 README 链接、EPUB 引用、`links` 关联等所有依赖
+  - `type`：决定版权声明模板（原创 vs 同人），事后篡改会导致法律声明与实际不符
+  - `created`：创作时间锚点，是"何时写的"而非"何时改的"，不应由 AI 事后修改
+  - `isMultiChapter`：由系统根据章节文件自动推导，手动修改会导致与实际结构不一致
 - 写入前经仓库级 schema 校验（含 `story.config.json` 自定义枚举），**校验失败不写盘**；写入为原子操作（tmp + rename）
 
 ```bash

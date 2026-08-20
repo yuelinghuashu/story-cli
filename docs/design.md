@@ -26,13 +26,13 @@ story-cli 不只是工具，更是一套写作工作流哲学。
 
 ---
 
-## ⚡ 零依赖心智负担
+## ⚡ 极简依赖心智负担
 
 **仅 2 个运行时依赖**：`fflate`（EPUB ZIP 打包）和 `handlebars`（模板渲染）。
 
-- 参数解析使用 Node 内置 `util.parseArgs`（零依赖）
+- 参数解析使用 Node 内置 `util.parseArgs`（极简依赖）
 - Markdown 转换器使用约 180 行自制实现（覆盖小说写作所需子集）
-- 测试使用 Node 内置 `node:test`（零依赖）
+- 测试使用 Node 内置 `node:test`（极简依赖）
 - 不需要编译步骤 — 开发时 Node 24+ 原生运行 TypeScript；发布产物为编译后 JS（兼容 Node >= 22）
 
 细节由**边界测试兜底**（见 `tests/md-to-html.test.ts`），而不是通过引入依赖解决。
@@ -318,7 +318,7 @@ story export md        → AI 直接拿到合并后的 Markdown
 | 本地知识库        | GUI + 双向链接 + 知识图谱 + 插件生态           | 笔记、知识管理爱好者   |
 | AI 写作助手       | 云端模型 + 续写/润色 + 平台绑定                | 追求写作灵感的作者     |
 | 编辑器 + CLI 组合 | 编辑器管创作 + CLI 管治理，文件系统解耦        | Git 用户、开发者创作者 |
-| **story-cli**     | Git 原生 + Markdown 零依赖 + CLI 驱动          | Git 用户、开发者创作者 |
+| **story-cli**     | Git 原生 + Markdown 极简依赖 + CLI 驱动        | Git 用户、开发者创作者 |
 
 每种方向都有各自的目标用户。story-cli 不替代任何方向——它为「希望在 Git 中直接管理故事文件」的人提供了一条专门的道路。
 

@@ -36,6 +36,9 @@
 # 安装（需要 Node.js >= 22）
 npm install -g @yuelinghuashu/story-cli
 
+# 或免安装直接体验
+npx @yuelinghuashu/story-cli demo
+
 # 创建示例仓库并查看效果
 story demo
 

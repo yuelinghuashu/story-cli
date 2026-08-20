@@ -35,8 +35,11 @@ export function startMcpServer(rootDir: string, tools: RegisteredTool[]): void {
     try {
       request = parseRequest(trimmed)
     } catch (e) {
-      const code = (e as Error & { code?: number }).code ?? JsonRpcErrorCode.InternalError
-      process.stdout.write(serializeMessage(makeErrorResponse(null, code, (e as Error).message)))
+      const code =
+        (e instanceof Error && "code" in e ? (e as { code?: number }).code : undefined) ??
+        JsonRpcErrorCode.InternalError
+      const msg = e instanceof Error ? e.message : String(e)
+      process.stdout.write(serializeMessage(makeErrorResponse(null, code, msg)))
       return
     }
     // 通知（无 id，如 notifications/initialized）：fire-and-forget，不产生任何响应（JSON-RPC 2.0 §4.2）
@@ -81,23 +84,28 @@ async function handleRequest(
     }
     if (method === "initialize") {
       return makeResponse(id, {
-        protocolVersion: "2025-03-26",
+        protocolVersion: "2025-06-18",
         capabilities: { tools: {} },
         serverInfo: { name: "story-cli-mcp", version: getPackageVersion() },
       })
     }
     if (method === "tools/call") {
-      const callParams = params as { name?: string; arguments?: Record<string, unknown> }
-      const tool = tools.find((t) => t.tool.name === callParams?.name)
+      const p = params as Record<string, unknown> | undefined
+      const toolName = typeof p?.name === "string" ? p.name : undefined
+      const tool = tools.find((t) => t.tool.name === toolName)
       if (!tool) {
-        return makeErrorResponse(id, JsonRpcErrorCode.MethodNotFound, `Unknown tool: ${callParams?.name}`)
+        return makeErrorResponse(id, JsonRpcErrorCode.MethodNotFound, `Unknown tool: ${toolName}`)
       }
-      const args = callParams?.arguments ?? {}
+      const args = (typeof p?.arguments === "object" && p.arguments !== null ? p.arguments : {}) as Record<
+        string,
+        unknown
+      >
       const result = await tool.handler(args, rootDir)
       return makeResponse(id, result)
     }
     return makeErrorResponse(id, JsonRpcErrorCode.MethodNotFound, `Method not found: ${method}`)
   } catch (e) {
-    return makeErrorResponse(id, JsonRpcErrorCode.InternalError, (e as Error).message)
+    const msg = e instanceof Error ? e.message : String(e)
+    return makeErrorResponse(id, JsonRpcErrorCode.InternalError, msg)
   }
 }

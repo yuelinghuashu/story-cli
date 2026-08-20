@@ -36,6 +36,9 @@
 # Install (requires Node.js >= 22)
 npm install -g @yuelinghuashu/story-cli
 
+# Or try without installing
+npx @yuelinghuashu/story-cli demo
+
 # Create a demo repo and see it in action
 story demo
 

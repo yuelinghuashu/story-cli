@@ -103,6 +103,43 @@ test("story link 不存在的目标报错", () => {
   assert.ok(!ok, "不存在的目标应报错")
 })
 
+test("story link 不存在的源报错", () => {
+  const dir = makeRepo()
+  const { ok } = runCli(["link", "99-不存在", "02-故事B"], dir)
+  assert.ok(!ok, "不存在的源应报错")
+})
+
+test("story link 无参数报错", () => {
+  const dir = makeRepo()
+  const { ok } = runCli(["link"], dir)
+  assert.ok(!ok, "无参数应报错")
+})
+
+test("story link 只有源无目标报错", () => {
+  const dir = makeRepo()
+  const { ok } = runCli(["link", "01-故事A"], dir)
+  assert.ok(!ok, "只有源无目标应报错")
+})
+
+test("story link --remove 不存在的目标报错", () => {
+  const dir = makeRepo()
+  const { ok } = runCli(["link", "--remove=99-不存在", "01-故事A"], dir)
+  assert.ok(!ok, "移除不存在的目标应报错")
+})
+
+test("story link --remove 关联不存在时报错", () => {
+  const dir = makeRepo()
+  const { ok } = runCli(["link", "--remove=02-故事B", "01-故事A"], dir)
+  assert.ok(!ok, "移除未建立的关联应报错")
+})
+
+test("story link --list 指定源列出该源的关联", () => {
+  const dir = makeRepo()
+  runCli(["link", "01-故事A", "02-故事B"], dir)
+  const { output } = runCli(["link", "--list", "01-故事A"], dir)
+  assert.ok(output.includes("02-故事B"), "应列出该源的关联")
+})
+
 // ─── build 建议层 ────────────────────────────────────
 test("suggestLinks 同 series + 共享关键词产生建议（不写盘）", () => {
   const stories: SuggestStoryInput[] = [

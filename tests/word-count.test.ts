@@ -6,6 +6,7 @@ import {
   countWords,
   formatTotalWordCount,
   formatWordCount,
+  parseWordCount,
 } from "../src/utils/word-count.ts"
 
 test("countChineseChars 统计中文字符数", () => {
@@ -72,4 +73,25 @@ test("formatTotalWordCount 英文总字数", () => {
   assert.strictEqual(formatTotalWordCount(180000, "en"), "~180.0K words")
   assert.strictEqual(formatTotalWordCount(5000, "en"), "~5.0K words")
   assert.strictEqual(formatTotalWordCount(500, "en"), "~500 words")
+})
+
+test("parseWordCount 中文格式", () => {
+  assert.strictEqual(parseWordCount("约 3 千字"), 3000)
+  assert.strictEqual(parseWordCount("约 18 万字"), 180000)
+  assert.strictEqual(parseWordCount("约 500 字"), 500)
+  assert.strictEqual(parseWordCount("约 3.5 千字"), 3500)
+})
+
+test("parseWordCount 英文格式", () => {
+  assert.strictEqual(parseWordCount("~5K words"), 5000)
+  assert.strictEqual(parseWordCount("~25K words"), 25000)
+  assert.strictEqual(parseWordCount("~500 words"), 500)
+  assert.strictEqual(parseWordCount("~1.5M words"), 1500000)
+})
+
+test("parseWordCount 无效输入返回 0", () => {
+  assert.strictEqual(parseWordCount(""), 0)
+  assert.strictEqual(parseWordCount("字数待补充"), 0)
+  assert.strictEqual(parseWordCount("Word count TBD"), 0)
+  assert.strictEqual(parseWordCount("abc"), 0)
 })

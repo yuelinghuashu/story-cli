@@ -2,7 +2,7 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] - 1.5.2
+## [1.5.2] - 2026-08-20
 
 ### Fixed
 
@@ -15,14 +15,25 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Improved
 
+- **Unified error handling**: new `error-handler.ts` utility module (`normalizeError` / `handleFileSystemError` / `handleJsonParseError` / `ErrorCollector`), replacing unsafe `as Error` / `as NodeJS.ErrnoException` casts throughout the codebase; `errors.ts` adds `FILE_NOT_FOUND` / `FILE_READ` / `JSON_PARSE` error codes
+- **Export command deduplication**: `exporter.ts` gains `initExport` / `ensureOutputDir` / `finishExport` shared helpers, removing ~6-8 lines of boilerplate from each export command (txt / json / md / html)
+- **Word-count refactor**: magic numbers (1000 / 10000 / 1000000) in `word-count.ts` extracted to module-level constants; new `parseWordCount()` reverse-parse function (supports both zh/en formats → number)
+- **Type safety**: `types.ts` adds `ValidationErrorCode` discriminated union (`missing` / `type` / `enum` / `pattern` / `conditional` / `parse`) for compile-time validation of error codes
+- **Parallel chapter reads**: `readStoryTextAsync` chapter files changed from sequential `await` to `Promise.all` parallel IO
+- **MCP spec upgrade**: protocol version bumped from `2025-03-26` to `2025-06-18`; all 9 tools now carry `annotations` (`readOnlyHint` / `destructiveHint` / `idempotentHint`) so clients can decide whether to require user confirmation; `edit_config` editable-field allowlist extracted to module-level constant; `server.ts` `tools/call` param parsing and error handling replace unsafe `as` casts with guarded access
+- **scanner.ts split**: the 504-line `scanner.ts` decomposed into three modules by responsibility — `scanner.ts` (folder scanning + .storyignore), `story-text.ts` (content reading + chapter merging), `content-parser.ts` (chapter splitting + word counting); all importers updated accordingly
+- **Contributing guide**: `CONTRIBUTING.md` / `.en.md` now document the `pnpm test:coverage` gate (line ≥ 90% / branch ≥ 80% / function ≥ 70%)
 - **Test temp-dir cleanup**: `cli.test.ts` `after()` cleanup switched from a broad `cli-` prefix match to `cleanupTempDirs` with an exact prefix list, avoiding deletion of temp dirs owned by other test files
 
 ### Tests
 
 - Added 3 MCP tests: valid notification returns null (fire-and-forget), invalid notification (bad method / bad version) still throws InvalidRequest, and an end-to-end handshake (initialize → notifications/initialized → tools/list) produces exactly two responses
-- 601 tests run, 598 pass (3 GBK tests skipped on small-ICU Node builds)
+- Added 14 error-handling and word-count tests: `ErrorCollector` collect / clear / toValidationIssues conversion, `handleFileSystemError` / `handleJsonParseError` branch coverage, `parseWordCount` zh/en parsing and invalid input
+- Added 2 tool-annotation tests: read-only tools assert `readOnlyHint: true`, write tools assert `readOnlyHint: false`
+- 621 tests run, 618 pass (3 GBK tests skipped on small-ICU Node builds)
 
-## [1.5.1] - 2026-08-19
+<details>
+<summary>## [1.5.1] - 2026-08-19</summary>
 
 ### Fixed
 
@@ -33,6 +44,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 - **MCP stdout protocol safety**: `startMcpServer` now redirects `console.log` to stderr at startup, preventing any stray debug statements from polluting the JSON-RPC protocol stream (protocol output uses only `process.stdout.write`)
 - **Subcommand --help**: `story <cmd> --help` now outputs the command-specific usage and description (with subcommand list if applicable) instead of global help; top-level `--help` still shows global help
 - **EPUB spec compliance tests**: added 12 structural assertions (charset declaration, UUID consistency, ISO 8601 date format, NCX playOrder sequencing, styles.css media-type, empty description / long title / empty chapter edge cases), coverage from 52 → 64 tests
+
+</details>
+
+---
 
 <details>
 <summary>## [1.5.0] - 2026-08-19</summary>

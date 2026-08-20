@@ -76,7 +76,7 @@ test("MCP server 能响应 initialize 请求", () => {
     result: { protocolVersion: string; serverInfo: { name: string } }
   }
   assert.strictEqual(response.id, 2)
-  assert.strictEqual(response.result.protocolVersion, "2025-03-26")
+  assert.strictEqual(response.result.protocolVersion, "2025-06-18")
   assert.strictEqual(response.result.serverInfo.name, "story-cli-mcp")
 })
 

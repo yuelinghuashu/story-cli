@@ -65,7 +65,7 @@ jobs:
 
 1. **类型安全** — `tsc --noEmit` 确保 TypeScript 类型正确
 2. **代码规范** — Biome 统一 lint + format，保证代码风格一致
-3. **质量保障** — 519 项测试覆盖扫描、校验、渲染、EPUB、CLI、MCP 协议、GitHub Action 结构等，防止回归
+3. **质量保障** — 618 项测试覆盖扫描、校验、渲染、EPUB、CLI、MCP 协议、GitHub Action 结构等，防止回归
 
 ---
 

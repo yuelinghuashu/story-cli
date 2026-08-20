@@ -7,17 +7,13 @@
 import fs from "node:fs"
 import path from "node:path"
 import { formatStatus, formatType, getLocale, resolveLang } from "../i18n/index.ts"
+import { isNodeError } from "../utils/error-handler.ts"
 import { readJsonFileAsync } from "../utils/json-utils.ts"
 import { getPackageVersion } from "../utils/paths.ts"
 import { formatWordCount } from "../utils/word-count.ts"
 import { loadRepoConfigAsync } from "./config.ts"
-import {
-  checkDuplicateNumbers,
-  extractChaptersLocalized,
-  readStoryTextAsync,
-  resolveRawWordCount,
-  scanStoryFoldersAsync,
-} from "./scanner.ts"
+import { extractChaptersLocalized, resolveRawWordCount } from "./content-parser.ts"
+import { checkDuplicateNumbers, scanStoryFoldersAsync } from "./scanner.ts"
 import {
   buildStoryDataFromCache,
   contentFingerprint,
@@ -28,6 +24,7 @@ import {
   storyFingerprint,
   toCachedStoryData,
 } from "./story-cache.ts"
+import { readStoryTextAsync } from "./story-text.ts"
 import type { BuildResult, StoryConfig, StoryData, StoryLoadResult, ValidationIssue } from "./types.ts"
 import { type ValidationOverrides, validateConfig } from "./validate.ts"
 
@@ -48,20 +45,20 @@ export async function loadStoryConfigAsync(
   try {
     rawConfig = await readJsonFileAsync(configPath)
   } catch (e) {
-    const code = (e as NodeJS.ErrnoException).code
-    if (code === "ENOENT") {
+    if (isNodeError(e) && e.code === "ENOENT") {
       return {
         config: null,
         issues: [{ code: "missing", field: "config.json", message: `${folder}: missing config.json` }],
       }
     }
+    const msg = e instanceof Error ? e.message : String(e)
     return {
       config: null,
       issues: [
         {
           code: "parse",
           field: "config.json",
-          message: `${folder}: config.json read failed - ${(e as Error).message}`,
+          message: `${folder}: config.json read failed - ${msg}`,
         },
       ],
     }

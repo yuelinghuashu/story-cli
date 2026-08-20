@@ -4,6 +4,8 @@ import os from "node:os"
 import path from "node:path"
 import { test } from "node:test"
 import { unzipSync } from "fflate"
+import { getLocale } from "../src/i18n/index.ts"
+import { loadCoverImage } from "../src/render/epub-assets.ts"
 import { generateEpub, getImageMimeType, isSvgSafe, safeImageName } from "../src/render/epub-generator.ts"
 import { mdToHtml } from "../src/render/md-to-html.ts"
 
@@ -752,4 +754,98 @@ test("规范：NCX playOrder 从 1 开始连续递增", () => {
 
   assert.strictEqual(playOrders.length, 3, "应有 3 个 playOrder")
   assert.deepStrictEqual(playOrders, [1, 2, 3], "playOrder 应从 1 开始连续递增")
+})
+
+// ---- loadCoverImage 测试 ----
+function makeCoverDir(): { folderPath: string; rootDir: string; cleanup: () => void } {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "epub-cover-test-"))
+  const folderPath = path.join(rootDir, "01-故事")
+  fs.mkdirSync(folderPath, { recursive: true })
+  return {
+    folderPath,
+    rootDir,
+    cleanup: () => fs.rmSync(rootDir, { recursive: true, force: true }),
+  }
+}
+
+test("loadCoverImage 从故事文件夹加载封面", () => {
+  const { folderPath, rootDir, cleanup } = makeCoverDir()
+  try {
+    fs.writeFileSync(path.join(folderPath, "cover.jpg"), Buffer.from([0xff, 0xd8, 0xff, 0xe0]))
+    const locale = getLocale("zh")
+    const result = loadCoverImage(folderPath, rootDir, "cover.jpg", locale)
+    assert.ok(result, "应成功加载封面")
+    assert.strictEqual(result?.name, "cover.jpg")
+    assert.ok(result && result.data.length > 0)
+  } finally {
+    cleanup()
+  }
+})
+
+test("loadCoverImage 从项目根目录加载封面", () => {
+  const { folderPath, rootDir, cleanup } = makeCoverDir()
+  try {
+    // 封面放在根目录而非故事文件夹
+    fs.mkdirSync(path.join(rootDir, "assets"), { recursive: true })
+    fs.writeFileSync(path.join(rootDir, "assets/cover.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+    const locale = getLocale("zh")
+    const result = loadCoverImage(folderPath, rootDir, "assets/cover.png", locale)
+    assert.ok(result, "应从根目录加载封面")
+    assert.strictEqual(result?.name, "cover.png")
+  } finally {
+    cleanup()
+  }
+})
+
+test("loadCoverImage 绝对路径加载封面", () => {
+  const { folderPath, rootDir, cleanup } = makeCoverDir()
+  try {
+    const absPath = path.join(rootDir, "external-cover.jpg")
+    fs.writeFileSync(absPath, Buffer.from([0xff, 0xd8, 0xff, 0xe0]))
+    const locale = getLocale("zh")
+    const result = loadCoverImage(folderPath, rootDir, absPath, locale)
+    assert.ok(result, "应从绝对路径加载封面")
+    assert.strictEqual(result?.name, "cover.jpg")
+  } finally {
+    cleanup()
+  }
+})
+
+test("loadCoverImage 封面不存在返回 null", () => {
+  const { folderPath, rootDir, cleanup } = makeCoverDir()
+  try {
+    const locale = getLocale("zh")
+    const result = loadCoverImage(folderPath, rootDir, "nonexistent.jpg", locale)
+    assert.strictEqual(result, null, "不存在的封面应返回 null")
+  } finally {
+    cleanup()
+  }
+})
+
+test("loadCoverImage 不安全 SVG 返回 null", () => {
+  const { folderPath, rootDir, cleanup } = makeCoverDir()
+  try {
+    // 含 onclick 事件的 SVG 应被拒绝
+    const unsafeSvg = '<svg xmlns="http://www.w3.org/2000/svg" onclick="alert(1)"><rect/></svg>'
+    fs.writeFileSync(path.join(folderPath, "cover.svg"), unsafeSvg)
+    const locale = getLocale("zh")
+    const result = loadCoverImage(folderPath, rootDir, "cover.svg", locale)
+    assert.strictEqual(result, null, "不安全 SVG 应返回 null")
+  } finally {
+    cleanup()
+  }
+})
+
+test("loadCoverImage 安全 SVG 正常加载", () => {
+  const { folderPath, rootDir, cleanup } = makeCoverDir()
+  try {
+    const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>'
+    fs.writeFileSync(path.join(folderPath, "cover.svg"), safeSvg)
+    const locale = getLocale("zh")
+    const result = loadCoverImage(folderPath, rootDir, "cover.svg", locale)
+    assert.ok(result, "安全 SVG 应成功加载")
+    assert.strictEqual(result?.name, "cover.svg")
+  } finally {
+    cleanup()
+  }
 })

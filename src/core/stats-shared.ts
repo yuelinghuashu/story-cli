@@ -6,7 +6,7 @@
 import type { Locale } from "../i18n/index.ts"
 import { extractRepeatedPhrases } from "../utils/phrase-frequency.ts"
 import { formatTotalWordCount } from "../utils/word-count.ts"
-import { splitSections } from "./scanner.ts"
+import { splitSections } from "./content-parser.ts"
 import type { Language } from "./types.ts"
 
 /** 参与统计的最小故事数据（CLI 与 MCP 各自适配为这个形状） */

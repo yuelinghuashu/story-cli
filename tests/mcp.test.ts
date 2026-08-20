@@ -115,6 +115,28 @@ test("registerTools 注册了 9 个 MCP 工具", () => {
   ])
 })
 
+test("只读工具标注 readOnlyHint: true", () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const readOnlyTools = ["scan_stories", "read_chapter", "validate", "stats"]
+  for (const name of readOnlyTools) {
+    const tool = tools.find((t) => t.tool.name === name)
+    assert.ok(tool, `${name} 应存在`)
+    assert.strictEqual(tool?.tool.annotations?.readOnlyHint, true, `${name} 应标注 readOnlyHint: true`)
+  }
+})
+
+test("写入工具标注 readOnlyHint: false", () => {
+  const dir = setupRepo()
+  const tools = registerTools(dir)
+  const writeTools = ["write_chapter", "edit_config", "build", "import_json", "create_story"]
+  for (const name of writeTools) {
+    const tool = tools.find((t) => t.tool.name === name)
+    assert.ok(tool, `${name} 应存在`)
+    assert.strictEqual(tool?.tool.annotations?.readOnlyHint, false, `${name} 应标注 readOnlyHint: false`)
+  }
+})
+
 test("scan_stories 返回精简故事列表", async () => {
   const dir = setupRepo()
   const tools = registerTools(dir)

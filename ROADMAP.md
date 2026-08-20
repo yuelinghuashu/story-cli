@@ -1,6 +1,6 @@
 # 🗺️ story-cli 路线图
 
-> **核心理念**：story-cli 不止是小说管理工具，更是一个**零依赖、Git 原生、AI 友好的通用结构化内容治理引擎**。它管理的不只是故事，而是任何可以被“规范化”的文字资产——论文、访谈、周报、技术教程、个人复盘。
+> **核心理念**：story-cli 不止是小说管理工具，更是一个**极简依赖、Git 原生、AI 友好的通用结构化内容治理引擎**。它管理的不只是故事，而是任何可以被“规范化”的文字资产——论文、访谈、周报、技术教程、个人复盘。
 
 ---
 
@@ -27,7 +27,7 @@
 - **「CLI 做原子能力，MCP 做适配层」**——CLI 提供确定性命令，MCP 只做协议适配，不重复实现领域逻辑（`src/mcp/tools.ts`）
 - **「我们负责格式化，他们负责检索」**——不内置向量库，把数据“洗得干干净净”交给外部检索服务（`src/commands/export-embeddings.ts`）
 - **「确认落盘」**——build 只给关联建议（零写入），`story link` 确认后才写库，保持 Git 树干净（`src/commands/link.ts`）
-- **「复杂中文 NLP 以可选依赖外挂」**——核心保持零依赖，jieba 等精确分词按需引入（`src/utils/phrase-frequency.ts`，见下文「可选依赖策略」）
+- **「复杂中文 NLP 以可选依赖外挂」**——核心保持极简依赖，jieba 等精确分词按需引入（`src/utils/phrase-frequency.ts`，见下文「可选依赖策略」）
 
 ---
 
@@ -84,7 +84,7 @@ story-cli 不穷举所有输出格式，而是通过 `--stdout` + 增强的 `--j
 
 ### 可选依赖策略（Optional Dependency Strategy，设计决策存档）
 
-- **复杂中文 NLP（如 jieba 分词）以“可选依赖”形式外挂，不强制安装**——`stats` 的重复短语检测使用零依赖 n-gram（确定性统计，足以充当“写作重复提醒”），精确分词的取舍详见 [docs/design.md](docs/design.md#已知边界：重复短语检测)（本策略是 `docs/design.md`「见 ROADMAP」的引用落点）。
+- **复杂中文 NLP（如 jieba 分词）以“可选依赖”形式外挂，不强制安装**——`stats` 的重复短语检测使用极简依赖 n-gram（确定性统计，足以充当“写作重复提醒”），精确分词的取舍详见 [docs/design.md](docs/design.md#已知边界：重复短语检测)（本策略是 `docs/design.md`「见 ROADMAP」的引用落点）。
 
 ---
 

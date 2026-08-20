@@ -1,9 +1,9 @@
 import fs from "node:fs"
 import path from "node:path"
-import { forEachExportStory, loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
-import { resolveRawWordCount, resolveWordCount, splitContentByChapters } from "../core/scanner.ts"
+import { resolveRawWordCount, resolveWordCount, splitContentByChapters } from "../core/content-parser.ts"
+import { ensureOutputDir, finishExport, forEachExportStory, initExport } from "../core/exporter.ts"
 import type { StoryConfig } from "../core/types.ts"
-import { getLocale, resolveLang } from "../i18n/index.ts"
+import { resolveLang } from "../i18n/index.ts"
 
 /** 单个章节的 JSON 结构 */
 interface ExportChapter {
@@ -50,7 +50,6 @@ interface ExportResult {
 function buildExportStory(folder: string, config: StoryConfig, content: string): ExportStory {
   const lang = resolveLang(config)
 
-  // 使用已测试的 splitContentByChapters 切分章节
   const sections = splitContentByChapters(content)
   const chapters: ExportChapter[] =
     sections.length > 0
@@ -90,24 +89,17 @@ function buildExportStory(folder: string, config: StoryConfig, content: string):
  * @param args 命令行参数（--output=dist/json、--stdout）
  */
 export function exportJson(rootDir: string, args: string[]): number {
-  const { outputDir: relOutput, toStdout, cliLang } = resolveExportOptions(args, "dist/json")
-  const outputDir = resolveOutputDir(rootDir, relOutput)
-  const locale = getLocale(cliLang)
+  const { outputDir, toStdout, locale, overrides } = initExport(rootDir, args, "dist/json")
 
   if (!toStdout) {
     console.log(`${locale.jsonExporting}\n`)
   }
 
-  // 读取仓库级自定义枚举
-  const validationOverrides = loadExportOverrides(rootDir)
-
-  // 收集所有故事
   const stories: ExportStory[] = []
-  const { failed } = forEachExportStory(rootDir, validationOverrides, locale.jsonEmptyContent, (ctx) => {
+  const { failed } = forEachExportStory(rootDir, overrides, locale.jsonEmptyContent, (ctx) => {
     stories.push(buildExportStory(ctx.folder, ctx.config, ctx.content))
   })
 
-  // 组装根结构
   const result: ExportResult = {
     version: "1.0.0",
     exportedAt: new Date().toISOString(),
@@ -115,21 +107,14 @@ export function exportJson(rootDir: string, args: string[]): number {
     stories,
   }
 
-  // --stdout 模式：输出到标准输出（管道友好）
   if (toStdout) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
     return failed > 0 ? 1 : 0
   }
 
-  // 写入文件（美化格式化，便于人工阅读和 diff）
-  fs.mkdirSync(outputDir, { recursive: true })
+  ensureOutputDir(false, outputDir)
   const outputPath = path.join(outputDir, "stories.json")
   fs.writeFileSync(outputPath, `${JSON.stringify(result, null, 2)}\n`, "utf-8")
 
-  const relativeOutput = path.relative(rootDir, outputPath) || outputPath
-  console.log(locale.jsonExportSuccess(stories.length, relativeOutput))
-  if (failed > 0) {
-    console.error(locale.skippedExport(failed))
-  }
-  return failed > 0 ? 1 : 0
+  return finishExport(rootDir, outputPath, stories.length, failed, locale, locale.jsonExportSuccess)
 }

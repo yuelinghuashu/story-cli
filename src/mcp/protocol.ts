@@ -28,11 +28,22 @@ export interface JsonRpcResponse {
   }
 }
 
+/** MCP 工具注解（帮助客户端理解工具行为） */
+export interface McpToolAnnotations {
+  /** 是否只读（不修改任何状态） */
+  readOnlyHint?: boolean
+  /** 是否具有破坏性（如删除数据） */
+  destructiveHint?: boolean
+  /** 是否幂等（重复调用产生相同结果） */
+  idempotentHint?: boolean
+}
+
 /** MCP 工具定义 */
 export interface McpTool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
+  annotations?: McpToolAnnotations
 }
 
 /** MCP 工具调用结果 */

@@ -65,7 +65,7 @@ jobs:
 
 1. **Type safety** — `tsc --noEmit` ensures TypeScript types are correct
 2. **Code style** — Biome enforces consistent lint + format
-3. **Quality assurance** — 519 tests cover scanning, validation, rendering, EPUB, CLI, MCP protocol, GitHub Action structure, and more, preventing regressions
+3. **Quality assurance** — 618 tests cover scanning, validation, rendering, EPUB, CLI, MCP protocol, GitHub Action structure, and more, preventing regressions
 
 ---
 

@@ -26,6 +26,6 @@ body:
     id: philosophy
     attributes:
       label: 与项目定位的一致性（请确认）
-      description: story-cli 坚持零依赖、Git 原生、CLI 原子能力 + 外部工具编排。功能请求是否与此一致？
+      description: story-cli 坚持极简依赖、Git 原生、CLI 原子能力 + 外部工具编排。功能请求是否与此一致？
       options:
-        - label: 我了解项目定位（零依赖 / Git 原生 / Unix 哲学），并认为该需求与之契合
+        - label: 我了解项目定位（极简依赖 / Git 原生 / Unix 哲学），并认为该需求与之契合

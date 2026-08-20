@@ -1,6 +1,6 @@
 # 🤝 贡献指南
 
-story-cli 是一个**零依赖、Git 原生、AI 友好**的内容治理 CLI。在改动代码前，请先了解项目的定位哲学（见 [ROADMAP.md](ROADMAP.md)），确保改动与其一致。
+story-cli 是一个**极简依赖、Git 原生、AI 友好**的内容治理 CLI。在改动代码前，请先了解项目的定位哲学（见 [ROADMAP.md](ROADMAP.md)），确保改动与其一致。
 
 ## 🧰 开发环境
 
@@ -37,6 +37,26 @@ make demo        # 在 ./demo/ 生成示例仓库（体验全流程）
 - 行为变化必须有对应测试；新功能优先以单元测试覆盖纯逻辑
 - CLI 级行为用 `spawnSync` 跑真实命令做集成测试（见 `tests/helpers.ts` 的 `runCli`）
 - 提交前请保证 `pnpm test` 全绿（修改前先跑一遍确认基线）
+- `pnpm test:coverage` 为 CI 必经门禁：行覆盖率 ≥ 90%、分支覆盖率 ≥ 80%、函数覆盖率 ≥ 70%；本地提交前建议跑一次确认达标
+
+## 🐛 调试技巧
+
+```bash
+# 运行单个测试文件
+node --test tests/scanner.test.ts
+
+# 运行匹配名称的测试
+node --test --test-name-pattern="readStoryText" tests/scanner.test.ts
+
+# 查看完整错误堆栈（CLI 命令出错时）
+DEBUG=1 story build
+
+# 查看 MCP 协议原始通信（发给 MCP Server 的 JSON-RPC）
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node bin/index.js mcp-server
+
+# 性能基准测试
+make bench
+```
 
 ## 💬 贡献方式
 
@@ -70,7 +90,7 @@ docs/                # 文档（全部中英双语）
 
 ## ⚠️ 定位红线（改动评审重点）
 
-- **零依赖**：运行时仅 `fflate` + `handlebars`；新功能不得引入运行时依赖
+- **极简依赖**：运行时仅 `fflate` + `handlebars`；新功能不得引入运行时依赖
 - **Git 原生**：不引入数据库 / 锁 / 服务端状态；破坏性操作遵循 Git 语义
 - **Unix 哲学**：CLI 做原子能力，`--stdout` 输出原料，编排交给外部工具
 - **双语**：用户可见文案走 `src/i18n/`（zh/en），文档保持双语同步

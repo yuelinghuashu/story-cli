@@ -6,8 +6,8 @@
  */
 import fs from "node:fs"
 import path from "node:path"
+import { splitSections } from "../core/content-parser.ts"
 import { forEachExportStory, loadExportOverrides, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
-import { splitSections } from "../core/scanner.ts"
 import type { StoryConfig } from "../core/types.ts"
 import { getLocale } from "../i18n/index.ts"
 

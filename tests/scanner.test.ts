@@ -4,19 +4,20 @@ import os from "node:os"
 import path from "node:path"
 import { after, test } from "node:test"
 import {
-  checkDuplicateNumbers,
   extractChapters,
+  resolveRawWordCount,
+  resolveWordCount,
+  splitContentByChapters,
+} from "../src/core/content-parser.ts"
+import {
+  checkDuplicateNumbers,
   getSponsorImages,
   isIgnored,
   loadStoryIgnore,
-  mergeChapters,
   parseIgnoreRules,
-  readStoryText,
-  resolveRawWordCount,
-  resolveWordCount,
   scanStoryFolders,
-  splitContentByChapters,
 } from "../src/core/scanner.ts"
+import { mergeChapters, readStoryText } from "../src/core/story-text.ts"
 
 /** 创建的临时目录列表（测试结束后统一清理） */
 const tempDirs: string[] = []

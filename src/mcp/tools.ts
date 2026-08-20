@@ -7,11 +7,13 @@ import path from "node:path"
 import { generateReadmes } from "../commands/build.ts"
 import { createStoryFromJson, type ImportStory } from "../commands/import-json.ts"
 import { checkRepoCompliance } from "../core/compliance.ts"
+import { splitContentByChapters } from "../core/content-parser.ts"
 import { loadExportOverrides } from "../core/exporter.ts"
 import { loadStories } from "../core/loader.ts"
-import { readStoryTextAsync, scanStoryFolders, splitContentByChapters } from "../core/scanner.ts"
+import { scanStoryFolders } from "../core/scanner.ts"
 import { getNextNumber } from "../core/sequence.ts"
 import { computeStoryStats, type StatsStoryInput } from "../core/stats-shared.ts"
+import { readStoryTextAsync } from "../core/story-text.ts"
 import { validateConfig } from "../core/validate.ts"
 import { getLocale } from "../i18n/index.ts"
 import { safeTail } from "../utils/unicode.ts"
@@ -21,6 +23,22 @@ import type { McpToolResult, RegisteredTool } from "./protocol.ts"
 function textResult(text: string, isError = false): McpToolResult {
   return { content: [{ type: "text", text }], isError }
 }
+
+/** edit_config 可编辑的治理性元数据字段白名单（身份/审计字段不在列） */
+const EDITABLE_FIELDS = new Set([
+  "summary",
+  "status",
+  "series",
+  "seriesOrder",
+  "volume",
+  "links",
+  "author",
+  "originalWork",
+  "originalAuthor",
+  "cover",
+  "language",
+  "wordCount",
+])
 
 /** 注册全部 MCP 工具 */
 export function registerTools(rootDir: string): RegisteredTool[] {
@@ -36,6 +54,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
             verbose: { type: "boolean", description: "是否返回完整元数据（默认 false，仅返回精简列表）" },
           },
         },
+        annotations: { readOnlyHint: true },
       },
       handler: async (args) => {
         const { stories, issues, warnings } = await loadStories(rootDir, false, "zh", true)
@@ -77,6 +96,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
           },
           required: ["folder"],
         },
+        annotations: { readOnlyHint: true },
       },
       handler: async (args) => {
         const folder = safeFolder(args.folder, rootDir)
@@ -142,6 +162,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
           },
           required: ["folder", "content"],
         },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
       },
       handler: async (args) => {
         const folder = safeFolder(args.folder, rootDir)
@@ -182,6 +203,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
           },
           required: ["folder", "fields"],
         },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
       },
       handler: async (args) => {
         const folder = safeFolder(args.folder, rootDir)
@@ -205,20 +227,6 @@ export function registerTools(rootDir: string): RegisteredTool[] {
         }
 
         // 可编辑白名单：治理性元数据；身份/审计字段拒绝
-        const EDITABLE_FIELDS = new Set([
-          "summary",
-          "status",
-          "series",
-          "seriesOrder",
-          "volume",
-          "links",
-          "author",
-          "originalWork",
-          "originalAuthor",
-          "cover",
-          "language",
-          "wordCount",
-        ])
         const rejected: string[] = []
         const updated: Record<string, unknown> = { ...config }
         for (const [key, value] of Object.entries(fields)) {
@@ -273,6 +281,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
         name: "validate",
         description: "检查仓库合规性（目录命名/必需文件/config schema/编码），等效 CLI `story validate`",
         inputSchema: { type: "object", properties: {} },
+        annotations: { readOnlyHint: true },
       },
       handler: async () => {
         const result = checkRepoCompliance(rootDir, getLocale("zh"))
@@ -284,6 +293,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
         name: "build",
         description: "重建所有 README（等效 story build）。返回构建结果与捕获的输出日志",
         inputSchema: { type: "object", properties: {} },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
       },
       handler: async () => {
         const { stories, issues, warnings } = await loadStories(rootDir, false, "zh", true)
@@ -302,6 +312,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
         name: "stats",
         description: "获取故事库写作统计（总字数/章节数/系列分组/健康度/重复短语）",
         inputSchema: { type: "object", properties: {} },
+        annotations: { readOnlyHint: true },
       },
       handler: async () => {
         const { stories, issues } = await loadStories(rootDir, false, "zh", true)
@@ -345,6 +356,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
           },
           required: ["stories"],
         },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
       },
       handler: async (args) => {
         const raw = args.stories
@@ -357,12 +369,17 @@ export function registerTools(rootDir: string): RegisteredTool[] {
         const created: string[] = []
         const errors: string[] = []
         for (const item of raw) {
-          const story = item as Partial<ImportStory>
-          if (!story || typeof story !== "object" || !story.title) {
+          if (
+            !item ||
+            typeof item !== "object" ||
+            !("title" in item) ||
+            typeof (item as Record<string, unknown>).title !== "string"
+          ) {
             failed++
             errors.push(`第 ${success + failed} 条缺少 title`)
             continue
           }
+          const story = item as ImportStory
           const number = String(nextNumber++).padStart(2, "0")
           const result = createStoryFromJson(rootDir, story as ImportStory, number, overrides)
           if (result) {
@@ -395,6 +412,7 @@ export function registerTools(rootDir: string): RegisteredTool[] {
           },
           required: ["title"],
         },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
       },
       handler: async (args) => {
         const title = typeof args.title === "string" ? args.title.trim() : ""

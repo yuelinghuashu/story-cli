@@ -5,7 +5,7 @@
  *
  * 使用 Array.from() 按 Unicode 码点迭代，再 slice/join，保证不切断 surrogate pair
  * 注意：组合 emoji（ZWJ 序列如 👨👩👧）仍可能被切开——完整处理需 Intl.Segmenter，
- * 与项目零依赖哲学冲突，本次仅保证"不产生孤立代理/乱码"
+ * 与项目极简依赖哲学冲突，本次仅保证"不产生孤立代理/乱码"
  */
 
 /**

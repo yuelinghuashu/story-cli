@@ -3,13 +3,17 @@
  * 为 export-html / export-txt / export-json / export-md / epub 提供公共辅助函数
  */
 
+import fs from "node:fs"
 import path from "node:path"
 import { parseArgs } from "../args.ts"
+import type { Locale } from "../i18n/index.ts"
+import { getLocale } from "../i18n/index.ts"
 import { detectCliLang, sanitizeFileName } from "../utils/cli-utils.ts"
 import { formatError } from "../utils/errors.ts"
 import { loadRepoConfig } from "./config.ts"
-import { readStoryText, scanStoryFolders } from "./scanner.ts"
+import { scanStoryFolders } from "./scanner.ts"
 import { loadStoryConfig } from "./story-loader.ts"
+import { readStoryText } from "./story-text.ts"
 import type { Language, StoryConfig } from "./types.ts"
 import type { ValidationOverrides } from "./validate.ts"
 
@@ -135,4 +139,76 @@ export function forEachExportStory(
  */
 export function storyFileName(config: StoryConfig, folder: string): string {
   return sanitizeFileName(String(config.title)) || `story-${folder}`
+}
+
+/**
+ * 导出命令的初始化上下文（各 export-* 命令共用的参数解析 + 目录准备）
+ */
+export interface ExportInitContext {
+  /** 解析后的输出目录（绝对路径） */
+  outputDir: string
+  /** 是否输出到 stdout */
+  toStdout: boolean
+  /** CLI 语言 */
+  cliLang: string
+  /** 本地化对象 */
+  locale: Locale
+  /** 仓库级校验覆盖 */
+  overrides: ValidationOverrides
+}
+
+/**
+ * 初始化导出命令的公共上下文
+ * 合并了 resolveExportOptions + resolveOutputDir + getLocale + loadExportOverrides 的常见组合
+ *
+ * @param rootDir 项目根目录
+ * @param args 命令行参数
+ * @param defaultOutput 默认输出目录（如 "dist/txt"）
+ * @returns 初始化上下文
+ */
+export function initExport(rootDir: string, args: string[], defaultOutput: string): ExportInitContext {
+  const { outputDir: relOutput, toStdout, cliLang } = resolveExportOptions(args, defaultOutput)
+  const outputDir = resolveOutputDir(rootDir, relOutput)
+  const locale = getLocale(cliLang)
+  const overrides = loadExportOverrides(rootDir)
+  return { outputDir, toStdout, cliLang, locale, overrides }
+}
+
+/**
+ * 准备输出目录（非 stdout 模式时创建目录）
+ *
+ * @param toStdout 是否输出到 stdout
+ * @param outputDir 输出目录绝对路径
+ */
+export function ensureOutputDir(toStdout: boolean, outputDir: string): void {
+  if (!toStdout) {
+    fs.mkdirSync(outputDir, { recursive: true })
+  }
+}
+
+/**
+ * 打印导出结果并返回退出码（各 export-* 命令共用的结尾逻辑）
+ *
+ * @param rootDir 项目根目录
+ * @param outputDir 输出目录绝对路径
+ * @param success 成功故事数
+ * @param failed 失败故事数
+ * @param locale 本地化对象
+ * @param successFn 本地化的成功消息生成函数
+ * @returns 退出码（0 成功，1 有失败）
+ */
+export function finishExport(
+  rootDir: string,
+  outputDir: string,
+  success: number,
+  failed: number,
+  locale: Locale,
+  successFn: (count: number, path: string) => string,
+): number {
+  const relativeOutput = path.relative(rootDir, outputDir) || "."
+  console.log(successFn(success, relativeOutput))
+  if (failed > 0) {
+    console.error(locale.skippedExport(failed))
+  }
+  return failed > 0 ? 1 : 0
 }

@@ -6,6 +6,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { resolveLang } from "../i18n/index.ts"
+import { handleJsonParseError } from "../utils/error-handler.ts"
 import { ErrorCode, StoryError } from "../utils/errors.ts"
 import { readJsonFileSync } from "../utils/json-utils.ts"
 import type { Language, StoryConfig } from "./types.ts"
@@ -33,9 +34,7 @@ export function loadStoryConfig(
   try {
     rawConfig = readJsonFileSync(configPath)
   } catch (e) {
-    throw new StoryError(`config.json parse failed: ${folder} - ${(e as Error).message}`, ErrorCode.CONFIG_PARSE, {
-      folder,
-    })
+    throw handleJsonParseError(e, configPath)
   }
 
   const validation = validateConfig(rawConfig, folder, overrides)

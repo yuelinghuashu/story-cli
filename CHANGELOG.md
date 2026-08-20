@@ -2,7 +2,7 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased] - 1.5.2
+## [1.5.2] - 2026-08-20
 
 ### 修复
 
@@ -15,14 +15,25 @@
 
 ### 改进
 
+- **统一错误处理**：新增 `error-handler.ts` 工具模块（`normalizeError` / `handleFileSystemError` / `handleJsonParseError` / `ErrorCollector`），替代各处 `as Error` / `as NodeJS.ErrnoException` 不安全类型断言；`errors.ts` 新增 `FILE_NOT_FOUND` / `FILE_READ` / `JSON_PARSE` 等错误码
+- **导出命令去重**：`exporter.ts` 新增 `initExport` / `ensureOutputDir` / `finishExport` 共享工具，四个导出命令（txt / json / md / html）各减少约 6-8 行重复样板
+- **字数统计重构**：`word-count.ts` 魔法数字（1000 / 10000 / 1000000）提取为模块级常量；新增 `parseWordCount()` 反向解析函数（支持中英文格式 → 数字）
+- **类型安全增强**：`types.ts` 新增 `ValidationErrorCode` 联合类型（`missing` / `type` / `enum` / `pattern` / `conditional` / `parse`），编译时校验错误码
+- **章节并行读取**：`readStoryTextAsync` 的 chapter 文件从逐个顺序 `await` 改为 `Promise.all` 并行 IO
+- **MCP 规范升级**：协议版本从 `2025-03-26` 升级到 `2025-06-18`；9 个工具全部添加 `annotations`（`readOnlyHint` / `destructiveHint` / `idempotentHint`），客户端可据此决定是否需要用户确认；`edit_config` 的可编辑字段白名单提取为模块级常量；`server.ts` 的 `tools/call` 参数解析和错误处理消除 `as` 不安全类型断言
+- **scanner.ts 拆分**：504 行的 `scanner.ts` 按职责拆为三个模块——`scanner.ts`（文件夹扫描 + .storyignore）、`story-text.ts`（正文读取 + 章节合并）、`content-parser.ts`（章节切分 + 字数统计），各导入方仅需改 import 路径
+- **贡献指南**：`CONTRIBUTING.md` / `.en.md` 补充 `pnpm test:coverage` 覆盖率门禁规则（行 ≥ 90% / 分支 ≥ 80% / 函数 ≥ 70%）
 - **测试临时目录清理**：`cli.test.ts` 的 `after()` 清理从宽泛的 `cli-` 前缀匹配改为 `cleanupTempDirs` 精确前缀列表，避免误删其他测试文件的临时目录
 
 ### 测试
 
 - 新增 3 项 MCP 测试：合法通知返回 null（fire-and-forget）、非法通知（坏 method / 坏版本）仍抛 InvalidRequest、端到端完整握手（initialize → notifications/initialized → tools/list）仅产生两条响应
-- 601 项测试运行，598 项通过（另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
+- 新增 14 项错误处理与字数统计测试：`ErrorCollector` 收集 / 清空 / ValidationIssue 转换、`handleFileSystemError` / `handleJsonParseError` 各分支、`parseWordCount` 中英文解析与无效输入
+- 新增 2 项工具注解测试：只读工具 `readOnlyHint: true` 断言、写入工具 `readOnlyHint: false` 断言
+- 621 项测试运行，618 项通过（另 3 项 GBK 测试在 small-ICU Node 构建下跳过）
 
-## [1.5.1] - 2026-08-19
+<details>
+<summary>## [1.5.1] - 2026-08-19</summary>
 
 ### 修复
 
@@ -34,12 +45,16 @@
 - **子命令 --help**：`story <cmd> --help` 现在输出该命令的专项用法与说明（含子命令列表），而非全局帮助；无子命令时仍显示全局帮助
 - **EPUB 规范合规测试**：新增 12 项结构断言（charset 声明、UUID 一致性、ISO 8601 日期格式、NCX playOrder 连续性、styles.css media-type、空 description / 超长标题 / 空章节边界），测试覆盖率从 52 → 64 项
 
+</details>
+
+---
+
 <details>
 <summary>## [1.5.0] - 2026-08-19</summary>
 
 ### 新增
 
-- **`story demo` 完善**：示例仓库新增 `links` 关联（演示 README「关联故事」区块）、封面图与正文插图（零依赖生成合法 PNG，演示 EPUB 封面渲染与图片嵌入）
+- **`story demo` 完善**：示例仓库新增 `links` 关联（演示 README「关联故事」区块）、封面图与正文插图（极简依赖生成合法 PNG，演示 EPUB 封面渲染与图片嵌入）
 - **贡献与反馈基建**：GitHub Issue 模板（bug report / feature request 表单）+ `CONTRIBUTING.md` / `CONTRIBUTING.en.md` 贡献指南
 
 ### 修复

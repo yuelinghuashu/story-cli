@@ -33,7 +33,9 @@ src/
 │   └── validate.ts      # story validate compliance-check command
 │
 ├── core/                # Story management domain core
-│   ├── scanner.ts       # Scan story folders, read content, extract chapters
+│   ├── scanner.ts       # Scan story folders, .storyignore rules, encoding detection
+│   ├── story-text.ts    # Story content reading & chapter merging (text.md / chapter-*.md)
+│   ├── content-parser.ts # Content parsing: chapter splitting, title extraction, word counting
 │   ├── sort.ts          # Series grouping & sorting (series / seriesOrder logical coordinates)
 │   ├── schema.ts        # Declarative validation rules (required / enum / format)
 │   ├── validate.ts      # Generic validation engine based on schema (supports repo-level overrides)
@@ -64,11 +66,14 @@ src/
 │
 └── utils/               # Side-effect-free pure utilities
     ├── cli-utils.ts     # CLI shared utilities
+    ├── constants.ts     # Constants (thresholds / timeouts / paths / error codes)
     ├── encoding.ts      # UTF-8 / GBK encoding detection
+    ├── error-handler.ts # Unified error handling (normalizeError / ErrorCollector)
+    ├── errors.ts        # Structured errors (StoryError + error codes)
     ├── json-utils.ts    # Unified JSON reading flow
-    ├── errors.ts        # Structured errors (with error codes + context)
     ├── paths.ts         # Path resolution
-    ├── word-count.ts    # Language-aware word counting
+    ├── unicode.ts       # Unicode text utilities (safeTail etc.)
+    ├── word-count.ts    # Language-aware word counting (incl. parseWordCount reverse parser)
     └── phrase-frequency.ts # Zero-dependency repeated-phrase frequency (zh bigram / en words)
 
 tests/                   # node:test tests (zero additional test dependencies)

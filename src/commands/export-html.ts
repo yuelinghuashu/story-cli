@@ -1,7 +1,14 @@
 import fs from "node:fs"
 import path from "node:path"
-import { forEachExportStory, loadExportRepoConfig, resolveExportOptions, resolveOutputDir } from "../core/exporter.ts"
-import { resolveWordCount } from "../core/scanner.ts"
+import { resolveWordCount } from "../core/content-parser.ts"
+import {
+  ensureOutputDir,
+  finishExport,
+  forEachExportStory,
+  loadExportRepoConfig,
+  resolveExportOptions,
+  resolveOutputDir,
+} from "../core/exporter.ts"
 import { formatStatus, formatType, getLocale } from "../i18n/index.ts"
 import { escapeHtml, PAGE_STYLE } from "../render/html-utils.ts"
 import { mdToHtml } from "../render/md-to-html.ts"
@@ -12,30 +19,26 @@ import { mdToHtml } from "../render/md-to-html.ts"
  * @param args 命令行参数（--output=dist/html）
  */
 export function exportHtml(rootDir: string, args: string[]): number {
-  // 解析参数
+  // html 需要额外的 typeLabels / statusLabels，使用 loadExportRepoConfig 而非 initExport
   const { outputDir: relOutput, cliLang } = resolveExportOptions(args, "dist/html")
   const outputDir = resolveOutputDir(rootDir, relOutput)
   const locale = getLocale(cliLang)
 
   console.log(`${locale.htmlExporting}\n`)
 
-  // 读取仓库级自定义枚举与本地化标签
-  const { overrides: validationOverrides, typeLabels, statusLabels } = loadExportRepoConfig(rootDir)
+  const { overrides, typeLabels, statusLabels } = loadExportRepoConfig(rootDir)
 
-  // 创建输出目录
-  fs.mkdirSync(outputDir, { recursive: true })
+  ensureOutputDir(false, outputDir)
 
   const storyItems: string[] = []
-  const { success, failed } = forEachExportStory(rootDir, validationOverrides, locale.htmlEmptyContent, (ctx) => {
+  const { success, failed } = forEachExportStory(rootDir, overrides, locale.htmlEmptyContent, (ctx) => {
     const { config, lang, content, folder } = ctx
 
-    // 计算字数与展示文本
     const wordCount = resolveWordCount(config, content)
     const typeDisplay = formatType(config.type, lang, typeLabels)
     const statusDisplay = formatStatus(config.status, lang, statusLabels)
     const storyLocale = getLocale(lang)
 
-    // 生成故事 HTML 页面
     const storyHtml = `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -60,7 +63,6 @@ export function exportHtml(rootDir: string, args: string[]): number {
 
     fs.writeFileSync(path.join(outputDir, `${folder}.html`), storyHtml, "utf-8")
 
-    // 收集索引项：使用本地化类型/状态显示
     storyItems.push(
       `<li><a href="./${encodeURIComponent(folder)}.html">${escapeHtml(config.title)}</a> — ${escapeHtml(
         typeDisplay,
@@ -91,10 +93,5 @@ export function exportHtml(rootDir: string, args: string[]): number {
 
   fs.writeFileSync(path.join(outputDir, "index.html"), indexHtml, "utf-8")
 
-  const relativeOutput = path.relative(rootDir, outputDir) || "."
-  console.log(locale.htmlExportSuccess(success, relativeOutput))
-  if (failed > 0) {
-    console.error(locale.skippedExport(failed))
-  }
-  return failed > 0 ? 1 : 0
+  return finishExport(rootDir, outputDir, success, failed, locale, locale.htmlExportSuccess)
 }

@@ -123,17 +123,17 @@ MCP Inspector opens in your browser and lets you:
 
 ## 🛠️ Exposed MCP Tools
 
-| Tool            | Description                                                                                       | Params                                                                    | Token Savings                    |
-| --------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| `scan_stories`  | List all stories with metadata (compact by default)                                               | `verbose` (optional, true for full metadata)                              | ✅ Compact default ~80-95%       |
-| `read_chapter`  | Read chapter content of a story (supports on-demand loading and tail truncation)                  | `folder` (required) + `chapterIndex` (optional) + `tailLength` (optional) | ✅ On-demand/tailLength ~95%+    |
-| `write_chapter` | Atomically write content to a story                                                               | `folder` + `content` + `validate` (optional, run compliance after write)  | —                                |
-| `edit_config`   | Update story metadata (summary/status/series/links governance fields)                             | `folder` + `fields` (null removes a field; identity/audit fields locked)  | —                                |
-| `validate`      | Check repository compliance (folder naming / required files / UTF-8 / duplicate numbers / schema) | —                                                                         | —                                |
-| `build`         | **Actually executes** README rebuild (equivalent to `story build`)                                | —                                                                         | ✅ Structured result, no parsing |
-| `stats`         | Get writing statistics (total words/chapters/series/health)                                       | —                                                                         | ✅ All data in one call ~99%     |
-| `import_json`   | Batch import stories from structured JSON                                                         | `stories` (array, may include `links`)                                    | —                                |
-| `create_story`  | Create a new story (folder + config.json + text.md)                                               | `title` (required) + optional fields (incl. `links`)                      | —                                |
+| Tool            | Type     | Description                                                                                       | Params                                                                    | Token Savings                    |
+| --------------- | -------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
+| `scan_stories`  | 🔍 Read  | List all stories with metadata (compact by default)                                               | `verbose` (optional, true for full metadata)                              | ✅ Compact default ~80-95%       |
+| `read_chapter`  | 🔍 Read  | Read chapter content of a story (supports on-demand loading and tail truncation)                  | `folder` (required) + `chapterIndex` (optional) + `tailLength` (optional) | ✅ On-demand/tailLength ~95%+    |
+| `write_chapter` | ✏️ Write | Atomically write content to a story                                                               | `folder` + `content` + `validate` (optional, run compliance after write)  | —                                |
+| `edit_config`   | ✏️ Write | Update story metadata (summary/status/series/links governance fields)                             | `folder` + `fields` (null removes a field; identity/audit fields locked)  | —                                |
+| `validate`      | 🔍 Read  | Check repository compliance (folder naming / required files / UTF-8 / duplicate numbers / schema) | —                                                                         | —                                |
+| `build`         | ✏️ Write | **Actually executes** README rebuild (equivalent to `story build`)                                | —                                                                         | ✅ Structured result, no parsing |
+| `stats`         | 🔍 Read  | Get writing statistics (total words/chapters/series/health)                                       | —                                                                         | ✅ All data in one call ~99%     |
+| `import_json`   | ✏️ Write | Batch import stories from structured JSON                                                         | `stories` (array, may include `links`)                                    | —                                |
+| `create_story`  | ✏️ Write | Create a new story (folder + config.json + text.md)                                               | `title` (required) + optional fields (incl. `links`)                      | —                                |
 
 ### edit_config in detail
 
@@ -142,6 +142,10 @@ MCP Inspector opens in your browser and lets you:
 - **Editable**: `summary` / `status` / `series` / `seriesOrder` / `volume` / `links` / `author` / `originalWork` / `originalAuthor` / `cover` / `language` / `wordCount`
 - **Pass `null` to remove an optional field** (e.g. `{"series": null}` clears series membership)
 - **Locked**: `title` / `type` / `created` / `isMultiChapter` (identity & audit fields; returns a structured error)
+  - `title`: the physical coordinate anchor for the folder name (e.g. `01-星河入梦`); changing it breaks README links, EPUB references, and all `links` associations
+  - `type`: determines the license template (original vs fanfic); retroactive changes would produce legally incorrect statements
+  - `created`: the creation timestamp anchor — it records "when it was written", not "when it was last edited", and should not be retroactively changed by AI
+  - `isMultiChapter`: auto-derived from chapter files on disk; manual override would desync from the actual structure
 - Validated against the repo-level schema (incl. custom enums from `story.config.json`) **before writing; a failed validation never writes**. Writes are atomic (tmp + rename)
 
 ```bash

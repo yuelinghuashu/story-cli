@@ -120,7 +120,7 @@ export async function runDemo(rootDir: string): Promise<number> {
     fs.writeFileSync(path.join(storyDir, "text.md"), story.text, "utf-8")
   }
 
-  // 3. 示例图片（零依赖生成纯色 PNG）：演示 EPUB 封面渲染与正文图片嵌入
+  // 3. 示例图片（极简依赖赖生成纯色 PNG）：演示 EPUB 封面渲染与正文图片嵌入
   const firstStory = DEMO_STORIES[0]
   if (firstStory) {
     const firstStoryDir = path.join(rootDir, firstStory.folder)

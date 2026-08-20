@@ -37,6 +37,26 @@ make demo        # generate a demo repo in ./demo/ (try the full flow)
 - Behavior changes require corresponding tests; new features should cover pure logic with unit tests first
 - CLI-level behavior is integration-tested via `spawnSync` running real commands (see `runCli` in `tests/helpers.ts`)
 - Make sure `pnpm test` is green before committing (run it once first to confirm the baseline)
+- `pnpm test:coverage` is a CI gate: line coverage ≥ 90%, branch coverage ≥ 80%, function coverage ≥ 70%; run it locally before submitting to confirm compliance
+
+## 🐛 Debugging Tips
+
+```bash
+# Run a single test file
+node --test tests/scanner.test.ts
+
+# Run tests matching a name pattern
+node --test --test-name-pattern="readStoryText" tests/scanner.test.ts
+
+# Show full error stack trace (when CLI commands fail)
+DEBUG=1 story build
+
+# Inspect raw MCP protocol traffic (JSON-RPC sent to MCP Server)
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node bin/index.js mcp-server
+
+# Performance benchmarks
+make bench
+```
 
 ## 💬 How to Contribute
 

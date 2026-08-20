@@ -168,11 +168,22 @@ export interface ParsedArgs {
 }
 
 /**
+ * 校验错误码（config.json 校验专用）
+ * - missing: 必填字段缺失
+ * - type: 字段类型不匹配
+ * - enum: 字段值不在合法枚举内
+ * - pattern: 字段值不匹配正则
+ * - conditional: 条件必填字段缺失
+ * - parse: JSON 解析失败
+ */
+export type ValidationErrorCode = "missing" | "type" | "enum" | "pattern" | "conditional" | "parse"
+
+/**
  * 校验问题（结构化错误）
  */
 export interface ValidationIssue {
-  /** 错误类型："missing" | "type" | "enum" | "pattern" | "conditional" */
-  code: string
+  /** 错误类型码 */
+  code: ValidationErrorCode | (string & {})
   /** 字段名 */
   field: string
   /** 可读消息（已本地化） */

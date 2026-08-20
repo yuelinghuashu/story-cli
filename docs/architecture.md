@@ -33,7 +33,9 @@ src/
 │   └── validate.ts      # story validate 合规检查命令
 │
 ├── core/                # 故事管理的领域核心
-│   ├── scanner.ts       # 扫描故事文件夹、读取正文、提取章节（含异步版本）
+│   ├── scanner.ts       # 扫描故事文件夹、.storyignore 规则、编码检测
+│   ├── story-text.ts    # 故事正文读取与章节合并（text.md / chapter-*.md）
+│   ├── content-parser.ts # 内容解析：章节切分、标题提取、字数统计
 │   ├── sort.ts          # 系列分组与排序（series / seriesOrder 逻辑坐标排序）
 │   ├── schema.ts        # 声明式校验规则（必填字段 / 枚举 / 格式）
 │   ├── validate.ts      # 基于 schema 的通用校验引擎（支持仓库级覆盖）
@@ -64,12 +66,15 @@ src/
 │
 └── utils/               # 无副作用的纯工具
     ├── cli-utils.ts     # CLI 公共工具
+    ├── constants.ts     # 常量定义（阈值/超时/路径/错误码）
     ├── encoding.ts      # UTF-8 / GBK 编码检测
+    ├── error-handler.ts # 统一错误处理（normalizeError / ErrorCollector）
+    ├── errors.ts        # 结构化错误（StoryError + 错误码）
     ├── json-utils.ts    # JSON 读取统一流程
-    ├── errors.ts        # 结构化错误
     ├── paths.ts         # 路径解析
-    ├── word-count.ts    # 语言感知的字数统计
-    └── phrase-frequency.ts # 零依赖重复短语词频（中文 bigram / 英文单词）
+    ├── unicode.ts       # Unicode 文本工具（safeTail 等）
+    ├── word-count.ts    # 语言感知的字数统计（含 parseWordCount 反向解析）
+    └── phrase-frequency.ts # 极简依赖重复短语词频（中文 bigram / 英文单词）
 
 tests/                   # node:test 测试（零额外测试依赖）
 bench/                   # 基准测试（generate.ts 生成仓库 + bench.ts 测量性能）
